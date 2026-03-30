@@ -21,11 +21,12 @@ export default function Sidebar({ nome, role }: SidebarProps) {
   const itens = menuPorPerfil[role] || [];
 
   function navegar(item: string) {
-    const rotas: Record<string, string> = {
+   const rotas: Record<string, string> = {
   Dashboard: "/dashboard",
   Leads: "/leads",
   Pacientes: "/pacientes",
   Agenda: "/agenda",
+  Financeiro: "/financeiro",
 };
 
     const rota = rotas[item];

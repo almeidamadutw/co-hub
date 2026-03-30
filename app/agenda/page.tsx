@@ -124,7 +124,15 @@ export default function AgendaPage() {
     }
 
     const usuarioParse = JSON.parse(user) as User;
-    setUsuario(usuarioParse);
+
+const perfisPermitidos = ["admin", "recepcao", "dentista", "crc"];
+
+if (!perfisPermitidos.includes(usuarioParse.role)) {
+  router.push("/dashboard");
+  return;
+}
+
+setUsuario(usuarioParse);
   }, [router]);
 
   function limparFormulario() {

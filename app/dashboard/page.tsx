@@ -3,15 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-
-type UserRole = "admin" | "recepcao" | "dentista" | "financeiro" | "crc";
-
-type User = {
-  nome: string;
-  email: string;
-  senha: string;
-  role: UserRole;
-};
+import { getUsuarioLogado, User, UserRole } from "../../utils/auth";
 
 type CardProps = {
   titulo: string;
@@ -32,14 +24,14 @@ export default function DashboardPage() {
   const [usuario, setUsuario] = useState<User | null>(null);
 
   useEffect(() => {
-    const user = localStorage.getItem("cohub_user");
+    const usuarioLogado = getUsuarioLogado();
 
-    if (!user) {
+    if (!usuarioLogado) {
       router.push("/login");
       return;
     }
 
-    setUsuario(JSON.parse(user) as User);
+    setUsuario(usuarioLogado);
   }, [router]);
 
   function sair() {
@@ -73,7 +65,10 @@ export default function DashboardPage() {
           <>
             <Card titulo="Agenda clínica" texto="7 atendimentos hoje" />
             <Card titulo="Protocolos" texto="3 protocolos em andamento" />
-            <Card titulo="Evoluções" texto="2 pacientes precisam de atualização" />
+            <Card
+              titulo="Evoluções"
+              texto="2 pacientes precisam de atualização"
+            />
           </>
         );
 

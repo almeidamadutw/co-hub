@@ -3,15 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-
-type UserRole = "admin" | "recepcao" | "dentista" | "financeiro" | "crc";
-
-type User = {
-  nome: string;
-  email: string;
-  senha: string;
-  role: UserRole;
-};
+import { getUsuarioLogado, usuarioTemPermissao, User } from "../../utils/auth";
 
 type Lead = {
   nome: string;
@@ -60,22 +52,20 @@ export default function LeadsPage() {
   });
 
   useEffect(() => {
-    const user = localStorage.getItem("cohub_user");
+  const usuarioLogado = getUsuarioLogado();
 
-    if (!user) {
-      router.push("/login");
-      return;
-    }
+  if (!usuarioLogado) {
+    router.push("/login");
+    return;
+  }
 
-    const usuarioParse = JSON.parse(user);
+  if (!usuarioTemPermissao(usuarioLogado, ["admin", "crc"])) {
+    router.push("/dashboard");
+    return;
+  }
 
-    if (usuarioParse.role !== "crc" && usuarioParse.role !== "admin") {
-      router.push("/dashboard");
-      return;
-    }
-
-    setUsuario(usuarioParse);
-  }, [router]);
+  setUsuario(usuarioLogado);
+}, [router]);
 
   function adicionarLead(e: React.FormEvent) {
     e.preventDefault();

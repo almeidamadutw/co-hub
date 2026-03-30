@@ -3,15 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-
-type UserRole = "admin" | "recepcao" | "dentista" | "financeiro" | "crc";
-
-type User = {
-  nome: string;
-  email: string;
-  senha: string;
-  role: UserRole;
-};
+import { getUsuarioLogado, usuarioTemPermissao, User } from "../../utils/auth";
 
 type Paciente = {
   foto?: string;
@@ -129,15 +121,19 @@ export default function PacientesPage() {
   const [novoPaciente, setNovoPaciente] = useState<Paciente>(pacienteInicial);
 
   useEffect(() => {
-    const user = localStorage.getItem("cohub_user");
+    const usuarioLogado = getUsuarioLogado();
 
-    if (!user) {
+    if (!usuarioLogado) {
       router.push("/login");
       return;
     }
 
-    const usuarioParse = JSON.parse(user) as User;
-    setUsuario(usuarioParse);
+    if (!usuarioTemPermissao(usuarioLogado, ["admin", "recepcao", "dentista", "crc"])) {
+      router.push("/dashboard");
+      return;
+    }
+
+    setUsuario(usuarioLogado);
   }, [router]);
 
   function adicionarPaciente(e: React.FormEvent) {
