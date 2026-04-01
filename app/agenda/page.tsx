@@ -3,15 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-
-type UserRole = "admin" | "recepcao" | "dentista" | "financeiro" | "crc";
-
-type User = {
-  nome: string;
-  email: string;
-  senha: string;
-  role: UserRole;
-};
+import { useLocalStorage } from "../../utils/useLocalStorage";
+import { getUsuarioLogado, usuarioTemPermissao, User } from "../../utils/auth";
 
 type Consulta = {
   id: number;
@@ -22,6 +15,8 @@ type Consulta = {
   procedimento: string;
   status: string;
 };
+
+const STORAGE_KEY_AGENDA = "cohub_agenda";
 
 const profissionais = ["Ana Lucia Dentista", "Dr. Marcelo", "Dra. Beatriz"];
 
@@ -49,6 +44,54 @@ const consultaInicial: Consulta = {
   status: "Confirmada",
 };
 
+const consultasIniciais: Consulta[] = [
+  {
+    id: 1,
+    paciente: "Mariana Costa",
+    profissional: "Ana Lucia Dentista",
+    data: "2026-03-24",
+    horario: "09:00",
+    procedimento: "Implante",
+    status: "Confirmada",
+  },
+  {
+    id: 2,
+    paciente: "Carlos Henrique",
+    profissional: "Ana Lucia Dentista",
+    data: "2026-03-24",
+    horario: "10:00",
+    procedimento: "Lente dental",
+    status: "Aguardando",
+  },
+  {
+    id: 3,
+    paciente: "Fernanda Alves",
+    profissional: "Dr. Marcelo",
+    data: "2026-03-25",
+    horario: "14:00",
+    procedimento: "Clareamento",
+    status: "Concluída",
+  },
+  {
+    id: 4,
+    paciente: "Rafaela Souza",
+    profissional: "Dra. Beatriz",
+    data: "2026-03-26",
+    horario: "15:00",
+    procedimento: "Limpeza",
+    status: "Cancelada",
+  },
+  {
+    id: 5,
+    paciente: "Juliana Mendes",
+    profissional: "Dr. Marcelo",
+    data: "2026-03-27",
+    horario: "09:00",
+    procedimento: "Avaliação",
+    status: "Confirmada",
+  },
+];
+
 export default function AgendaPage() {
   const router = useRouter();
   const [usuario, setUsuario] = useState<User | null>(null);
@@ -67,72 +110,30 @@ export default function AgendaPage() {
     id: Date.now(),
   });
 
-  const [consultas, setConsultas] = useState<Consulta[]>([
-    {
-      id: 1,
-      paciente: "Mariana Costa",
-      profissional: "Ana Lucia Dentista",
-      data: "2026-03-24",
-      horario: "09:00",
-      procedimento: "Implante",
-      status: "Confirmada",
-    },
-    {
-      id: 2,
-      paciente: "Carlos Henrique",
-      profissional: "Ana Lucia Dentista",
-      data: "2026-03-24",
-      horario: "10:00",
-      procedimento: "Lente dental",
-      status: "Aguardando",
-    },
-    {
-      id: 3,
-      paciente: "Fernanda Alves",
-      profissional: "Dr. Marcelo",
-      data: "2026-03-25",
-      horario: "14:00",
-      procedimento: "Clareamento",
-      status: "Concluída",
-    },
-    {
-      id: 4,
-      paciente: "Rafaela Souza",
-      profissional: "Dra. Beatriz",
-      data: "2026-03-26",
-      horario: "15:00",
-      procedimento: "Limpeza",
-      status: "Cancelada",
-    },
-    {
-      id: 5,
-      paciente: "Juliana Mendes",
-      profissional: "Dr. Marcelo",
-      data: "2026-03-27",
-      horario: "09:00",
-      procedimento: "Avaliação",
-      status: "Confirmada",
-    },
-  ]);
+  const [consultas, setConsultas, carregouConsultas] =
+    useLocalStorage<Consulta[]>(STORAGE_KEY_AGENDA, consultasIniciais);
 
   useEffect(() => {
-    const user = localStorage.getItem("cohub_user");
+    const usuarioLogado = getUsuarioLogado();
 
-    if (!user) {
+    if (!usuarioLogado) {
       router.push("/login");
       return;
     }
 
-    const usuarioParse = JSON.parse(user) as User;
+    if (
+      !usuarioTemPermissao(usuarioLogado, [
+        "admin",
+        "recepcao",
+        "dentista",
+        "crc",
+      ])
+    ) {
+      router.push("/dashboard");
+      return;
+    }
 
-const perfisPermitidos = ["admin", "recepcao", "dentista", "crc"];
-
-if (!perfisPermitidos.includes(usuarioParse.role)) {
-  router.push("/dashboard");
-  return;
-}
-
-setUsuario(usuarioParse);
+    setUsuario(usuarioLogado);
   }, [router]);
 
   function limparFormulario() {
@@ -151,7 +152,7 @@ setUsuario(usuarioParse);
 
   function existeConflito(consulta: Consulta) {
     return consultas.some(
-      (item) =>
+      (item: Consulta) =>
         item.id !== consulta.id &&
         item.profissional === consulta.profissional &&
         item.data === consulta.data &&
@@ -182,13 +183,13 @@ setUsuario(usuarioParse);
     }
 
     if (editandoId !== null) {
-      setConsultas((estadoAtual) =>
-        estadoAtual.map((consulta) =>
+      setConsultas((estadoAtual: Consulta[]) =>
+        estadoAtual.map((consulta: Consulta) =>
           consulta.id === editandoId ? novaConsulta : consulta
         )
       );
     } else {
-      setConsultas((estadoAtual) => [
+      setConsultas((estadoAtual: Consulta[]) => [
         { ...novaConsulta, id: Date.now() },
         ...estadoAtual,
       ]);
@@ -206,8 +207,8 @@ setUsuario(usuarioParse);
   }
 
   function excluirConsulta(id: number) {
-    setConsultas((estadoAtual) =>
-      estadoAtual.filter((consulta) => consulta.id !== id)
+    setConsultas((estadoAtual: Consulta[]) =>
+      estadoAtual.filter((consulta: Consulta) => consulta.id !== id)
     );
   }
 
@@ -216,7 +217,7 @@ setUsuario(usuarioParse);
   }
 
   const consultasFiltradas = useMemo(() => {
-    return consultas.filter((consulta) => {
+    return consultas.filter((consulta: Consulta) => {
       const bateBusca = consulta.paciente
         .toLowerCase()
         .includes(busca.toLowerCase());
@@ -231,7 +232,7 @@ setUsuario(usuarioParse);
 
   const consultasDoDia = useMemo(() => {
     return consultas
-      .filter((consulta) => {
+      .filter((consulta: Consulta) => {
         const bateDia = consulta.data === diaSelecionado;
         const bateProfissional =
           filtroProfissional === "Todos" ||
@@ -239,17 +240,17 @@ setUsuario(usuarioParse);
 
         return bateDia && bateProfissional;
       })
-      .sort((a, b) => a.horario.localeCompare(b.horario));
+      .sort((a: Consulta, b: Consulta) => a.horario.localeCompare(b.horario));
   }, [consultas, diaSelecionado, filtroProfissional]);
 
   const profissionaisVisiveis =
     filtroProfissional === "Todos"
       ? profissionais
-      : profissionais.filter((p) => p === filtroProfissional);
+      : profissionais.filter((p: string) => p === filtroProfissional);
 
   const diasSemana = useMemo(() => {
     const base = new Date(`${diaSelecionado}T12:00:00`);
-    const diaDaSemana = base.getDay(); // 0 domingo
+    const diaDaSemana = base.getDay();
     const diferencaParaSegunda = diaDaSemana === 0 ? -6 : 1 - diaDaSemana;
 
     const segunda = new Date(base);
@@ -263,7 +264,7 @@ setUsuario(usuarioParse);
   }, [diaSelecionado]);
 
   const consultasSemana = useMemo(() => {
-    return consultas.filter((consulta) => {
+    return consultas.filter((consulta: Consulta) => {
       const bateDia = diasSemana.includes(consulta.data);
       const bateProfissional =
         filtroProfissional === "Todos" ||
@@ -273,7 +274,7 @@ setUsuario(usuarioParse);
     });
   }, [consultas, diasSemana, filtroProfissional]);
 
-  if (!usuario) {
+  if (!usuario || !carregouConsultas) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gray-100 text-[#1A1F4D]">
         Carregando...
@@ -283,10 +284,10 @@ setUsuario(usuarioParse);
 
   const totalConsultas = consultas.length;
   const confirmadas = consultas.filter(
-    (consulta) => consulta.status === "Confirmada"
+    (consulta: Consulta) => consulta.status === "Confirmada"
   ).length;
   const aguardando = consultas.filter(
-    (consulta) => consulta.status === "Aguardando"
+    (consulta: Consulta) => consulta.status === "Aguardando"
   ).length;
 
   return (
@@ -386,7 +387,7 @@ setUsuario(usuarioParse);
               className="w-full border border-gray-300 rounded-xl px-4 py-3 text-[#1A1F4D] bg-white"
             >
               <option>Todos</option>
-              {profissionais.map((profissional) => (
+              {profissionais.map((profissional: string) => (
                 <option key={profissional} value={profissional}>
                   {profissional}
                 </option>
@@ -426,7 +427,7 @@ setUsuario(usuarioParse);
                 className="w-full border border-gray-300 rounded-xl px-4 py-3 text-[#1A1F4D] bg-white"
               >
                 <option value="">Selecione o profissional</option>
-                {profissionais.map((profissional) => (
+                {profissionais.map((profissional: string) => (
                   <option key={profissional} value={profissional}>
                     {profissional}
                   </option>
@@ -450,7 +451,7 @@ setUsuario(usuarioParse);
                 className="w-full border border-gray-300 rounded-xl px-4 py-3 text-[#1A1F4D] bg-white"
               >
                 <option value="">Selecione o horário</option>
-                {horarios.map((hora) => (
+                {horarios.map((hora: string) => (
                   <option key={hora} value={hora}>
                     {hora}
                   </option>
@@ -522,7 +523,7 @@ setUsuario(usuarioParse);
               <span></span>
             </div>
 
-            {consultasFiltradas.map((consulta) => (
+            {consultasFiltradas.map((consulta: Consulta) => (
               <div
                 key={consulta.id}
                 className="grid grid-cols-8 p-4 border-t border-gray-200 text-sm items-center"
@@ -580,14 +581,14 @@ setUsuario(usuarioParse);
                 }}
               >
                 <div className="p-4 border-r border-white/10">Horário</div>
-                {profissionaisVisiveis.map((profissional) => (
+                {profissionaisVisiveis.map((profissional: string) => (
                   <div key={profissional} className="p-4 border-l border-white/10">
                     {profissional}
                   </div>
                 ))}
               </div>
 
-              {horarios.map((hora) => (
+              {horarios.map((hora: string) => (
                 <div
                   key={hora}
                   className="grid min-w-[900px] border-t border-gray-200"
@@ -599,9 +600,9 @@ setUsuario(usuarioParse);
                     {hora}
                   </div>
 
-                  {profissionaisVisiveis.map((profissional) => {
+                  {profissionaisVisiveis.map((profissional: string) => {
                     const consultaNoHorario = consultasDoDia.find(
-                      (consulta) =>
+                      (consulta: Consulta) =>
                         consulta.horario === hora &&
                         consulta.profissional === profissional
                     );
@@ -683,7 +684,7 @@ setUsuario(usuarioParse);
                 }}
               >
                 <div className="p-4 border-r border-white/10">Horário</div>
-                {diasSemana.map((dia) => (
+                {diasSemana.map((dia: string) => (
                   <div key={dia} className="p-4 border-l border-white/10">
                     {formatarDiaSemana(dia)}
                     <div className="text-xs font-normal mt-1">
@@ -693,7 +694,7 @@ setUsuario(usuarioParse);
                 ))}
               </div>
 
-              {horarios.map((hora) => (
+              {horarios.map((hora: string) => (
                 <div
                   key={hora}
                   className="grid min-w-[1200px] border-t border-gray-200"
@@ -705,9 +706,10 @@ setUsuario(usuarioParse);
                     {hora}
                   </div>
 
-                  {diasSemana.map((dia) => {
+                  {diasSemana.map((dia: string) => {
                     const consultasNoSlot = consultasSemana.filter(
-                      (consulta) => consulta.data === dia && consulta.horario === hora
+                      (consulta: Consulta) =>
+                        consulta.data === dia && consulta.horario === hora
                     );
 
                     return (
@@ -716,7 +718,7 @@ setUsuario(usuarioParse);
                         className="p-2 border-l border-gray-200 min-h-[120px] space-y-2"
                       >
                         {consultasNoSlot.length > 0 ? (
-                          consultasNoSlot.map((consulta) => (
+                          consultasNoSlot.map((consulta: Consulta) => (
                             <div
                               key={consulta.id}
                               className={`rounded-xl p-3 border-l-4 ${estiloCardCalendario(

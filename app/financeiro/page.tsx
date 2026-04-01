@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import { useLocalStorage } from "../../utils/useLocalStorage";
 import { getUsuarioLogado, usuarioTemPermissao, User } from "../../utils/auth";
 
 type Lancamento = {
@@ -14,6 +15,47 @@ type Lancamento = {
   status: string;
   formaPagamento: string;
 };
+
+const STORAGE_KEY_FINANCEIRO = "cohub_lancamentos_financeiro";
+
+const lancamentosIniciais: Lancamento[] = [
+  {
+    id: 1,
+    paciente: "Mariana Costa",
+    descricao: "Implante - entrada",
+    valor: 1200,
+    vencimento: "2026-03-25",
+    status: "Pago",
+    formaPagamento: "Cartão",
+  },
+  {
+    id: 2,
+    paciente: "Carlos Henrique",
+    descricao: "Lente dental - parcela 1",
+    valor: 850,
+    vencimento: "2026-03-29",
+    status: "Pendente",
+    formaPagamento: "Pix",
+  },
+  {
+    id: 3,
+    paciente: "Fernanda Alves",
+    descricao: "Clareamento",
+    valor: 600,
+    vencimento: "2026-03-30",
+    status: "Pago",
+    formaPagamento: "Dinheiro",
+  },
+  {
+    id: 4,
+    paciente: "Rafaela Souza",
+    descricao: "Limpeza + retorno",
+    valor: 300,
+    vencimento: "2026-04-02",
+    status: "Atrasado",
+    formaPagamento: "Boleto",
+  },
+];
 
 const lancamentoInicial: Lancamento = {
   id: 0,
@@ -31,49 +73,17 @@ export default function FinanceiroPage() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [busca, setBusca] = useState("");
   const [erroFormulario, setErroFormulario] = useState("");
+
   const [novoLancamento, setNovoLancamento] = useState<Lancamento>({
     ...lancamentoInicial,
     id: Date.now(),
   });
 
-  const [lancamentos, setLancamentos] = useState<Lancamento[]>([
-    {
-      id: 1,
-      paciente: "Mariana Costa",
-      descricao: "Implante - entrada",
-      valor: 1200,
-      vencimento: "2026-03-25",
-      status: "Pago",
-      formaPagamento: "Cartão",
-    },
-    {
-      id: 2,
-      paciente: "Carlos Henrique",
-      descricao: "Lente dental - parcela 1",
-      valor: 850,
-      vencimento: "2026-03-29",
-      status: "Pendente",
-      formaPagamento: "Pix",
-    },
-    {
-      id: 3,
-      paciente: "Fernanda Alves",
-      descricao: "Clareamento",
-      valor: 600,
-      vencimento: "2026-03-30",
-      status: "Pago",
-      formaPagamento: "Dinheiro",
-    },
-    {
-      id: 4,
-      paciente: "Rafaela Souza",
-      descricao: "Limpeza + retorno",
-      valor: 300,
-      vencimento: "2026-04-02",
-      status: "Atrasado",
-      formaPagamento: "Boleto",
-    },
-  ]);
+  const [lancamentos, setLancamentos, carregouLancamentos] =
+    useLocalStorage<Lancamento[]>(
+      STORAGE_KEY_FINANCEIRO,
+      lancamentosIniciais
+    );
 
   useEffect(() => {
     const usuarioLogado = getUsuarioLogado();
@@ -105,7 +115,7 @@ export default function FinanceiroPage() {
       return;
     }
 
-    setLancamentos((estadoAtual) => [
+    setLancamentos((estadoAtual: Lancamento[]) => [
       { ...novoLancamento, id: Date.now() },
       ...estadoAtual,
     ]);
@@ -119,26 +129,73 @@ export default function FinanceiroPage() {
   }
 
   const lancamentosFiltrados = useMemo(() => {
-    return lancamentos.filter((item) =>
+    return lancamentos.filter((item: Lancamento) =>
       item.paciente.toLowerCase().includes(busca.toLowerCase())
     );
   }, [lancamentos, busca]);
 
-  if (!usuario) {
+  const totalReceber = lancamentos.reduce(
+    (acc: number, item: Lancamento) => acc + item.valor,
+    0
+  );
+
+  const totalPago = lancamentos
+    .filter((item: Lancamento) => item.status === "Pago")
+    .reduce((acc: number, item: Lancamento) => acc + item.valor, 0);
+
+  const totalPendente = lancamentos
+    .filter(
+      (item: Lancamento) =>
+        item.status === "Pendente" || item.status === "Atrasado"
+    )
+    .reduce((acc: number, item: Lancamento) => acc + item.valor, 0);
+
+  const quantidadePago = lancamentos.filter(
+    (item: Lancamento) => item.status === "Pago"
+  ).length;
+
+  const quantidadePendente = lancamentos.filter(
+    (item: Lancamento) => item.status === "Pendente"
+  ).length;
+
+  const quantidadeAtrasado = lancamentos.filter(
+    (item: Lancamento) => item.status === "Atrasado"
+  ).length;
+
+  const dadosGrafico = [
+    {
+      label: "Pagos",
+      valor: totalPago,
+      classe: "bg-green-500",
+    },
+    {
+      label: "Pendentes",
+      valor: lancamentos
+        .filter((item: Lancamento) => item.status === "Pendente")
+        .reduce((acc: number, item: Lancamento) => acc + item.valor, 0),
+      classe: "bg-yellow-400",
+    },
+    {
+      label: "Atrasados",
+      valor: lancamentos
+        .filter((item: Lancamento) => item.status === "Atrasado")
+        .reduce((acc: number, item: Lancamento) => acc + item.valor, 0),
+      classe: "bg-red-500",
+    },
+  ];
+
+  const maiorValorGrafico = Math.max(
+    ...dadosGrafico.map((item) => item.valor),
+    1
+  );
+
+  if (!usuario || !carregouLancamentos) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gray-100 text-[#1A1F4D]">
         Carregando...
       </main>
     );
   }
-
-  const totalReceber = lancamentos.reduce((acc, item) => acc + item.valor, 0);
-  const totalPago = lancamentos
-    .filter((item) => item.status === "Pago")
-    .reduce((acc, item) => acc + item.valor, 0);
-  const totalPendente = lancamentos
-    .filter((item) => item.status === "Pendente" || item.status === "Atrasado")
-    .reduce((acc, item) => acc + item.valor, 0);
 
   return (
     <main className="flex min-h-screen bg-gray-100 text-[#1A1F4D]">
@@ -166,14 +223,71 @@ export default function FinanceiroPage() {
             titulo="Total a receber"
             valor={formatarMoeda(totalReceber)}
           />
-          <ResumoCard
-            titulo="Total pago"
-            valor={formatarMoeda(totalPago)}
-          />
+          <ResumoCard titulo="Total pago" valor={formatarMoeda(totalPago)} />
           <ResumoCard
             titulo="Total pendente"
             valor={formatarMoeda(totalPendente)}
           />
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
+            <div>
+              <h2 className="text-xl font-semibold">Dashboard financeiro</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Panorama de recebimentos, pendências e atrasos.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-[1.4fr_1fr] gap-6 items-end">
+            <div className="h-64 flex items-end gap-4">
+              {dadosGrafico.map((item) => (
+                <div
+                  key={item.label}
+                  className="flex-1 flex flex-col items-center gap-3"
+                >
+                  <div className="text-sm font-semibold">
+                    {formatarMoeda(item.valor)}
+                  </div>
+
+                  <div className="w-full h-44 bg-gray-100 rounded-2xl flex items-end p-2">
+                    <div
+                      className={`w-full rounded-xl transition-all duration-300 ${item.classe}`}
+                      style={{
+                        height: `${(item.valor / maiorValorGrafico) * 100}%`,
+                        minHeight: item.valor > 0 ? "24px" : "0px",
+                      }}
+                    />
+                  </div>
+
+                  <span className="text-xs text-center text-gray-600 font-medium">
+                    {item.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-gray-50 rounded-2xl border border-gray-200 p-5">
+              <h3 className="font-semibold mb-4">Resumo geral</h3>
+
+              <div className="space-y-3 text-sm">
+                <LinhaResumo label="Lançamentos pagos" valor={quantidadePago} />
+                <LinhaResumo
+                  label="Lançamentos pendentes"
+                  valor={quantidadePendente}
+                />
+                <LinhaResumo
+                  label="Lançamentos atrasados"
+                  valor={quantidadeAtrasado}
+                />
+                <LinhaResumo
+                  label="Total em aberto"
+                  valorTexto={formatarMoeda(totalPendente)}
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-6">
@@ -302,21 +416,27 @@ export default function FinanceiroPage() {
             <span>Pagamento</span>
           </div>
 
-          {lancamentosFiltrados.map((item) => (
-            <div
-              key={item.id}
-              className="grid grid-cols-6 p-4 border-t border-gray-200 text-sm items-center"
-            >
-              <span>{item.paciente}</span>
-              <span>{item.descricao}</span>
-              <span>{formatarMoeda(item.valor)}</span>
-              <span>{formatarData(item.vencimento)}</span>
-              <span>
-                <StatusBadge status={item.status} />
-              </span>
-              <span>{item.formaPagamento}</span>
+          {lancamentosFiltrados.length > 0 ? (
+            lancamentosFiltrados.map((item) => (
+              <div
+                key={item.id}
+                className="grid grid-cols-6 p-4 border-t border-gray-200 text-sm items-center"
+              >
+                <span>{item.paciente}</span>
+                <span>{item.descricao}</span>
+                <span>{formatarMoeda(item.valor)}</span>
+                <span>{formatarData(item.vencimento)}</span>
+                <span>
+                  <StatusBadge status={item.status} />
+                </span>
+                <span>{item.formaPagamento}</span>
+              </div>
+            ))
+          ) : (
+            <div className="p-8 text-center text-gray-500">
+              Nenhum lançamento encontrado.
             </div>
-          ))}
+          )}
         </div>
       </section>
     </main>
@@ -333,6 +453,23 @@ function ResumoCard({ titulo, valor }: ResumoCardProps) {
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
       <h2 className="text-lg font-semibold">{titulo}</h2>
       <p className="text-2xl font-bold text-[#D4AF37] mt-3">{valor}</p>
+    </div>
+  );
+}
+
+function LinhaResumo({
+  label,
+  valor,
+  valorTexto,
+}: {
+  label: string;
+  valor?: number;
+  valorTexto?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between border-b border-gray-200 pb-2 last:border-b-0 last:pb-0">
+      <span className="text-gray-600">{label}</span>
+      <span className="font-bold">{valorTexto ?? valor ?? 0}</span>
     </div>
   );
 }

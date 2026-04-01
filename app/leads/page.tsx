@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import { useLocalStorage } from "../../utils/useLocalStorage";
 import { getUsuarioLogado, usuarioTemPermissao, User } from "../../utils/auth";
 
 type Lead = {
@@ -12,36 +13,43 @@ type Lead = {
   origem: string;
 };
 
+const STORAGE_KEY_LEADS = "cohub_leads";
+
+const leadsIniciais: Lead[] = [
+  {
+    nome: "Mariana Costa",
+    interesse: "Implante",
+    status: "Aguardando retorno",
+    origem: "Instagram",
+  },
+  {
+    nome: "Carlos Henrique",
+    interesse: "Lente dental",
+    status: "Agendamento realizado",
+    origem: "WhatsApp",
+  },
+  {
+    nome: "Fernanda Alves",
+    interesse: "Clareamento",
+    status: "Em negociação",
+    origem: "Indicação",
+  },
+  {
+    nome: "Rafaela Souza",
+    interesse: "Avaliação geral",
+    status: "Novo lead",
+    origem: "Site",
+  },
+];
+
 export default function LeadsPage() {
   const router = useRouter();
   const [usuario, setUsuario] = useState<User | null>(null);
 
-  const [leads, setLeads] = useState<Lead[]>([
-    {
-      nome: "Mariana Costa",
-      interesse: "Implante",
-      status: "Aguardando retorno",
-      origem: "Instagram",
-    },
-    {
-      nome: "Carlos Henrique",
-      interesse: "Lente dental",
-      status: "Agendamento realizado",
-      origem: "WhatsApp",
-    },
-    {
-      nome: "Fernanda Alves",
-      interesse: "Clareamento",
-      status: "Em negociação",
-      origem: "Indicação",
-    },
-    {
-      nome: "Rafaela Souza",
-      interesse: "Avaliação geral",
-      status: "Novo lead",
-      origem: "Site",
-    },
-  ]);
+  const [leads, setLeads, carregouLeads] = useLocalStorage<Lead[]>(
+    STORAGE_KEY_LEADS,
+    leadsIniciais
+  );
 
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [novoLead, setNovoLead] = useState<Lead>({
@@ -52,20 +60,20 @@ export default function LeadsPage() {
   });
 
   useEffect(() => {
-  const usuarioLogado = getUsuarioLogado();
+    const usuarioLogado = getUsuarioLogado();
 
-  if (!usuarioLogado) {
-    router.push("/login");
-    return;
-  }
+    if (!usuarioLogado) {
+      router.push("/login");
+      return;
+    }
 
-  if (!usuarioTemPermissao(usuarioLogado, ["admin", "crc"])) {
-    router.push("/dashboard");
-    return;
-  }
+    if (!usuarioTemPermissao(usuarioLogado, ["admin", "crc"])) {
+      router.push("/dashboard");
+      return;
+    }
 
-  setUsuario(usuarioLogado);
-}, [router]);
+    setUsuario(usuarioLogado);
+  }, [router]);
 
   function adicionarLead(e: React.FormEvent) {
     e.preventDefault();
@@ -74,7 +82,7 @@ export default function LeadsPage() {
       return;
     }
 
-    setLeads((estadoAtual) => [novoLead, ...estadoAtual]);
+    setLeads((estadoAtual: Lead[]) => [novoLead, ...estadoAtual]);
 
     setNovoLead({
       nome: "",
@@ -86,7 +94,7 @@ export default function LeadsPage() {
     setMostrarFormulario(false);
   }
 
-  if (!usuario) {
+  if (!usuario || !carregouLeads) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gray-100 text-[#1A1F4D]">
         Carregando...
@@ -96,7 +104,7 @@ export default function LeadsPage() {
 
   const totalLeads = leads.length;
   const totalConvertidos = leads.filter(
-    (lead) => lead.status === "Agendamento realizado"
+    (lead: Lead) => lead.status === "Agendamento realizado"
   ).length;
   const taxaConversao =
     totalLeads > 0 ? Math.round((totalConvertidos / totalLeads) * 100) : 0;
@@ -197,7 +205,7 @@ export default function LeadsPage() {
             <span>Origem</span>
           </div>
 
-          {leads.map((lead, index) => (
+          {leads.map((lead: Lead, index: number) => (
             <div
               key={index}
               className="grid grid-cols-4 p-4 border-t border-gray-200 text-sm items-center"
