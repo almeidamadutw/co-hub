@@ -7,9 +7,11 @@ export function useLocalStorage<T>(
   initialValue: T
 ): [T, Dispatch<SetStateAction<T>>, boolean] {
   const [storedValue, setStoredValue] = useState<T>(initialValue);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [carregou, setCarregou] = useState(false);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     try {
       const item = window.localStorage.getItem(key);
 
@@ -19,22 +21,22 @@ export function useLocalStorage<T>(
         setStoredValue(initialValue);
       }
     } catch (error) {
-      console.error(`Erro ao carregar ${key} do localStorage:`, error);
+      console.error(`Erro ao ler localStorage (${key}):`, error);
       setStoredValue(initialValue);
     } finally {
-      setIsLoaded(true);
+      setCarregou(true);
     }
-  }, [key, initialValue]);
+  }, [key]);
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!carregou || typeof window === "undefined") return;
 
     try {
       window.localStorage.setItem(key, JSON.stringify(storedValue));
     } catch (error) {
-      console.error(`Erro ao salvar ${key} no localStorage:`, error);
+      console.error(`Erro ao salvar localStorage (${key}):`, error);
     }
-  }, [key, storedValue, isLoaded]);
+  }, [key, storedValue, carregou]);
 
-  return [storedValue, setStoredValue, isLoaded];
+  return [storedValue, setStoredValue, carregou];
 }
