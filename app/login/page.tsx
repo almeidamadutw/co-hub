@@ -17,7 +17,7 @@ export default function LoginPage() {
     return () => clearTimeout(timer);
   }, []);
 
-function handleLogin(e: React.FormEvent) {
+  function handleLogin(e: React.FormEvent) {
   e.preventDefault();
 
   const usuario = fakeUsers.find(
@@ -30,19 +30,23 @@ function handleLogin(e: React.FormEvent) {
   }
 
   localStorage.removeItem("cohub_user");
+  localStorage.removeItem("ceoclub_user");
+
+  // mantém compatibilidade com o resto do sistema
   localStorage.setItem("cohub_user", JSON.stringify(usuario));
+  localStorage.setItem("ceoclub_user", JSON.stringify(usuario));
+
   router.push("/dashboard");
 }
 
   return (
-    <main className="min-h-screen bg-[#f5f7fb] flex items-center justify-center p-4 overflow-hidden">
-      <section className="w-full max-w-6xl min-h-[700px] bg-white rounded-3xl overflow-hidden shadow-2xl grid lg:grid-cols-2">
-
+    <main className="min-h-screen bg-[#f3f5f8] flex items-center justify-center p-4 overflow-hidden">
+      <section className="w-full max-w-7xl min-h-[760px] bg-white rounded-[32px] overflow-hidden shadow-[0_25px_60px_rgba(15,23,42,0.10)] grid lg:grid-cols-2">
         {/* LADO ESQUERDO */}
         <div className="hidden lg:flex relative">
           <img
-            src="/images/fundadores.png"
-            alt="Fundadores Casal Odonto"
+            src="/images/luciana.jpg"
+            alt="Mentora Dra. Luciana Rocha"
             className={`absolute inset-0 w-full h-full object-cover transition-all duration-[1400ms] ease-out ${
               animar ? "scale-100 opacity-100" : "scale-110 opacity-0"
             }`}
@@ -50,14 +54,14 @@ function handleLogin(e: React.FormEvent) {
 
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
-          <div className="relative z-10 flex flex-col justify-between w-full p-10 text-white">
+          <div className="relative z-10 flex flex-col justify-between w-full p-12 text-white">
             <div
               className={`transition-all duration-1000 ease-out ${
                 animar ? "translate-y-0 opacity-100" : "-translate-y-6 opacity-0"
               }`}
             >
-              <p className="text-sm uppercase tracking-[0.25em] text-[#D4AF37] font-semibold">
-                Casal Odonto
+              <p className="text-sm uppercase tracking-[0.32em] text-[#C9CED6] font-semibold">
+                Curso de Mentoria
               </p>
             </div>
 
@@ -66,32 +70,39 @@ function handleLogin(e: React.FormEvent) {
                 animar ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
               }`}
             >
-              <h1 className="text-3xl md:text-4xl font-extrabold leading-tight drop-shadow-lg max-w-md">
-                Excelência, cuidado e encantamento em cada detalhe.
+              <h1 className="text-4xl xl:text-5xl font-extrabold leading-[1.02] drop-shadow-lg max-w-md">
+                Inove seu jeito de pensar
               </h1>
             </div>
           </div>
         </div>
 
         {/* LADO DIREITO */}
-        <div className="flex items-center justify-center p-6 md:p-10">
+        <div className="relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-6 md:p-10">
+          <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(229,231,235,0.18),rgba(229,231,235,0.06),transparent)]" />
+          <div className="pointer-events-none absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(191,195,201,0.10),transparent)]" />
+
           <div
-            className={`w-full max-w-md transition-all duration-[1000ms] ease-out ${
+            className={`relative z-10 w-full max-w-md transition-all duration-[1000ms] ease-out ${
               animar ? "translate-x-0 opacity-100" : "translate-x-10 opacity-0"
             }`}
           >
             <div className="text-center mb-8">
-              <img
-                src="/images/logo.png"
-                alt="Logo Casal Odonto"
-                className={`mx-auto mb-4 w-40 h-auto object-contain bg-[#1A1F4D] p-4 rounded-2xl shadow-lg transition-all duration-[1000ms] ease-out ${
+              <div
+                className={`mx-auto mb-5 w-36 h-36 rounded-[28px] p-2 border border-white/10 bg-white/10 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur-sm transition-all duration-[1000ms] ease-out ${
                   animar ? "scale-100 opacity-100" : "scale-90 opacity-0"
                 }`}
-              />
+              >
+                <img
+                  src="/images/logo.jpeg"
+                  alt="Logo CEO Club"
+                  className="w-full h-full object-cover rounded-[22px]"
+                />
+              </div>
 
-              <h1 className="text-4xl font-bold text-[#1A1F4D]">CO Hub</h1>
-              <p className="text-sm font-semibold text-[#D4AF37] mt-1">
-                by Casal Odonto
+              <h1 className="text-4xl font-bold text-white">CEO Club</h1>
+              <p className="text-sm font-semibold text-[#C9CED6] mt-2">
+                by Mentora Dra. Luciana Rocha
               </p>
             </div>
 
@@ -99,7 +110,7 @@ function handleLogin(e: React.FormEvent) {
               <input
                 type="email"
                 placeholder="E-mail"
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 text-[#1A1F4D] placeholder:text-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37] transition"
+                className="w-full rounded-2xl border border-white/15 bg-white/8 px-4 py-3 text-white placeholder:text-[#C9CED6] outline-none backdrop-blur-sm transition focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -107,28 +118,28 @@ function handleLogin(e: React.FormEvent) {
               <input
                 type="password"
                 placeholder="Senha"
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 text-[#1A1F4D] placeholder:text-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37] transition"
+                className="w-full rounded-2xl border border-white/15 bg-white/8 px-4 py-3 text-white placeholder:text-[#C9CED6] outline-none backdrop-blur-sm transition focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
               />
 
-              {erro && <p className="text-red-500 text-sm">{erro}</p>}
+              {erro && <p className="text-red-300 text-sm">{erro}</p>}
 
               <button
                 type="submit"
-                className="w-full bg-[#D4AF37] text-white py-3 rounded-xl font-bold hover:brightness-110 transition"
+                className="w-full rounded-2xl py-3.5 font-bold text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105"
+                style={{
+                  background:
+                    "linear-gradient(180deg, #F3F4F6 0%, #D1D5DB 55%, #9CA3AF 100%)",
+                }}
               >
                 Entrar
               </button>
             </form>
 
-            <div className="mt-6 text-xs text-gray-500 bg-gray-50 rounded-xl p-4">
-              <p className="font-semibold mb-2 text-[#1A1F4D]">Logins de teste:</p>
-              <p>luadmin@cohub.com / 123456</p>
-              <p>recepcao@cohub.com / 123456</p>
-              <p>analucia@cohub.com / 123456</p>
-              <p>financeiro@cohub.com / 123456</p>
-              <p>crc@cohub.com / 123456</p>
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/8 p-4 text-sm text-[#D1D5DB] backdrop-blur-sm">
+              <p className="font-semibold mb-2 text-white">Logins de teste:</p>
+              <p>luadmin@ceoclub.com / 123456</p>
             </div>
           </div>
         </div>

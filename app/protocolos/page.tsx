@@ -12,6 +12,7 @@ type Protocolo = {
   categoria: string;
   responsavel: string;
   status: string;
+  etapas: string[];
 };
 
 const STORAGE_KEY_PROTOCOLOS = "cohub_protocolos";
@@ -22,6 +23,7 @@ const protocoloInicial: Protocolo = {
   categoria: "",
   responsavel: "",
   status: "Ativo",
+  etapas: [],
 };
 
 const protocolosIniciais: Protocolo[] = [
@@ -31,6 +33,14 @@ const protocolosIniciais: Protocolo[] = [
     categoria: "Cirúrgico",
     responsavel: "Ana Lucia Dentista",
     status: "Ativo",
+    etapas: [
+      "Avaliação inicial",
+      "Exames de imagem",
+      "Planejamento cirúrgico",
+      "Cirurgia",
+      "Pós-operatório",
+      "Retorno",
+    ],
   },
   {
     id: 2,
@@ -38,13 +48,13 @@ const protocolosIniciais: Protocolo[] = [
     categoria: "Estético",
     responsavel: "Dr. Marcelo",
     status: "Em revisão",
-  },
-  {
-    id: 3,
-    titulo: "Protocolo de Avaliação Inicial",
-    categoria: "Atendimento",
-    responsavel: "Dra. Beatriz",
-    status: "Ativo",
+    etapas: [
+      "Avaliação",
+      "Profilaxia",
+      "Aplicação",
+      "Orientações",
+      "Retorno",
+    ],
   },
 ];
 
@@ -53,6 +63,7 @@ export default function ProtocolosPage() {
   const [usuario, setUsuario] = useState<User | null>(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [novaEtapa, setNovaEtapa] = useState("");
 
   const [novoProtocolo, setNovoProtocolo] = useState<Protocolo>({
     ...protocoloInicial,
@@ -83,6 +94,7 @@ export default function ProtocolosPage() {
       ...protocoloInicial,
       id: Date.now(),
     });
+    setNovaEtapa("");
     setEditandoId(null);
   }
 
@@ -97,13 +109,33 @@ export default function ProtocolosPage() {
     setMostrarFormulario(true);
   }
 
+  function adicionarEtapa() {
+    const etapaLimpa = novaEtapa.trim();
+    if (!etapaLimpa) return;
+
+    setNovoProtocolo((estadoAtual) => ({
+      ...estadoAtual,
+      etapas: [...estadoAtual.etapas, etapaLimpa],
+    }));
+
+    setNovaEtapa("");
+  }
+
+  function removerEtapa(index: number) {
+    setNovoProtocolo((estadoAtual) => ({
+      ...estadoAtual,
+      etapas: estadoAtual.etapas.filter((_, i) => i !== index),
+    }));
+  }
+
   function salvarProtocolo(e: React.FormEvent) {
     e.preventDefault();
 
     if (
       !novoProtocolo.titulo ||
       !novoProtocolo.categoria ||
-      !novoProtocolo.responsavel
+      !novoProtocolo.responsavel ||
+      novoProtocolo.etapas.length === 0
     ) {
       return;
     }
@@ -128,6 +160,7 @@ export default function ProtocolosPage() {
   function editarProtocolo(protocolo: Protocolo) {
     setNovoProtocolo(protocolo);
     setEditandoId(protocolo.id);
+    setNovaEtapa("");
     setMostrarFormulario(true);
   }
 
@@ -154,9 +187,11 @@ export default function ProtocolosPage() {
   const ativos = protocolos.filter(
     (p: Protocolo) => p.status === "Ativo"
   ).length;
-  const revisao = protocolos.filter(
-    (p: Protocolo) => p.status === "Em revisão"
-  ).length;
+
+  const totalEtapas = protocolos.reduce(
+    (acc: number, protocolo: Protocolo) => acc + protocolo.etapas.length,
+    0
+  );
 
   return (
     <main className="flex min-h-screen bg-gray-100 text-[#1A1F4D]">
@@ -167,7 +202,7 @@ export default function ProtocolosPage() {
           <div>
             <h1 className="text-3xl font-bold">Protocolos</h1>
             <p className="text-gray-600 mt-2">
-              Visualize e organize os protocolos clínicos e operacionais.
+              Crie fluxos clínicos com etapas para acompanhar o progresso dos pacientes.
             </p>
           </div>
 
@@ -182,7 +217,7 @@ export default function ProtocolosPage() {
         <div className="grid md:grid-cols-3 gap-4 mb-6">
           <ResumoCard titulo="Total de protocolos" valor={String(protocolos.length)} />
           <ResumoCard titulo="Ativos" valor={String(ativos)} />
-          <ResumoCard titulo="Em revisão" valor={String(revisao)} />
+          <ResumoCard titulo="Total de etapas" valor={String(totalEtapas)} />
         </div>
 
         {mostrarFormulario && (
@@ -194,7 +229,7 @@ export default function ProtocolosPage() {
               {editandoId !== null ? "Editar protocolo" : "Cadastrar protocolo"}
             </h2>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
               <input
                 type="text"
                 placeholder="Título do protocolo"
@@ -244,6 +279,55 @@ export default function ProtocolosPage() {
               </select>
             </div>
 
+            <div className="bg-gray-50 rounded-2xl border border-gray-200 p-4">
+              <h3 className="font-semibold mb-3">Etapas do protocolo</h3>
+
+              <div className="flex gap-3 flex-wrap mb-4">
+                <input
+                  type="text"
+                  placeholder="Digite uma etapa"
+                  value={novaEtapa}
+                  onChange={(e) => setNovaEtapa(e.target.value)}
+                  className="flex-1 min-w-[240px] border border-gray-300 rounded-xl px-4 py-3 bg-white"
+                />
+
+                <button
+                  type="button"
+                  onClick={adicionarEtapa}
+                  className="bg-[#1A1F4D] text-white px-5 py-3 rounded-xl font-bold hover:brightness-110"
+                >
+                  Adicionar etapa
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {novoProtocolo.etapas.length > 0 ? (
+                  novoProtocolo.etapas.map((etapa, index) => (
+                    <div
+                      key={`${etapa}-${index}`}
+                      className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3"
+                    >
+                      <span className="text-sm">
+                        {index + 1}. {etapa}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => removerEtapa(index)}
+                        className="text-red-600 font-semibold hover:underline"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    Nenhuma etapa adicionada ainda.
+                  </p>
+                )}
+              </div>
+            </div>
+
             <div className="mt-4 flex gap-3 flex-wrap">
               <button
                 type="submit"
@@ -263,41 +347,55 @@ export default function ProtocolosPage() {
           </form>
         )}
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-6 bg-[#1A1F4D] text-white font-semibold p-4">
-            <span>Protocolo</span>
-            <span>Categoria</span>
-            <span>Responsável</span>
-            <span>Status</span>
-            <span>Ações</span>
-            <span></span>
-          </div>
-
+        <div className="space-y-4">
           {protocolos.map((protocolo: Protocolo) => (
             <div
               key={protocolo.id}
-              className="grid grid-cols-6 p-4 border-t border-gray-200 text-sm items-center"
+              className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6"
             >
-              <span>{protocolo.titulo}</span>
-              <span>{protocolo.categoria}</span>
-              <span>{protocolo.responsavel}</span>
-              <span>
-                <StatusBadge status={protocolo.status} />
-              </span>
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <h2 className="text-xl font-semibold">{protocolo.titulo}</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {protocolo.categoria} • {protocolo.responsavel}
+                  </p>
 
-              <button
-                onClick={() => editarProtocolo(protocolo)}
-                className="text-[#1A1F4D] font-semibold hover:underline text-left"
-              >
-                Editar
-              </button>
+                  <div className="mt-3">
+                    <StatusBadge status={protocolo.status} />
+                  </div>
+                </div>
 
-              <button
-                onClick={() => excluirProtocolo(protocolo.id)}
-                className="text-red-600 font-semibold hover:underline text-left"
-              >
-                Excluir
-              </button>
+                <div className="flex gap-3 flex-wrap">
+                  <button
+                    onClick={() => editarProtocolo(protocolo)}
+                    className="text-[#1A1F4D] font-semibold hover:underline"
+                  >
+                    Editar
+                  </button>
+
+                  <button
+                    onClick={() => excluirProtocolo(protocolo.id)}
+                    className="text-red-600 font-semibold hover:underline"
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <h3 className="font-semibold mb-3">Etapas</h3>
+
+                <div className="grid md:grid-cols-2 gap-3">
+                  {protocolo.etapas.map((etapa, index) => (
+                    <div
+                      key={`${protocolo.id}-${index}`}
+                      className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm"
+                    >
+                      {index + 1}. {etapa}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           ))}
         </div>
