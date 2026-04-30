@@ -1,78 +1,43 @@
-"use client";
+import { User, UserRole } from "@/data/users";
 
-export type UserRole =
-  | "mentor"
-  | "mentorado"
-  | "financeiro"
-  | "progresso"
-  | "modulos";
+const STORAGE_KEY = "ceoclub_user";
 
-export type User = {
-  nome: string;
-  email?: string;
-  role: UserRole;
-};
+export type { User, UserRole };
 
-// 🔥 padroniza chave nova do sistema
-const STORAGE_KEY_USER = "ceoclub_user";
+export function salvarUsuarioLogado(usuario: User) {
+  if (typeof window === "undefined") return;
 
-// 🔥 função segura (evita quebrar no SSR)
-function isBrowser() {
-  return typeof window !== "undefined";
+  localStorage.removeItem("cohub_user");
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(usuario));
 }
 
 export function getUsuarioLogado(): User | null {
-  if (!isBrowser()) return null;
+  if (typeof window === "undefined") return null;
+
+  const usuarioSalvo = localStorage.getItem(STORAGE_KEY);
+
+  if (!usuarioSalvo) return null;
 
   try {
-    // 🔥 tenta nova chave primeiro
-    const usuarioNovo = localStorage.getItem("ceoclub_user");
-
-    if (usuarioNovo) {
-      return JSON.parse(usuarioNovo) as User;
-    }
-
-    // 🔥 fallback (compatibilidade com sistema antigo)
-    const usuarioAntigo = localStorage.getItem("cohub_user");
-
-    if (usuarioAntigo) {
-      return JSON.parse(usuarioAntigo) as User;
-    }
-
+    return JSON.parse(usuarioSalvo) as User;
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
     return null;
-  } catch (error) {
-    console.error("Erro ao recuperar usuário logado:", error);
-    return null;
-  }
-}
-
-export function salvarUsuarioLogado(user: User) {
-  if (!isBrowser()) return;
-
-  try {
-    // 🔥 salva nas duas (compatibilidade total)
-    localStorage.setItem("ceoclub_user", JSON.stringify(user));
-    localStorage.setItem("cohub_user", JSON.stringify(user));
-  } catch (error) {
-    console.error("Erro ao salvar usuário logado:", error);
   }
 }
 
 export function logoutUsuario() {
-  if (!isBrowser()) return;
+  if (typeof window === "undefined") return;
 
-  try {
-    localStorage.removeItem("ceoclub_user");
-    localStorage.removeItem("cohub_user");
-  } catch (error) {
-    console.error("Erro ao remover usuário logado:", error);
-  }
+  localStorage.removeItem("cohub_user");
+  localStorage.removeItem(STORAGE_KEY);
 }
 
 export function usuarioTemPermissao(
   usuario: User | null,
-  permissoes: UserRole[]
+  rolesPermitidas: UserRole[]
 ) {
   if (!usuario) return false;
-  return permissoes.includes(usuario.role);
+
+  return rolesPermitidas.includes(usuario.role);
 }
