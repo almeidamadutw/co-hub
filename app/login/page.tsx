@@ -13,6 +13,14 @@ type UsuarioLogado = {
   role: UserRole;
 };
 
+const rolesValidas: UserRole[] = [
+  "mentor",
+  "mentorado",
+  "modulos",
+  "financeiro",
+  "progresso",
+];
+
 export default function LoginPage() {
   const router = useRouter();
 
@@ -50,32 +58,40 @@ export default function LoginPage() {
 
     const user = loginData.user;
 
-    const roleMetadata = user.user_metadata?.role as UserRole | undefined;
-    const nomeMetadata = user.user_metadata?.nome as string | undefined;
-
-    let role: UserRole = roleMetadata ?? "mentorado";
-    let nome = nomeMetadata ?? user.email ?? "Usuário";
-
-    const { data: perfil } = await supabase
+    const { data: perfil, error: perfilError } = await supabase
       .from("profiles")
       .select("nome, email, role")
       .eq("id", user.id)
       .single();
 
-    if (perfil) {
-      nome = perfil.nome || nome;
-      role = (perfil.role as UserRole) || role;
+    if (perfilError || !perfil) {
+      setCarregando(false);
+      setErro("Perfil não encontrado. Verifique o cadastro no Supabase.");
+      await supabase.auth.signOut();
+      return;
+    }
+
+    const role = perfil.role as UserRole;
+    const nome = perfil.nome || user.email || "Usuário";
+
+    if (!rolesValidas.includes(role)) {
+      setCarregando(false);
+      setErro("Perfil inválido no banco de dados.");
+      await supabase.auth.signOut();
+      return;
     }
 
     const usuarioLogado: UsuarioLogado = {
       nome,
-      email: user.email ?? emailNormalizado,
+      email: perfil.email || user.email || emailNormalizado,
       senha: "",
       role,
     };
 
     localStorage.removeItem("cohub_user");
     localStorage.setItem("ceoclub_user", JSON.stringify(usuarioLogado));
+
+    setCarregando(false);
 
     if (role === "mentor") {
       router.replace("/dashboard");
@@ -87,7 +103,22 @@ export default function LoginPage() {
       return;
     }
 
-    router.replace("/dashboard");
+    if (role === "financeiro") {
+      router.replace("/financeiro");
+      return;
+    }
+
+    if (role === "modulos") {
+      router.replace("/modulos");
+      return;
+    }
+
+    if (role === "progresso") {
+      router.replace("/progresso");
+      return;
+    }
+
+    router.replace("/login");
   }
 
   return (
@@ -196,7 +227,9 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/8 p-4 text-sm text-[#D1D5DB] backdrop-blur-sm">
-              <p className="mb-2 font-semibold text-white">Logins reais de teste:</p>
+              <p className="mb-2 font-semibold text-white">
+                Logins reais de teste:
+              </p>
               <p>Mentora: luadmin@ceoclub.com / 123456</p>
               <p>Mentorado: mentorado@ceoclub.com / 123456</p>
             </div>
