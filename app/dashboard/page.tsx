@@ -4,64 +4,27 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import { supabase } from "@/utils/supabase";
 
-type Mentorado = {
+type PerfilUsuario = "mentor" | "mentorado" | "financeiro" | "progresso" | "modulos";
+
+type UsuarioSistema = {
   id: string;
   nome: string;
-  area: string;
-  progresso: number;
-  sessoes: number;
-  acoes: number;
-  proximoEncontro: string;
-  status: "Excelente" | "Em evolução" | "Atenção";
+  email: string;
+  role: PerfilUsuario;
+  telefone: string | null;
+  status: "Ativo" | "Pendente" | "Inativo" | null;
+  created_at: string;
 };
-
-const mentoradosMock: Mentorado[] = [
-  {
-    id: "joao",
-    nome: "Dr. João Almeida",
-    area: "Vendas",
-    progresso: 72,
-    sessoes: 8,
-    acoes: 21,
-    proximoEncontro: "06/05 às 14h",
-    status: "Em evolução",
-  },
-  {
-    id: "ana",
-    nome: "Dra. Ana Martins",
-    area: "Marketing",
-    progresso: 44,
-    sessoes: 4,
-    acoes: 9,
-    proximoEncontro: "08/05 às 10h",
-    status: "Atenção",
-  },
-  {
-    id: "carlos",
-    nome: "Dr. Carlos Vieira",
-    area: "Posicionamento",
-    progresso: 91,
-    sessoes: 11,
-    acoes: 34,
-    proximoEncontro: "10/05 às 16h",
-    status: "Excelente",
-  },
-  {
-    id: "julia",
-    nome: "Dra. Julia Rocha",
-    area: "Fechamento",
-    progresso: 58,
-    sessoes: 6,
-    acoes: 16,
-    proximoEncontro: "12/05 às 9h",
-    status: "Em evolução",
-  },
-];
 
 export default function DashboardPage() {
   const router = useRouter();
+
   const [usuario, setUsuario] = useState<User | null>(null);
+  const [usuarios, setUsuarios] = useState<UsuarioSistema[]>([]);
+  const [carregandoDados, setCarregandoDados] = useState(true);
+  const [erro, setErro] = useState("");
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -83,27 +46,68 @@ export default function DashboardPage() {
     }
 
     setUsuario(user);
+    carregarUsuarios();
   }, [router]);
 
-  const resumo = useMemo(() => {
-    const total = mentoradosMock.length;
+  async function pegarToken() {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token;
+  }
 
-    const progressoMedio = Math.round(
-      mentoradosMock.reduce((acc, item) => acc + item.progresso, 0) / total
+  async function carregarUsuarios() {
+    setCarregandoDados(true);
+    setErro("");
+
+    const token = await pegarToken();
+
+    if (!token) {
+      setErro("Sessão expirada. Entre novamente.");
+      setCarregandoDados(false);
+      return;
+    }
+
+    const resposta = await fetch("/api/admin/usuarios", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const json = await resposta.json();
+
+    if (!resposta.ok) {
+      setErro(json.error ?? "Não foi possível carregar os dados do painel.");
+      setCarregandoDados(false);
+      return;
+    }
+
+    setUsuarios(json.usuarios ?? []);
+    setCarregandoDados(false);
+  }
+
+  const resumo = useMemo(() => {
+    const mentoradas = usuarios.filter((item) => item.role === "mentorado");
+    const mentoras = usuarios.filter((item) => item.role === "mentor");
+
+    const ativos = usuarios.filter(
+      (item) => (item.status ?? "Ativo") === "Ativo"
     );
 
-    const sessoes = mentoradosMock.reduce((acc, item) => acc + item.sessoes, 0);
-    const acoes = mentoradosMock.reduce((acc, item) => acc + item.acoes, 0);
-    const atencao = mentoradosMock.filter((m) => m.status === "Atenção").length;
-    const excelentes = mentoradosMock.filter(
-      (m) => m.status === "Excelente"
-    ).length;
+    const pendentes = usuarios.filter(
+      (item) => (item.status ?? "Ativo") === "Pendente"
+    );
 
-    return { total, progressoMedio, sessoes, acoes, atencao, excelentes };
-  }, []);
+    return {
+      totalUsuarios: usuarios.length,
+      mentoradas: mentoradas.length,
+      mentoras: mentoras.length,
+      ativos: ativos.length,
+      pendentes: pendentes.length,
+    };
+  }, [usuarios]);
 
-  function sair() {
+  async function sair() {
     logoutUsuario();
+    await supabase.auth.signOut();
     router.replace("/login");
   }
 
@@ -153,188 +157,199 @@ export default function DashboardPage() {
 
               <div>
                 <h2 className="text-4xl font-black tracking-tight text-[#050816]">
-                  Bem-vinda de volta, Luciana
+                  Bem-vinda de volta, {usuario.nome}
                 </h2>
-                <p className="mt-2 text-lg font-medium text-gray-500">
-                  Aqui está a visão completa da evolução dos mentorados.
+
+                <p className="mt-2 max-w-2xl text-lg font-medium text-gray-500">
+                  Este painel agora mostra dados reais cadastrados no CEO Club.
+                  Conforme mentoradas, módulos, aulas e simulados forem criados,
+                  os indicadores serão preenchidos automaticamente.
                 </p>
               </div>
             </div>
 
-            <button
-              onClick={() => router.push("/mentorados")}
-              className="rounded-2xl bg-gradient-to-b from-[#F3F4F6] via-[#D1D5DB] to-[#9CA3AF] px-6 py-4 font-black text-[#08163F] shadow-lg transition hover:-translate-y-0.5 hover:brightness-105"
-            >
-              Gerenciar mentorados →
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => router.push("/usuarios")}
+                className="rounded-2xl bg-[#08163F] px-6 py-4 font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
+              >
+                + Cadastrar mentorado
+              </button>
+
+              <button
+                onClick={() => router.push("/mentorados")}
+                className="rounded-2xl bg-gradient-to-b from-[#F3F4F6] via-[#D1D5DB] to-[#9CA3AF] px-6 py-4 font-black text-[#08163F] shadow-lg transition hover:-translate-y-0.5 hover:brightness-105"
+              >
+                Gerenciar mentorados →
+              </button>
+            </div>
           </section>
 
+          {erro && (
+            <div className="mb-6 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+              {erro}
+            </div>
+          )}
+
           <section className="mb-7 grid gap-5 xl:grid-cols-5">
-            <KPI titulo="Mentorados ativos" valor={resumo.total} destaque />
-            <KPI titulo="Evolução média" valor={`${resumo.progressoMedio}%`} />
-            <KPI titulo="Sessões concluídas" valor={resumo.sessoes} />
-            <KPI titulo="Ações executadas" valor={resumo.acoes} />
-            <KPI titulo="Em atenção" valor={resumo.atencao} alerta />
+            <KPI
+              titulo="Mentoradas cadastradas"
+              valor={carregandoDados ? "..." : resumo.mentoradas}
+              destaque
+            />
+
+            <KPI
+              titulo="Mentoras"
+              valor={carregandoDados ? "..." : resumo.mentoras}
+            />
+
+            <KPI
+              titulo="Usuários ativos"
+              valor={carregandoDados ? "..." : resumo.ativos}
+            />
+
+            <KPI
+              titulo="Acessos cadastrados"
+              valor={carregandoDados ? "..." : resumo.totalUsuarios}
+            />
+
+            <KPI
+              titulo="Pendentes"
+              valor={carregandoDados ? "..." : resumo.pendentes}
+              alerta={resumo.pendentes > 0}
+            />
           </section>
 
           <section className="mb-8 rounded-[26px] bg-white p-5 shadow-lg">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-bold text-gray-500">
-                Evolução geral dos mentorados
+                Evolução geral das mentoradas
               </p>
-              <p className="text-sm font-black text-[#08163F]">
-                {resumo.progressoMedio}%
-              </p>
+
+              <p className="text-sm font-black text-[#08163F]">0%</p>
             </div>
 
             <div className="h-5 overflow-hidden rounded-full bg-gray-100">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] via-[#12317C] to-[#07122F]"
-                style={{ width: `${resumo.progressoMedio}%` }}
+                style={{ width: "0%" }}
               />
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-6 text-sm font-semibold text-gray-500">
-              <span className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-[#12317C]" />
-                Evolução atual
-              </span>
-
-              <span className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-gray-300" />
-                Espaço de crescimento
-              </span>
-
-              <span className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-red-400" />
-                Atenção necessária
-              </span>
-            </div>
+            <p className="mt-4 text-sm font-semibold text-gray-500">
+              Nenhum progresso foi registrado ainda. Quando os módulos e aulas
+              forem conectados ao banco, esta barra passará a refletir a evolução
+              real das mentoradas.
+            </p>
           </section>
 
           <section className="grid gap-6 xl:grid-cols-2">
-            <Card titulo="Mentorados em destaque">
-              <div className="space-y-4">
-                {mentoradosMock.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => router.push(`/mentorados/${m.id}`)}
-                    className="w-full rounded-2xl border border-gray-100 bg-[#f9fafb] p-4 text-left transition hover:border-[#12317C]/20 hover:bg-white hover:shadow-md"
-                  >
-                    <div className="mb-3 flex justify-between gap-4">
-                      <div>
-                        <p className="font-black text-[#08163F]">{m.nome}</p>
-                        <p className="text-sm font-medium text-gray-500">
-                          Área atual: {m.area}
-                        </p>
-                      </div>
+            <Card titulo="Mentoradas cadastradas">
+              {carregandoDados ? (
+                <EmptyState
+                  titulo="Carregando mentoradas..."
+                  texto="Buscando os perfis reais cadastrados no Supabase."
+                />
+              ) : usuarios.filter((u) => u.role === "mentorado").length === 0 ? (
+                <EmptyState
+                  titulo="Nenhuma mentorada cadastrada ainda"
+                  texto="Cadastre a primeira mentorada para liberar o acesso dela ao CEO Club."
+                  botao="+ Cadastrar mentorado"
+                  onClick={() => router.push("/usuarios")}
+                />
+              ) : (
+                <div className="space-y-4">
+                  {usuarios
+                    .filter((item) => item.role === "mentorado")
+                    .map((mentorada) => (
+                      <button
+                        key={mentorada.id}
+                        onClick={() => router.push(`/mentorados/${mentorada.id}`)}
+                        className="w-full rounded-2xl border border-gray-100 bg-[#f9fafb] p-4 text-left transition hover:border-[#12317C]/20 hover:bg-white hover:shadow-md"
+                      >
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <p className="font-black text-[#08163F]">
+                              {mentorada.nome}
+                            </p>
 
-                      <StatusBadge status={m.status} />
-                    </div>
+                            <p className="text-sm font-medium text-gray-500">
+                              {mentorada.email}
+                            </p>
 
-                    <div className="mb-2 flex justify-between text-sm">
-                      <span className="font-semibold text-gray-500">
-                        Progresso
-                      </span>
-                      <span className="font-black text-[#08163F]">
-                        {m.progresso}%
-                      </span>
-                    </div>
+                            {mentorada.telefone && (
+                              <p className="mt-1 text-sm font-medium text-gray-400">
+                                {mentorada.telefone}
+                              </p>
+                            )}
+                          </div>
 
-                    <div className="h-3 overflow-hidden rounded-full bg-gray-200">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] to-[#12317C]"
-                        style={{ width: `${m.progresso}%` }}
-                      />
-                    </div>
-                  </button>
-                ))}
-              </div>
+                          <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-xs font-black text-[#08163F]">
+                            {mentorada.status ?? "Ativo"}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                </div>
+              )}
             </Card>
 
             <Card titulo="Próximos encontros">
-              <div className="space-y-4">
-                {mentoradosMock.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => router.push(`/mentorados/${m.id}`)}
-                    className="flex w-full items-center justify-between rounded-2xl bg-[#f9fafb] p-4 text-left transition hover:bg-white hover:shadow-md"
-                  >
-                    <div>
-                      <p className="font-black text-[#08163F]">{m.nome}</p>
-                      <p className="text-sm font-semibold text-gray-500">
-                        {m.area}
-                      </p>
-                    </div>
-
-                    <span className="rounded-full bg-white px-4 py-2 text-sm font-black text-[#08163F] shadow-sm">
-                      {m.proximoEncontro}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <EmptyState
+                titulo="Nenhum encontro agendado"
+                texto="Quando a agenda real for conectada ao banco, os próximos encontros aparecerão nesta área."
+                botao="Abrir agenda"
+                onClick={() => router.push("/agenda")}
+              />
             </Card>
 
-            <Card titulo="Desempenho por área">
-              <div className="space-y-4">
-                <Area nome="Vendas" progresso={76} />
-                <Area nome="Marketing" progresso={52} />
-                <Area nome="Posicionamento" progresso={88} />
-                <Area nome="Fechamento" progresso={61} />
-              </div>
+            <Card titulo="Módulos e aulas">
+              <EmptyState
+                titulo="Nenhum módulo cadastrado ainda"
+                texto="Os módulos e aulas serão exibidos aqui quando forem criados pela mentora."
+                botao="Gerenciar módulos"
+                onClick={() => router.push("/modulos")}
+              />
             </Card>
 
-            <Card titulo="Insights da mentora">
-              <div className="space-y-4">
-                <Insight texto="Marketing está com execução abaixo da média geral." />
-                <Insight texto="Ana precisa de acompanhamento próximo nesta semana." />
-                <Insight texto="Carlos está pronto para avançar para uma etapa mais estratégica." />
-                <Insight texto="Vendas segue como área com maior potencial de crescimento." />
-              </div>
+            <Card titulo="Simulados">
+              <EmptyState
+                titulo="Nenhum simulado publicado"
+                texto="Quando a mentora criar e publicar simulados, eles aparecerão aqui com os resultados reais."
+                botao="Criar simulado"
+                onClick={() => router.push("/simulados")}
+              />
             </Card>
 
-            <Card titulo="Mentorados que precisam de atenção">
-              <div className="space-y-3">
-                {mentoradosMock
-                  .filter((m) => m.status === "Atenção" || m.progresso < 50)
-                  .map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => router.push(`/mentorados/${m.id}`)}
-                      className="flex w-full items-center justify-between rounded-2xl bg-red-50 p-4 text-left transition hover:bg-red-100"
-                    >
-                      <div>
-                        <p className="font-black text-red-800">{m.nome}</p>
-                        <p className="text-sm font-semibold text-red-500">
-                          Travada em {m.area}
-                        </p>
-                      </div>
-
-                      <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-red-700">
-                        {m.progresso}%
-                      </span>
-                    </button>
-                  ))}
-              </div>
+            <Card titulo="Financeiro">
+              <EmptyState
+                titulo="Nenhum lançamento financeiro"
+                texto="O financeiro ainda não possui dados cadastrados. Quando conectado ao banco, esta área mostrará pagamentos e pendências reais."
+                botao="Abrir financeiro"
+                onClick={() => router.push("/financeiro")}
+              />
             </Card>
 
             <Card titulo="Ações rápidas">
               <div className="grid gap-4 md:grid-cols-2">
                 <ActionButton
-                  label="Novo mentorado"
+                  label="Cadastrar mentorado"
+                  onClick={() => router.push("/usuarios")}
+                />
+
+                <ActionButton
+                  label="Ver mentorados"
                   onClick={() => router.push("/mentorados")}
                 />
+
+                <ActionButton
+                  label="Criar simulado"
+                  onClick={() => router.push("/simulados")}
+                />
+
                 <ActionButton
                   label="Ver agenda"
                   onClick={() => router.push("/agenda")}
-                />
-                <ActionButton
-                  label="Abrir progresso"
-                  onClick={() => router.push("/progresso")}
-                />
-                <ActionButton
-                  label="Financeiro"
-                  onClick={() => router.push("/financeiro")}
                 />
               </div>
             </Card>
@@ -362,13 +377,17 @@ function KPI({
         destaque
           ? "bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-white"
           : alerta
-          ? "bg-red-50 text-red-800"
+          ? "bg-yellow-50 text-yellow-800"
           : "bg-white text-[#08163F]"
       }`}
     >
       <p
         className={`text-sm font-bold ${
-          destaque ? "text-[#C9CED6]" : alerta ? "text-red-500" : "text-gray-500"
+          destaque
+            ? "text-[#C9CED6]"
+            : alerta
+            ? "text-yellow-600"
+            : "text-gray-500"
         }`}
       >
         {titulo}
@@ -397,44 +416,37 @@ function Card({
   );
 }
 
-function Area({ nome, progresso }: { nome: string; progresso: number }) {
+function EmptyState({
+  titulo,
+  texto,
+  botao,
+  onClick,
+}: {
+  titulo: string;
+  texto: string;
+  botao?: string;
+  onClick?: () => void;
+}) {
   return (
-    <div className="rounded-2xl bg-[#f9fafb] p-4">
-      <div className="mb-2 flex justify-between">
-        <p className="font-black text-[#08163F]">{nome}</p>
-        <p className="font-black text-[#08163F]">{progresso}%</p>
+    <div className="rounded-[26px] bg-[#f9fafb] p-8 text-center">
+      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[24px] bg-white text-4xl shadow-sm">
+        ✦
       </div>
 
-      <div className="h-3 overflow-hidden rounded-full bg-gray-200">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] to-[#12317C]"
-          style={{ width: `${progresso}%` }}
-        />
-      </div>
-    </div>
-  );
-}
+      <h3 className="mt-5 text-xl font-black text-[#08163F]">{titulo}</h3>
 
-function StatusBadge({ status }: { status: Mentorado["status"] }) {
-  const classes = {
-    Excelente: "bg-green-100 text-green-700",
-    "Em evolução": "bg-blue-100 text-blue-700",
-    Atenção: "bg-red-100 text-red-700",
-  };
-
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black ${classes[status]}`}>
-      {status}
-    </span>
-  );
-}
-
-function Insight({ texto }: { texto: string }) {
-  return (
-    <div className="rounded-2xl border border-[#12317C]/10 bg-[#f8fafc] p-4">
-      <p className="text-sm font-semibold leading-relaxed text-gray-600">
-        💡 {texto}
+      <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-relaxed text-gray-500">
+        {texto}
       </p>
+
+      {botao && onClick && (
+        <button
+          onClick={onClick}
+          className="mt-6 rounded-2xl bg-white px-6 py-3 font-black text-[#08163F] shadow-sm transition hover:shadow-md"
+        >
+          {botao} →
+        </button>
+      )}
     </div>
   );
 }
