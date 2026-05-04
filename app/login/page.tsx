@@ -2,7 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { fakeUsers } from "@/data/users";
+import { supabase } from "@/utils/supabase";
+
+type UserRole = "mentor" | "mentorado" | "modulos" | "financeiro" | "progresso";
+
+type UsuarioLogado = {
+  nome: string;
+  email: string;
+  senha: string;
+  role: UserRole;
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,7 +27,7 @@ export default function LoginPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     setErro("");
@@ -27,32 +36,58 @@ export default function LoginPage() {
     const emailNormalizado = email.toLowerCase().trim();
     const senhaNormalizada = senha.trim();
 
-    const usuario = fakeUsers.find(
-      (u) =>
-        u.email.toLowerCase().trim() === emailNormalizado &&
-        u.senha === senhaNormalizada
-    );
+    const { data: loginData, error: loginError } =
+      await supabase.auth.signInWithPassword({
+        email: emailNormalizado,
+        password: senhaNormalizada,
+      });
 
-    if (!usuario) {
+    if (loginError || !loginData.user) {
       setCarregando(false);
       setErro("E-mail ou senha inválidos.");
       return;
     }
 
-localStorage.removeItem("cohub_user");
-localStorage.setItem("ceoclub_user", JSON.stringify(usuario));
+    const user = loginData.user;
 
-if (usuario.role === "mentor") {
-  router.replace("/dashboard");
-  return;
-}
+    const roleMetadata = user.user_metadata?.role as UserRole | undefined;
+    const nomeMetadata = user.user_metadata?.nome as string | undefined;
 
-if (usuario.role === "mentorado") {
-  router.replace("/mentorado/dashboard");
-  return;
-}
+    let role: UserRole = roleMetadata ?? "mentorado";
+    let nome = nomeMetadata ?? user.email ?? "Usuário";
 
-router.replace("/login");
+    const { data: perfil } = await supabase
+      .from("profiles")
+      .select("nome, email, role")
+      .eq("id", user.id)
+      .single();
+
+    if (perfil) {
+      nome = perfil.nome || nome;
+      role = (perfil.role as UserRole) || role;
+    }
+
+    const usuarioLogado: UsuarioLogado = {
+      nome,
+      email: user.email ?? emailNormalizado,
+      senha: "",
+      role,
+    };
+
+    localStorage.removeItem("cohub_user");
+    localStorage.setItem("ceoclub_user", JSON.stringify(usuarioLogado));
+
+    if (role === "mentor") {
+      router.replace("/dashboard");
+      return;
+    }
+
+    if (role === "mentorado") {
+      router.replace("/mentorado/dashboard");
+      return;
+    }
+
+    router.replace("/dashboard");
   }
 
   return (
@@ -143,7 +178,9 @@ router.replace("/login");
                 }}
               />
 
-              {erro && <p className="text-sm font-semibold text-red-300">{erro}</p>}
+              {erro && (
+                <p className="text-sm font-semibold text-red-300">{erro}</p>
+              )}
 
               <button
                 type="submit"
@@ -159,7 +196,7 @@ router.replace("/login");
             </form>
 
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/8 p-4 text-sm text-[#D1D5DB] backdrop-blur-sm">
-              <p className="mb-2 font-semibold text-white">Logins de teste:</p>
+              <p className="mb-2 font-semibold text-white">Logins reais de teste:</p>
               <p>Mentora: luadmin@ceoclub.com / 123456</p>
               <p>Mentorado: mentorado@ceoclub.com / 123456</p>
             </div>
