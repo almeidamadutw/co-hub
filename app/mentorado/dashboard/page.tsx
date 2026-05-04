@@ -3,49 +3,31 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import { supabase } from "@/utils/supabase";
 
-type Modulo = {
+type ModuloMentorado = {
   id: string;
   titulo: string;
   descricao: string;
+  status: "Bloqueado" | "Disponível" | "Concluído";
   progresso: number;
-  status: "Concluído" | "Em andamento" | "Bloqueado";
 };
 
-const modulosMock: Modulo[] = [
-  {
-    id: "boas-vindas",
-    titulo: "Boas-vindas",
-    descricao: "Introdução à jornada CEO Club.",
-    progresso: 100,
-    status: "Concluído",
-  },
-  {
-    id: "posicionamento",
-    titulo: "Posicionamento",
-    descricao: "Clareza de marca, autoridade e diferenciação.",
-    progresso: 65,
-    status: "Em andamento",
-  },
-  {
-    id: "vendas",
-    titulo: "Vendas",
-    descricao: "Estratégia comercial, objeções e fechamento.",
-    progresso: 20,
-    status: "Em andamento",
-  },
-  {
-    id: "marketing",
-    titulo: "Marketing",
-    descricao: "Conteúdo, presença digital e geração de demanda.",
-    progresso: 0,
-    status: "Bloqueado",
-  },
-];
+type TarefaSemana = {
+  id: string;
+  titulo: string;
+  status: "Pendente" | "Concluída";
+};
+
+const modulosIniciais: ModuloMentorado[] = [];
+const tarefasIniciais: TarefaSemana[] = [];
 
 export default function DashboardMentoradoPage() {
   const router = useRouter();
+
   const [usuario, setUsuario] = useState<User | null>(null);
+  const [modulos] = useState<ModuloMentorado[]>(modulosIniciais);
+  const [tarefas] = useState<TarefaSemana[]>(tarefasIniciais);
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -69,47 +51,43 @@ export default function DashboardMentoradoPage() {
     setUsuario(user);
   }, [router]);
 
-  const moduloAtual = useMemo(() => {
-    return (
-      modulosMock.find((modulo) => modulo.status === "Em andamento") ??
-      modulosMock[0]
-    );
-  }, []);
-
   const resumo = useMemo(() => {
-    const progressoGeral = Math.round(
-      modulosMock.reduce((acc, modulo) => acc + modulo.progresso, 0) /
-        modulosMock.length
-    );
+    const totalModulos = modulos.length;
+    const concluidos = modulos.filter((m) => m.status === "Concluído").length;
+    const emAndamento = modulos.filter((m) => m.status === "Disponível").length;
 
-    const concluidos = modulosMock.filter(
-      (modulo) => modulo.status === "Concluído"
-    ).length;
-
-    const andamento = modulosMock.filter(
-      (modulo) => modulo.status === "Em andamento"
-    ).length;
+    const progressoGeral =
+      totalModulos > 0
+        ? Math.round(
+            modulos.reduce((acc, modulo) => acc + modulo.progresso, 0) /
+              totalModulos
+          )
+        : 0;
 
     return {
-      progressoGeral,
+      totalModulos,
       concluidos,
-      andamento,
-      total: modulosMock.length,
+      emAndamento,
+      progressoGeral,
+      tarefasPendentes: tarefas.filter((t) => t.status === "Pendente").length,
     };
-  }, []);
+  }, [modulos, tarefas]);
 
-  function sair() {
+  async function sair() {
     logoutUsuario();
+    await supabase.auth.signOut();
     router.replace("/login");
   }
 
   if (!usuario) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        Carregando área do mentorado...
+        Carregando sua jornada...
       </main>
     );
   }
+
+  const inicial = usuario.nome?.charAt(0)?.toUpperCase() || "M";
 
   return (
     <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
@@ -131,19 +109,21 @@ export default function DashboardMentoradoPage() {
           </div>
         </div>
 
-       <nav className="space-y-2">
-  <MenuItem label="Início" onClick={() => router.push("/mentorado/dashboard")} />
-  <MenuItem label="Minha agenda" onClick={() => router.push("/mentorado/agenda")} />
-  <MenuItem label="Meus módulos" onClick={() => router.push("/mentorado/modulos")} />
-  <MenuItem label="Praticar" onClick={() => router.push("/mentorado/praticar")} />
-  <MenuItem label="Meu progresso" onClick={() => router.push("/mentorado/progresso")} />
-  <MenuItem label="Financeiro" onClick={() => router.push("/mentorado/financeiro")} />
-  <MenuItem label="Minha conta" onClick={() => router.push("/mentorado/conta")} />
-</nav>
+        <nav className="space-y-2">
+          <MenuItem ativo label="Início" onClick={() => router.push("/mentorado/dashboard")} />
+          <MenuItem label="Minha agenda" onClick={() => router.push("/mentorado/agenda")} />
+          <MenuItem label="Meus módulos" onClick={() => router.push("/mentorado/modulos")} />
+          <MenuItem label="Praticar" onClick={() => router.push("/mentorado/praticar")} />
+          <MenuItem label="Meu progresso" onClick={() => router.push("/mentorado/progresso")} />
+          <MenuItem label="Financeiro" onClick={() => router.push("/mentorado/financeiro")} />
+          <MenuItem label="Minha conta" onClick={() => router.push("/mentorado/conta")} />
+        </nav>
+
         <div className="mt-auto rounded-[24px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white">
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#C9CED6]">
             Mentorado
           </p>
+
           <p className="mt-2 font-black">{usuario.nome}</p>
 
           <button
@@ -158,7 +138,7 @@ export default function DashboardMentoradoPage() {
       <section className="flex-1 overflow-hidden">
         <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-6 backdrop-blur-xl md:px-8">
           <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] to-[#12317C] text-sm font-black text-white shadow-lg">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#08163F] text-sm font-black text-white shadow-lg">
               CC
             </div>
 
@@ -188,37 +168,44 @@ export default function DashboardMentoradoPage() {
         </header>
 
         <div className="h-[calc(100vh-82px)] overflow-y-auto px-6 py-10 md:px-8">
-          <section className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-6">
-              <div className="flex h-28 w-28 items-center justify-center rounded-full border border-gray-200 bg-white shadow-lg">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#D9DEE7] to-[#9CA3AF] text-3xl font-black text-white">
-                  {usuario.nome.charAt(0)}
+          <section className="mb-8 overflow-hidden rounded-[34px] bg-white p-8 shadow-xl">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-6 md:flex-row md:items-center">
+                <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full border-[10px] border-white bg-gradient-to-br from-[#E5E7EB] to-[#BFC3C9] text-4xl font-black text-white shadow-xl">
+                  {inicial}
+                </div>
+
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.28em] text-gray-400">
+                    Bem-vindo(a) ao CEO Club
+                  </p>
+
+                  <h2 className="mt-3 text-4xl font-black text-[#050816]">
+                    Olá, {usuario.nome}
+                  </h2>
+
+                  <p className="mt-3 max-w-2xl text-base font-semibold leading-relaxed text-gray-500">
+                    Sua jornada ainda não foi iniciada. Assim que a mentora
+                    liberar os módulos, aulas, atividades e simulados, tudo
+                    aparecerá organizado aqui.
+                  </p>
                 </div>
               </div>
 
-              <div>
-                <h2 className="text-4xl font-black tracking-tight text-[#050816]">
-                  Bem-vindo(a) de volta, {usuario.nome}
-                </h2>
-                <p className="mt-2 text-lg font-medium text-gray-500">
-                  Continue sua evolução com foco, prática e direção.
-                </p>
-              </div>
+              <button
+                onClick={() => router.push("/mentorado/suporte")}
+                className="rounded-2xl bg-[#08163F] px-6 py-4 font-black text-white shadow-lg transition hover:brightness-110"
+              >
+                Falar com suporte →
+              </button>
             </div>
-
-            <button
-              onClick={() => router.push("/mentorado/modulos")}
-              className="rounded-2xl bg-gradient-to-b from-[#F3F4F6] via-[#D1D5DB] to-[#9CA3AF] px-6 py-4 font-black text-[#08163F] shadow-lg transition hover:-translate-y-0.5 hover:brightness-105"
-            >
-              Continuar módulo →
-            </button>
           </section>
 
-          <section className="mb-7 grid gap-5 xl:grid-cols-4">
+          <section className="mb-8 grid gap-5 xl:grid-cols-4">
             <KPI titulo="Progresso geral" valor={`${resumo.progressoGeral}%`} destaque />
-            <KPI titulo="Módulos concluídos" valor={`${resumo.concluidos}/${resumo.total}`} />
-            <KPI titulo="Em andamento" valor={resumo.andamento} />
-            <KPI titulo="Próximo encontro" valor="Em breve" />
+            <KPI titulo="Módulos liberados" valor={resumo.totalModulos} />
+            <KPI titulo="Em andamento" valor={resumo.emAndamento} />
+            <KPI titulo="Tarefas pendentes" valor={resumo.tarefasPendentes} />
           </section>
 
           <section className="mb-8 rounded-[26px] bg-white p-5 shadow-lg">
@@ -240,173 +227,111 @@ export default function DashboardMentoradoPage() {
             </div>
           </section>
 
-          <section className="mb-8 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-            <Card titulo="Continue sua jornada">
-              <button
-                onClick={() => router.push("/mentorado/modulos")}
-                className="group grid w-full gap-5 rounded-[26px] bg-[#f9fafb] p-5 text-left transition hover:bg-white hover:shadow-md md:grid-cols-[220px_1fr]"
-              >
-                <div className="flex h-48 items-center justify-center overflow-hidden rounded-[24px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-white shadow-lg">
-                  <div className="text-center">
-                    <p className="text-xs font-bold uppercase tracking-[0.26em] text-[#C9CED6]">
-                      Módulo atual
-                    </p>
-                    <h3 className="mt-3 text-3xl font-black">
-                      {moduloAtual.titulo}
-                    </h3>
+          <section className="grid gap-6 xl:grid-cols-[1fr_420px]">
+            <div className="space-y-6">
+              <Card titulo="Meus módulos">
+                {modulos.length === 0 ? (
+                  <EmptyState
+                    titulo="Nenhum módulo liberado ainda"
+                    texto="Quando sua mentora liberar os primeiros conteúdos, eles aparecerão aqui para você começar sua jornada."
+                    botao="Ver meus módulos"
+                    onClick={() => router.push("/mentorado/modulos")}
+                  />
+                ) : (
+                  <div className="space-y-4">
+                    {modulos.map((modulo) => (
+                      <div key={modulo.id} className="rounded-2xl bg-[#f9fafb] p-5">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <h3 className="font-black text-[#08163F]">
+                              {modulo.titulo}
+                            </h3>
+                            <p className="mt-1 text-sm font-semibold text-gray-500">
+                              {modulo.descricao}
+                            </p>
+                          </div>
+
+                          <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-xs font-black text-[#08163F]">
+                            {modulo.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
+                )}
+              </Card>
 
-                <div className="flex flex-col justify-center">
-                  <p className="text-sm font-bold uppercase tracking-[0.22em] text-gray-400">
-                    Continue estudando
-                  </p>
+              <Card titulo="Praticar meus conhecimentos">
+                <div className="rounded-[26px] bg-gradient-to-br from-[#f9fafb] to-white p-8 text-center">
+                  <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[28px] bg-[#EEF2FF] text-5xl">
+                    🎯
+                  </div>
 
-                  <h3 className="mt-2 text-2xl font-black text-[#08163F]">
-                    {moduloAtual.titulo}
+                  <h3 className="mt-5 text-2xl font-black text-[#050816]">
+                    Simulados ainda não liberados
                   </h3>
 
-                  <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
-                    {moduloAtual.descricao}
+                  <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-relaxed text-gray-500">
+                    A área de prática será liberada conforme seu andamento nos
+                    módulos. Quando houver simulados disponíveis, você poderá
+                    treinar por aqui.
                   </p>
 
-                  <div className="mt-5">
-                    <div className="mb-2 flex justify-between text-sm">
-                      <span className="font-semibold text-gray-500">
-                        Progresso do módulo
-                      </span>
-                      <span className="font-black text-[#08163F]">
-                        {moduloAtual.progresso}%
-                      </span>
-                    </div>
-
-                    <div className="h-3 overflow-hidden rounded-full bg-gray-200">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] to-[#12317C]"
-                        style={{ width: `${moduloAtual.progresso}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <p className="mt-5 font-black text-[#12317C] transition group-hover:translate-x-1">
-                    Assistir conteúdo →
-                  </p>
-                </div>
-              </button>
-            </Card>
-
-            <Card titulo="Praticar meus conhecimentos">
-              <div className="flex min-h-[330px] flex-col items-center justify-center rounded-[28px] bg-gradient-to-br from-white via-[#fbfaf7] to-[#f4f1ea] p-8 text-center shadow-inner">
-                <div className="mb-6 flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-[#F3F4F6] to-[#D1D5DB] text-6xl shadow-lg">
-                  🎯
-                </div>
-
-                <h3 className="text-2xl font-black text-[#08163F]">
-                  Treine o módulo de {moduloAtual.titulo}
-                </h3>
-
-                <p className="mt-3 max-w-md text-sm font-semibold leading-relaxed text-gray-500">
-                  Responda perguntas criadas conforme o módulo que você está
-                  estudando agora. A prática reforça o conteúdo e mostra onde
-                  você precisa evoluir.
-                </p>
-
-                <button
-                  onClick={() => router.push("/mentorado/praticar")}
-                  className="mt-8 rounded-full bg-white px-10 py-4 text-base font-black text-[#08163F] shadow-[0_14px_30px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:shadow-xl"
-                >
-                  Explorar agora →
-                </button>
-              </div>
-            </Card>
-          </section>
-
-          <section className="grid gap-6 xl:grid-cols-2">
-            <Card titulo="Meus módulos">
-              <div className="space-y-4">
-                {modulosMock.map((modulo) => (
                   <button
-                    key={modulo.id}
-                    onClick={() => router.push("/mentorado/modulos")}
-                    className="w-full rounded-2xl border border-gray-100 bg-[#f9fafb] p-4 text-left transition hover:border-[#12317C]/20 hover:bg-white hover:shadow-md"
+                    onClick={() => router.push("/mentorado/praticar")}
+                    className="mt-6 rounded-2xl bg-[#08163F] px-6 py-4 font-black text-white shadow-lg transition hover:brightness-110"
                   >
-                    <div className="mb-3 flex justify-between gap-4">
-                      <div>
-                        <p className="font-black text-[#08163F]">
-                          {modulo.titulo}
-                        </p>
+                    Ir para prática →
+                  </button>
+                </div>
+              </Card>
+            </div>
 
-                        <p className="text-sm font-medium text-gray-500">
-                          {modulo.descricao}
+            <aside className="space-y-6">
+              <Card titulo="Plano da semana">
+                {tarefas.length === 0 ? (
+                  <EmptyState
+                    titulo="Nenhuma tarefa no momento"
+                    texto="Quando sua mentora definir atividades, elas aparecerão nesta área."
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {tarefas.map((tarefa) => (
+                      <div
+                        key={tarefa.id}
+                        className="rounded-2xl bg-[#f9fafb] p-4"
+                      >
+                        <p className="font-black text-[#08163F]">{tarefa.titulo}</p>
+                        <p className="mt-1 text-sm font-semibold text-gray-500">
+                          {tarefa.status}
                         </p>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
 
-                      <StatusBadge status={modulo.status} />
-                    </div>
-
-                    <div className="mb-2 flex justify-between text-sm">
-                      <span className="font-semibold text-gray-500">
-                        Progresso
-                      </span>
-
-                      <span className="font-black text-[#08163F]">
-                        {modulo.progresso}%
-                      </span>
-                    </div>
-
-                    <div className="h-3 overflow-hidden rounded-full bg-gray-200">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] to-[#12317C]"
-                        style={{ width: `${modulo.progresso}%` }}
-                      />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </Card>
-
-            <Card titulo="Plano da semana">
-              <div className="space-y-4">
-                <Tarefa titulo="Revisar posicionamento atual" status="Pendente" />
-                <Tarefa titulo="Enviar diagnóstico comercial" status="Em andamento" />
-                <Tarefa titulo="Assistir aula de vendas consultivas" status="Pendente" />
-                <Tarefa titulo="Praticar perguntas do módulo atual" status="Pendente" />
-              </div>
-            </Card>
-
-            <Card titulo="Precisa de ajuda?">
-              <div className="rounded-[28px] bg-white p-2">
-                <div className="rounded-[26px] bg-[#f9fafb] p-6">
-                  <p className="text-sm font-bold uppercase tracking-[0.22em] text-gray-400">
-                    Suporte
+              <Card titulo="Próximo encontro">
+                <div className="rounded-[26px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-6 text-white">
+                  <p className="text-sm font-bold text-[#C9CED6]">
+                    Agenda da mentoria
                   </p>
 
-                  <h3 className="mt-3 text-2xl font-black text-[#08163F]">
-                    Central de apoio CEO Club
-                  </h3>
+                  <p className="mt-3 text-3xl font-black">Em breve</p>
 
-                  <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
-                    Encontre respostas, tire dúvidas sobre os módulos ou fale
-                    com a equipe da mentoria.
+                  <p className="mt-2 text-sm font-semibold text-[#D9DEE7]">
+                    Assim que um encontro for marcado, ele aparecerá aqui.
                   </p>
 
                   <button
-                    onClick={() => router.push("/mentorado/suporte")}
-                    className="mt-6 rounded-2xl bg-[#08163F] px-6 py-3 font-black text-white transition hover:brightness-110"
+                    onClick={() => router.push("/mentorado/agenda")}
+                    className="mt-6 rounded-2xl bg-white px-5 py-3 font-black text-[#08163F] transition hover:brightness-95"
                   >
-                    Abrir suporte →
+                    Ver agenda →
                   </button>
                 </div>
-              </div>
-            </Card>
-
-            <Card titulo="Insights da sua jornada">
-              <div className="space-y-4">
-                <Insight texto="Você avançou bem em posicionamento, mas ainda pode acelerar nas ações comerciais." />
-                <Insight texto="O módulo atual já possui perguntas liberadas para prática." />
-                <Insight texto="A próxima etapa ideal é transformar aprendizado em execução prática." />
-              </div>
-            </Card>
+              </Card>
+            </aside>
           </section>
         </div>
       </section>
@@ -455,11 +380,7 @@ function KPI({
           : "bg-white text-[#08163F]"
       }`}
     >
-      <p
-        className={`text-sm font-bold ${
-          destaque ? "text-[#C9CED6]" : "text-gray-500"
-        }`}
-      >
+      <p className={`text-sm font-bold ${destaque ? "text-[#C9CED6]" : "text-gray-500"}`}>
         {titulo}
       </p>
 
@@ -486,44 +407,37 @@ function Card({
   );
 }
 
-function StatusBadge({ status }: { status: Modulo["status"] }) {
-  const classes = {
-    "Concluído": "bg-green-100 text-green-700",
-    "Em andamento": "bg-blue-100 text-blue-700",
-    Bloqueado: "bg-gray-200 text-gray-500",
-  };
-
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black ${classes[status]}`}>
-      {status}
-    </span>
-  );
-}
-
-function Tarefa({
+function EmptyState({
   titulo,
-  status,
+  texto,
+  botao,
+  onClick,
 }: {
   titulo: string;
-  status: "Pendente" | "Em andamento" | "Concluída";
+  texto: string;
+  botao?: string;
+  onClick?: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl bg-[#f9fafb] p-4">
-      <p className="font-bold text-[#08163F]">{titulo}</p>
+    <div className="rounded-[26px] bg-[#f9fafb] p-8 text-center">
+      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[24px] bg-white text-4xl shadow-sm">
+        ✦
+      </div>
 
-      <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-gray-500">
-        {status}
-      </span>
-    </div>
-  );
-}
+      <h3 className="mt-5 text-xl font-black text-[#08163F]">{titulo}</h3>
 
-function Insight({ texto }: { texto: string }) {
-  return (
-    <div className="rounded-2xl border border-[#12317C]/10 bg-[#f8fafc] p-4">
-      <p className="text-sm font-semibold leading-relaxed text-gray-600">
-        💡 {texto}
+      <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-relaxed text-gray-500">
+        {texto}
       </p>
+
+      {botao && onClick && (
+        <button
+          onClick={onClick}
+          className="mt-6 rounded-2xl bg-white px-6 py-3 font-black text-[#08163F] shadow-sm transition hover:shadow-md"
+        >
+          {botao} →
+        </button>
+      )}
     </div>
   );
 }
