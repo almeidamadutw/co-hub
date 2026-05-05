@@ -160,11 +160,6 @@ export default function DashboardPage() {
                   Bem-vinda de volta, {usuario.nome}
                 </h2>
 
-                <p className="mt-2 max-w-2xl text-lg font-medium text-gray-500">
-                  Este painel agora mostra dados reais cadastrados no CEO Club.
-                  Conforme mentoradas, módulos, aulas e simulados forem criados,
-                  os indicadores serão preenchidos automaticamente.
-                </p>
               </div>
             </div>
 

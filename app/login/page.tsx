@@ -228,10 +228,10 @@ export default function LoginPage() {
 
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/8 p-4 text-sm text-[#D1D5DB] backdrop-blur-sm">
               <p className="mb-2 font-semibold text-white">
-                Logins reais de teste:
+                exemplo de login:
               </p>
-              <p>Mentora: luadmin@ceoclub.com / 123456</p>
-              <p>Mentorado: mentorado@ceoclub.com / 123456</p>
+              <p>mentor: seunomeadmin@ceoclub.com / 123456</p>
+              <p>mentorado: seunome@ceoclub.com / 123456</p>
             </div>
           </div>
         </div>

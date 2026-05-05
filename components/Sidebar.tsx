@@ -13,7 +13,6 @@ const menusMentora = [
   { label: "Mentorados", href: "/mentorados" },
   { label: "Módulos", href: "/modulos" },
   { label: "Simulados", href: "/simulados" },
-  { label: "Progresso", href: "/progresso" },
   { label: "Financeiro", href: "/financeiro" },
   { label: "Relatórios", href: "/relatorios" },
   { label: "Usuários", href: "/usuarios" },

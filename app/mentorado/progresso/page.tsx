@@ -4,66 +4,93 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 
-type ModuloProgresso = {
+type StatusModulo = "Concluído" | "Em andamento" | "Bloqueado";
+
+type ModuloMentorado = {
   nome: string;
+  descricao: string;
   progresso: number;
-  aulas: number;
   aulasConcluidas: number;
-  status: "Concluído" | "Em andamento" | "Bloqueado";
+  totalAulas: number;
+  status: StatusModulo;
 };
 
-const modulos: ModuloProgresso[] = [
+type AtividadeMentorado = {
+  titulo: string;
+  tipo: "Aula" | "Simulado" | "Atividade";
+  modulo: string;
+  status: "Pendente" | "Concluído";
+};
+
+const modulosMock: ModuloMentorado[] = [
   {
-    nome: "Comece aqui",
+    nome: "Mentalidade",
+    descricao: "Construção de visão empresarial, postura de CEO e tomada de decisão.",
     progresso: 100,
-    aulas: 2,
-    aulasConcluidas: 2,
+    aulasConcluidas: 6,
+    totalAulas: 6,
     status: "Concluído",
   },
   {
-    nome: "Posicionamento",
-    progresso: 65,
-    aulas: 3,
-    aulasConcluidas: 2,
+    nome: "Agendamento",
+    descricao: "Organização da agenda, previsibilidade e controle de horários.",
+    progresso: 72,
+    aulasConcluidas: 5,
+    totalAulas: 7,
     status: "Em andamento",
   },
   {
-    nome: "Vendas",
-    progresso: 20,
-    aulas: 2,
-    aulasConcluidas: 0,
+    nome: "Posicionamento",
+    descricao: "Autoridade, diferenciação e percepção de valor no mercado.",
+    progresso: 35,
+    aulasConcluidas: 2,
+    totalAulas: 6,
     status: "Em andamento",
   },
   {
     nome: "Marketing",
+    descricao: "Estratégias para atração, relacionamento e fortalecimento da marca.",
     progresso: 0,
-    aulas: 3,
     aulasConcluidas: 0,
+    totalAulas: 8,
+    status: "Bloqueado",
+  },
+  {
+    nome: "Vendas",
+    descricao: "Conversão, negociação e fechamento com mais segurança.",
+    progresso: 0,
+    aulasConcluidas: 0,
+    totalAulas: 7,
     status: "Bloqueado",
   },
 ];
 
-const atividades = [
+const atividadesMock: AtividadeMentorado[] = [
   {
-    titulo: "Aula concluída",
-    descricao: "Seja bem-vindo!",
-    data: "Hoje",
+    titulo: "Assistir aula: Agenda como ativo financeiro",
+    tipo: "Aula",
+    modulo: "Agendamento",
+    status: "Pendente",
   },
   {
-    titulo: "Simulado iniciado",
-    descricao: "Simulado de Posicionamento",
-    data: "Ontem",
+    titulo: "Responder simulado de posicionamento",
+    tipo: "Simulado",
+    modulo: "Posicionamento",
+    status: "Pendente",
   },
   {
-    titulo: "Módulo em andamento",
-    descricao: "Posicionamento",
-    data: "30/04",
+    titulo: "Exercício: diagnóstico da agenda atual",
+    tipo: "Atividade",
+    modulo: "Agendamento",
+    status: "Concluído",
   },
 ];
 
 export default function ProgressoMentoradoPage() {
   const router = useRouter();
+
   const [usuario, setUsuario] = useState<User | null>(null);
+  const [filtro, setFiltro] = useState("Todos");
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -73,356 +100,423 @@ export default function ProgressoMentoradoPage() {
       return;
     }
 
-    if (user.role === "mentor") {
-      router.replace("/dashboard");
-      return;
-    }
-
     if (user.role !== "mentorado") {
-      logoutUsuario();
-      router.replace("/login");
+      router.replace("/dashboard");
       return;
     }
 
     setUsuario(user);
   }, [router]);
 
-  const resumo = useMemo(() => {
-    const progressoGeral = Math.round(
-      modulos.reduce((acc, modulo) => acc + modulo.progresso, 0) / modulos.length
-    );
-
-    const aulas = modulos.reduce((acc, modulo) => acc + modulo.aulas, 0);
-    const aulasConcluidas = modulos.reduce(
-      (acc, modulo) => acc + modulo.aulasConcluidas,
-      0
-    );
-
-    const concluidos = modulos.filter(
-      (modulo) => modulo.status === "Concluído"
-    ).length;
-
-    return {
-      progressoGeral,
-      aulas,
-      aulasConcluidas,
-      concluidos,
-      total: modulos.length,
-    };
+  const progressoGeral = useMemo(() => {
+    const total = modulosMock.reduce((soma, modulo) => soma + modulo.progresso, 0);
+    return Math.round(total / modulosMock.length);
   }, []);
 
-  function sair() {
-    logoutUsuario();
-    router.replace("/login");
-  }
+  const aulasConcluidas = modulosMock.reduce(
+    (total, modulo) => total + modulo.aulasConcluidas,
+    0
+  );
+
+  const totalAulas = modulosMock.reduce(
+    (total, modulo) => total + modulo.totalAulas,
+    0
+  );
+
+  const modulosConcluidos = modulosMock.filter(
+    (modulo) => modulo.status === "Concluído"
+  ).length;
+
+  const atividadesPendentes = atividadesMock.filter(
+    (atividade) => atividade.status === "Pendente"
+  ).length;
+
+  const modulosFiltrados = modulosMock.filter((modulo) => {
+    if (filtro === "Todos") return true;
+    return modulo.status === filtro;
+  });
+
+  const proximoModulo = modulosMock.find(
+    (modulo) => modulo.status === "Em andamento"
+  );
+
+  const statusClasses: Record<StatusModulo, string> = {
+    "Concluído": "bg-emerald-50 text-emerald-700",
+    "Em andamento": "bg-blue-50 text-blue-700",
+    "Bloqueado": "bg-slate-100 text-slate-500",
+  };
 
   if (!usuario) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        Carregando progresso...
+        Carregando seu progresso...
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
-      <aside className="hidden min-h-screen w-[310px] flex-col border-r border-black/5 bg-white p-5 shadow-[10px_0_40px_rgba(15,23,42,0.04)] lg:flex">
-        <LogoBox />
+    <main className="min-h-screen bg-[#f3f5f8] text-[#08163F]">
+      <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-8 backdrop-blur-xl">
+        <div className="flex items-center gap-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] to-[#12317C] text-sm font-black text-white shadow-lg">
+            CC
+          </div>
 
-        <nav className="space-y-2">
-          <MenuItem label="Início" onClick={() => router.push("/mentorado/dashboard")} />
-          <MenuItem label="Minha agenda" onClick={() => router.push("/mentorado/agenda")} />
-          <MenuItem label="Meus módulos" onClick={() => router.push("/mentorado/modulos")} />
-          <MenuItem label="Praticar" onClick={() => router.push("/mentorado/praticar")} />
-          <MenuItem ativo label="Meu progresso" onClick={() => router.push("/mentorado/progresso")} />
-          <MenuItem label="Financeiro" onClick={() => router.push("/mentorado/financeiro")} />
-          <MenuItem label="Minha conta" onClick={() => router.push("/mentorado/conta")} />
-        </nav>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
+              Área do mentorado
+            </p>
+            <h1 className="text-xl font-black">Meu progresso</h1>
+          </div>
+        </div>
 
-        <UserBox nome={usuario.nome} onSair={sair} />
-      </aside>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push("/mentorado/dashboard")}
+            className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-[#08163F] shadow-sm transition hover:shadow-md"
+          >
+            Voltar ao painel
+          </button>
 
-      <section className="flex-1 overflow-hidden">
-        <Header
-          titulo="Meu progresso"
-          subtitulo="Área do mentorado"
-          onVoltar={() => router.push("/mentorado/dashboard")}
-          onSuporte={() => router.push("/mentorado/suporte")}
-          onSair={sair}
-        />
+          <button
+            onClick={() => {
+              logoutUsuario();
+              router.replace("/login");
+            }}
+            className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110"
+          >
+            Sair
+          </button>
+        </div>
+      </header>
 
-        <div className="h-[calc(100vh-82px)] overflow-y-auto px-6 py-10 md:px-8">
-          <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-xl">
-            <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
-              Evolução da jornada
+      <div className="px-8 py-10">
+        <section className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-[2rem] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-2xl shadow-[#07122F]/20">
+            <p className="text-sm font-bold uppercase tracking-[0.25em] text-blue-200">
+              Jornada CEO Club
             </p>
 
-            <h1 className="mt-3 text-4xl font-black">
-              Seu progresso dentro do CEO Club
-            </h1>
+            <h2 className="mt-3 max-w-3xl text-4xl font-black leading-tight">
+              {usuario.nome}, sua evolução está em {progressoGeral}%.
+            </h2>
 
-            <p className="mt-3 max-w-2xl text-[#D9DEE7]">
-              Acompanhe módulos, aulas concluídas, desempenho e próximos pontos
-              de evolução.
+            <p className="mt-4 max-w-3xl text-lg leading-8 text-blue-100">
+              Continue avançando nos módulos, concluindo aulas e praticando os
+              conhecimentos para transformar sua rotina em uma gestão mais
+              estratégica.
             </p>
 
             <div className="mt-8">
-              <div className="mb-3 flex justify-between text-sm font-black">
-                <span>Progresso geral</span>
-                <span>{resumo.progressoGeral}%</span>
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm font-black text-blue-100">
+                  Progresso geral
+                </span>
+                <span className="text-sm font-black text-white">
+                  {progressoGeral}%
+                </span>
               </div>
 
               <div className="h-5 overflow-hidden rounded-full bg-white/15">
                 <div
-                  className="h-full rounded-full bg-white"
-                  style={{ width: `${resumo.progressoGeral}%` }}
+                  className="h-full rounded-full bg-gradient-to-r from-white via-blue-200 to-[#57A8FF]"
+                  style={{ width: `${progressoGeral}%` }}
                 />
               </div>
             </div>
-          </section>
+          </div>
 
-          <section className="mb-8 grid gap-5 xl:grid-cols-4">
-            <KPI titulo="Progresso geral" valor={`${resumo.progressoGeral}%`} destaque />
-            <KPI titulo="Módulos concluídos" valor={`${resumo.concluidos}/${resumo.total}`} />
-            <KPI titulo="Aulas concluídas" valor={`${resumo.aulasConcluidas}/${resumo.aulas}`} />
-            <KPI titulo="Status atual" valor="Em evolução" />
-          </section>
+          <div className="rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
+              Próximo passo
+            </p>
 
-          <section className="grid gap-6 xl:grid-cols-[1fr_420px]">
-            <Card titulo="Progresso por módulo">
-              <div className="space-y-4">
-                {modulos.map((modulo) => (
-                  <div key={modulo.nome} className="rounded-2xl bg-[#f9fafb] p-5">
-                    <div className="mb-3 flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="font-black text-[#08163F]">{modulo.nome}</h3>
-                        <p className="mt-1 text-sm font-bold text-gray-500">
-                          {modulo.aulasConcluidas}/{modulo.aulas} aulas concluídas
-                        </p>
-                      </div>
+            <h3 className="mt-1 text-2xl font-black">
+              Continue de onde parou
+            </h3>
 
-                      <StatusBadge status={modulo.status} />
-                    </div>
+            {proximoModulo ? (
+              <div className="mt-6 rounded-[1.5rem] bg-[#f9fafb] p-6">
+                <p className="text-sm font-black text-slate-500">
+                  Módulo atual
+                </p>
 
-                    <div className="mb-2 flex justify-between text-sm font-bold text-gray-500">
-                      <span>Progresso</span>
-                      <span>{modulo.progresso}%</span>
-                    </div>
+                <h4 className="mt-2 text-3xl font-black">
+                  {proximoModulo.nome}
+                </h4>
 
-                    <div className="h-3 overflow-hidden rounded-full bg-gray-200">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] to-[#12317C]"
-                        style={{ width: `${modulo.progresso}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                <p className="mt-3 text-sm leading-6 text-slate-500">
+                  {proximoModulo.descricao}
+                </p>
+
+                <div className="mt-5 h-4 overflow-hidden rounded-full bg-white">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#071A55] to-[#1D7BFF]"
+                    style={{ width: `${proximoModulo.progresso}%` }}
+                  />
+                </div>
+
+                <div className="mt-4 flex items-center justify-between text-sm font-black">
+                  <span>{proximoModulo.progresso}% concluído</span>
+                  <span>
+                    {proximoModulo.aulasConcluidas}/{proximoModulo.totalAulas} aulas
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => router.push("/mentorado/modulos")}
+                  className="mt-6 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                >
+                  Continuar módulo
+                </button>
               </div>
-            </Card>
+            ) : (
+              <div className="mt-6 rounded-[1.5rem] bg-emerald-50 p-6">
+                <p className="text-lg font-black text-emerald-700">
+                  Todos os módulos disponíveis foram concluídos.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
 
-            <aside className="space-y-6">
-              <Card titulo="Atividade recente">
-                <div className="space-y-4">
-                  {atividades.map((atividade) => (
-                    <div key={atividade.titulo} className="rounded-2xl bg-[#f9fafb] p-4">
-                      <p className="font-black text-[#08163F]">{atividade.titulo}</p>
-                      <p className="mt-1 text-sm font-semibold text-gray-500">
-                        {atividade.descricao}
-                      </p>
-                      <p className="mt-2 text-xs font-black uppercase tracking-[0.18em] text-gray-400">
-                        {atividade.data}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </Card>
+        <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <KPI
+            titulo="Aulas concluídas"
+            valor={`${aulasConcluidas}/${totalAulas}`}
+            texto="Aulas finalizadas até agora."
+            destaque
+          />
 
-              <Card titulo="Próximo passo">
-                <div className="rounded-2xl bg-[#EEF2FF] p-5">
-                  <p className="font-black text-[#08163F]">
-                    Continue o módulo de Posicionamento
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-gray-500">
-                    Você já avançou bem. Agora falta consolidar as aulas e praticar
-                    com simulados.
-                  </p>
+          <KPI
+            titulo="Módulos concluídos"
+            valor={`${modulosConcluidos}/${modulosMock.length}`}
+            texto="Módulos totalmente finalizados."
+          />
 
-                  <button
-                    onClick={() => router.push("/mentorado/modulos")}
-                    className="mt-5 rounded-2xl bg-[#08163F] px-5 py-3 font-black text-white transition hover:brightness-110"
+          <KPI
+            titulo="Atividades pendentes"
+            valor={atividadesPendentes}
+            texto="Tarefas que ainda precisam de atenção."
+            alerta={atividadesPendentes > 0}
+          />
+
+          <KPI
+            titulo="Simulados"
+            valor="3"
+            texto="Simulados realizados na jornada."
+          />
+        </section>
+
+        <section className="mt-8 rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
+                Módulos
+              </p>
+
+              <h3 className="mt-1 text-2xl font-black">
+                Minha evolução por módulo
+              </h3>
+            </div>
+
+            <select
+              value={filtro}
+              onChange={(event) => setFiltro(event.target.value)}
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none"
+            >
+              <option>Todos</option>
+              <option>Concluído</option>
+              <option>Em andamento</option>
+              <option>Bloqueado</option>
+            </select>
+          </div>
+
+          <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {modulosFiltrados.map((moduloItem) => (
+              <article
+                key={moduloItem.nome}
+                className="rounded-[1.7rem] border border-slate-100 bg-[#f9fafb] p-6"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h4 className="text-xl font-black">{moduloItem.nome}</h4>
+
+                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                      {moduloItem.descricao}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${
+                      statusClasses[moduloItem.status]
+                    }`}
                   >
-                    Continuar módulo →
-                  </button>
+                    {moduloItem.status}
+                  </span>
                 </div>
-              </Card>
-            </aside>
-          </section>
-        </div>
-      </section>
+
+                <div className="mt-6">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                      Progresso
+                    </span>
+                    <span className="text-sm font-black text-[#071A55]">
+                      {moduloItem.progresso}%
+                    </span>
+                  </div>
+
+                  <div className="h-4 overflow-hidden rounded-full bg-white">
+                    <div
+                      className={`h-full rounded-full ${
+                        moduloItem.status === "Bloqueado"
+                          ? "bg-slate-300"
+                          : "bg-gradient-to-r from-[#071A55] to-[#1D7BFF]"
+                      }`}
+                      style={{ width: `${moduloItem.progresso}%` }}
+                    />
+                  </div>
+                </div>
+
+                <p className="mt-4 text-sm font-bold text-slate-500">
+                  {moduloItem.aulasConcluidas}/{moduloItem.totalAulas} aulas concluídas
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_0.9fr]">
+          <div className="rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
+              Atividades
+            </p>
+
+            <h3 className="mt-1 text-2xl font-black">
+              Pendências e conclusões
+            </h3>
+
+            <div className="mt-6 space-y-4">
+              {atividadesMock.map((atividade) => (
+                <div
+                  key={atividade.titulo}
+                  className="flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] bg-[#f9fafb] p-5"
+                >
+                  <div>
+                    <p className="font-black">{atividade.titulo}</p>
+                    <p className="mt-1 text-sm font-bold text-slate-500">
+                      {atividade.tipo} · {atividade.modulo}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-black ${
+                      atividade.status === "Concluído"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-amber-50 text-amber-700"
+                    }`}
+                  >
+                    {atividade.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
+              Leitura da mentoria
+            </p>
+
+            <h3 className="mt-1 text-2xl font-black">
+              Como interpretar seu avanço
+            </h3>
+
+            <div className="mt-6 space-y-4">
+              <div className="rounded-2xl bg-blue-50 p-5">
+                <p className="font-black text-blue-700">
+                  Módulos concluídos consolidam base
+                </p>
+                <p className="mt-2 text-sm leading-6 text-blue-600">
+                  Quando um módulo chega a 100%, ele representa uma etapa já
+                  trabalhada dentro da jornada.
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-amber-50 p-5">
+                <p className="font-black text-amber-700">
+                  Pendências reduzem ritmo de evolução
+                </p>
+                <p className="mt-2 text-sm leading-6 text-amber-600">
+                  Atividades e simulados ajudam a transformar aula assistida em
+                  prática aplicada.
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-emerald-50 p-5">
+                <p className="font-black text-emerald-700">
+                  Consistência vence velocidade
+                </p>
+                <p className="mt-2 text-sm leading-6 text-emerald-600">
+                  O ideal é manter avanço semanal, mesmo que em pequenos passos.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
     </main>
-  );
-}
-
-function LogoBox() {
-  return (
-    <div className="mb-8 flex items-center gap-3 rounded-[24px] bg-[#f8fafc] p-3">
-      <div className="h-14 w-14 overflow-hidden rounded-2xl bg-[#08163F] p-1">
-        <img src="/images/logo.jpeg" alt="CEO Club" className="h-full w-full rounded-xl object-cover" />
-      </div>
-
-      <div>
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-gray-400">Curso</p>
-        <h1 className="text-lg font-black text-[#08163F]">CEO Club</h1>
-      </div>
-    </div>
-  );
-}
-
-function Header({
-  titulo,
-  subtitulo,
-  onVoltar,
-  onSuporte,
-  onSair,
-}: {
-  titulo: string;
-  subtitulo: string;
-  onVoltar: () => void;
-  onSuporte: () => void;
-  onSair: () => void;
-}) {
-  return (
-    <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-6 backdrop-blur-xl md:px-8">
-      <div className="flex items-center gap-4">
-        <button
-          onClick={onVoltar}
-          className="rounded-2xl bg-[#f3f5f8] px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
-        >
-          ← Voltar
-        </button>
-
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
-            {subtitulo}
-          </p>
-          <h1 className="text-xl font-black">{titulo}</h1>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onSuporte}
-          className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
-        >
-          Suporte
-        </button>
-
-        <button
-          onClick={onSair}
-          className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110"
-        >
-          Sair
-        </button>
-      </div>
-    </header>
-  );
-}
-
-function UserBox({ nome, onSair }: { nome: string; onSair: () => void }) {
-  return (
-    <div className="mt-auto rounded-[24px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white">
-      <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#C9CED6]">
-        Mentorado
-      </p>
-      <p className="mt-2 font-black">{nome}</p>
-
-      <button
-        onClick={onSair}
-        className="mt-5 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#08163F] transition hover:brightness-95"
-      >
-        Sair
-      </button>
-    </div>
-  );
-}
-
-function MenuItem({
-  label,
-  ativo,
-  onClick,
-}: {
-  label: string;
-  ativo?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-black transition ${
-        ativo
-          ? "bg-[#EEF2FF] text-[#08163F]"
-          : "text-gray-500 hover:bg-[#f8fafc] hover:text-[#08163F]"
-      }`}
-    >
-      <span>{label}</span>
-      <span>→</span>
-    </button>
   );
 }
 
 function KPI({
   titulo,
   valor,
+  texto,
   destaque,
+  alerta,
 }: {
   titulo: string;
   valor: React.ReactNode;
+  texto: string;
   destaque?: boolean;
+  alerta?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-[26px] p-6 shadow-lg ${
+    <article
+      className={`rounded-[1.7rem] p-6 shadow-xl ${
         destaque
-          ? "bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-white"
-          : "bg-white text-[#08163F]"
+          ? "bg-[#071A55] text-white shadow-[#071A55]/20"
+          : alerta
+          ? "bg-amber-50 text-amber-700 shadow-slate-200/70"
+          : "bg-white text-[#07122F] shadow-slate-200/70"
       }`}
     >
-      <p className={`text-sm font-bold ${destaque ? "text-[#C9CED6]" : "text-gray-500"}`}>
+      <p
+        className={`text-sm font-black ${
+          destaque
+            ? "text-blue-100"
+            : alerta
+            ? "text-amber-700"
+            : "text-slate-500"
+        }`}
+      >
         {titulo}
       </p>
-      <p className="mt-4 text-3xl font-black">{valor}</p>
-    </div>
-  );
-}
 
-function Card({
-  titulo,
-  children,
-}: {
-  titulo: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="overflow-hidden rounded-[30px] border border-gray-200 bg-white shadow-lg">
-      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-6">
-        <h3 className="text-2xl font-black text-[#050816]">{titulo}</h3>
-      </div>
+      <strong className="mt-4 block text-4xl font-black">{valor}</strong>
 
-      <div className="p-6">{children}</div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: ModuloProgresso["status"] }) {
-  const classes = {
-    "Concluído": "bg-green-100 text-green-700",
-    "Em andamento": "bg-blue-100 text-blue-700",
-    Bloqueado: "bg-gray-200 text-gray-500",
-  };
-
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black ${classes[status]}`}>
-      {status}
-    </span>
+      <p
+        className={`mt-3 text-sm font-medium ${
+          destaque
+            ? "text-blue-100"
+            : alerta
+            ? "text-amber-600"
+            : "text-slate-500"
+        }`}
+      >
+        {texto}
+      </p>
+    </article>
   );
 }
