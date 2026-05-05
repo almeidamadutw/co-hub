@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import CalendarSyncButtons from "@/components/CalendarSyncButtons";
 import { useLocalStorage } from "@/utils/useLocalStorage";
+import { useMentorados } from "@/utils/useMentorados";
 
 import {
   getUsuarioLogado,
@@ -14,7 +15,10 @@ import {
 
 type EventoAgenda = {
   id: number;
+  mentoradoId: string;
+  mentoradoCodigo: string;
   mentorado: string;
+  mentoradoEmail: string;
   data: string;
   horario: string;
   tipo: "Mentoria" | "Módulo" | "Reunião";
@@ -22,7 +26,7 @@ type EventoAgenda = {
   observacao: string;
 };
 
-const STORAGE_KEY_AGENDA = "ceoclub_agenda_v2";
+const STORAGE_KEY_AGENDA = "ceoclub_agenda_v3";
 
 const horarios = [
   "08:00",
@@ -40,7 +44,10 @@ const horarios = [
 
 const eventoInicial: EventoAgenda = {
   id: 0,
+  mentoradoId: "",
+  mentoradoCodigo: "",
   mentorado: "",
+  mentoradoEmail: "",
   data: "",
   horario: "",
   tipo: "Mentoria",
@@ -54,6 +61,12 @@ export default function AgendaPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
+
+  const {
+    mentorados,
+    carregando: carregandoMentorados,
+    erro: erroMentorados,
+  } = useMentorados();
 
   const [modoVisualizacao, setModoVisualizacao] = useState<
     "lista" | "calendario" | "semanal"
@@ -107,6 +120,20 @@ export default function AgendaPage() {
     setMostrarFormulario((atual) => !atual);
   }
 
+  function selecionarMentorado(mentoradoId: string) {
+    const mentoradoSelecionado = mentorados.find(
+      (mentorado) => mentorado.id === mentoradoId
+    );
+
+    setNovoEvento({
+      ...novoEvento,
+      mentoradoId: mentoradoSelecionado?.id ?? "",
+      mentoradoCodigo: mentoradoSelecionado?.codigoInscricao ?? "",
+      mentorado: mentoradoSelecionado?.nome ?? "",
+      mentoradoEmail: mentoradoSelecionado?.email ?? "",
+    });
+  }
+
   function existeConflito(evento: EventoAgenda) {
     return eventos.some(
       (item: EventoAgenda) =>
@@ -121,7 +148,7 @@ export default function AgendaPage() {
     setErroFormulario("");
 
     if (
-      !novoEvento.mentorado ||
+      !novoEvento.mentoradoId ||
       !novoEvento.data ||
       !novoEvento.horario ||
       !novoEvento.tipo
@@ -170,9 +197,15 @@ export default function AgendaPage() {
   }
 
   const eventosFiltrados = useMemo(() => {
-    return eventos.filter((evento: EventoAgenda) =>
-      evento.mentorado.toLowerCase().includes(busca.toLowerCase())
-    );
+    const termo = busca.toLowerCase();
+
+    return eventos.filter((evento: EventoAgenda) => {
+      return (
+        evento.mentorado.toLowerCase().includes(termo) ||
+        evento.mentoradoEmail.toLowerCase().includes(termo) ||
+        evento.mentoradoCodigo.toLowerCase().includes(termo)
+      );
+    });
   }, [eventos, busca]);
 
   const eventosDoDia = useMemo(() => {
@@ -353,7 +386,7 @@ export default function AgendaPage() {
           <div className="no-print mb-6 rounded-[24px] border border-white/50 bg-white/85 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
             <input
               type="text"
-              placeholder="Buscar por nome do mentorado"
+              placeholder="Buscar por nome, e-mail ou inscrição"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59] outline-none placeholder:text-slate-400 focus:border-[#12317C]"
@@ -372,15 +405,24 @@ export default function AgendaPage() {
               </h2>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <input
-                  type="text"
-                  placeholder="Nome do mentorado"
-                  value={novoEvento.mentorado}
-                  onChange={(e) =>
-                    setNovoEvento({ ...novoEvento, mentorado: e.target.value })
-                  }
+                <select
+                  value={novoEvento.mentoradoId}
+                  onChange={(e) => selecionarMentorado(e.target.value)}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
-                />
+                >
+                  <option value="">
+                    {carregandoMentorados
+                      ? "Carregando mentorados..."
+                      : "Selecione o mentorado"}
+                  </option>
+
+                  {mentorados.map((mentorado) => (
+                    <option key={mentorado.id} value={mentorado.id}>
+                      {mentorado.codigoInscricao} · {mentorado.nome} ·{" "}
+                      {mentorado.email}
+                    </option>
+                  ))}
+                </select>
 
                 <input
                   type="date"
@@ -451,6 +493,19 @@ export default function AgendaPage() {
                 />
               </div>
 
+              {novoEvento.mentoradoId && (
+                <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-600">
+                  Inscrição: {novoEvento.mentoradoCodigo} ·{" "}
+                  {novoEvento.mentorado} · {novoEvento.mentoradoEmail}
+                </div>
+              )}
+
+              {erroMentorados && (
+                <p className="mt-4 text-sm font-bold text-red-600">
+                  {erroMentorados}
+                </p>
+              )}
+
               {erroFormulario && (
                 <p className="mt-4 text-sm font-medium text-red-600">
                   {erroFormulario}
@@ -499,7 +554,13 @@ export default function AgendaPage() {
                     key={evento.id}
                     className="grid grid-cols-6 items-center border-t border-slate-200 p-4 text-sm"
                   >
-                    <span>{evento.mentorado}</span>
+                    <span>
+                      <strong className="block">{evento.mentorado}</strong>
+                      <small className="text-xs text-slate-400">
+                        {evento.mentoradoCodigo} · {evento.mentoradoEmail}
+                      </small>
+                    </span>
+
                     <span>{formatarData(evento.data)}</span>
                     <span>{evento.horario}</span>
                     <span>{evento.tipo}</span>
@@ -577,6 +638,7 @@ export default function AgendaPage() {
                                 </h3>
 
                                 <p className="mt-1 text-sm text-slate-600">
+                                  {eventoNoHorario.mentoradoCodigo} ·{" "}
                                   {eventoNoHorario.tipo}
                                 </p>
 
@@ -680,7 +742,7 @@ export default function AgendaPage() {
                                 </h3>
 
                                 <p className="mt-1 text-xs text-slate-600">
-                                  {evento.tipo}
+                                  {evento.mentoradoCodigo} · {evento.tipo}
                                 </p>
                               </div>
                             ))
