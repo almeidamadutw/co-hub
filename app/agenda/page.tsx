@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import { useLocalStorage } from "../../utils/useLocalStorage";
+import CalendarSyncButtons from "@/components/CalendarSyncButtons";
+import { useLocalStorage } from "@/utils/useLocalStorage";
+
 import {
   getUsuarioLogado,
   usuarioTemPermissao,
   User,
-} from "../../utils/auth";
+} from "@/utils/auth";
 
 type EventoAgenda = {
   id: number;
@@ -20,7 +22,7 @@ type EventoAgenda = {
   observacao: string;
 };
 
-const STORAGE_KEY_AGENDA = "ceoclub_agenda";
+const STORAGE_KEY_AGENDA = "ceoclub_agenda_v2";
 
 const horarios = [
   "08:00",
@@ -46,52 +48,21 @@ const eventoInicial: EventoAgenda = {
   observacao: "",
 };
 
-const eventosIniciais: EventoAgenda[] = [
-  {
-    id: 1,
-    mentorado: "Dra. Ana Paula",
-    data: "2026-03-24",
-    horario: "09:00",
-    tipo: "Mentoria",
-    status: "Confirmada",
-    observacao: "Foco em posicionamento e vendas.",
-  },
-  {
-    id: 2,
-    mentorado: "Dr. João Ricardo",
-    data: "2026-03-24",
-    horario: "10:00",
-    tipo: "Módulo",
-    status: "Aguardando",
-    observacao: "Módulo de marketing estratégico.",
-  },
-  {
-    id: 3,
-    mentorado: "Dra. Julia Martins",
-    data: "2026-03-25",
-    horario: "14:00",
-    tipo: "Reunião",
-    status: "Concluída",
-    observacao: "Revisão de progresso mensal.",
-  },
-  {
-    id: 4,
-    mentorado: "Dr. Carlos Henrique",
-    data: "2026-03-26",
-    horario: "15:00",
-    tipo: "Mentoria",
-    status: "Cancelada",
-    observacao: "Remarcada para próxima semana.",
-  },
-];
+const eventosIniciais: EventoAgenda[] = [];
 
 export default function AgendaPage() {
   const router = useRouter();
+
   const [usuario, setUsuario] = useState<User | null>(null);
+
   const [modoVisualizacao, setModoVisualizacao] = useState<
     "lista" | "calendario" | "semanal"
   >("lista");
-  const [diaSelecionado, setDiaSelecionado] = useState("2026-03-24");
+
+  const [diaSelecionado, setDiaSelecionado] = useState(() =>
+    formatarDataISO(new Date())
+  );
+
   const [busca, setBusca] = useState("");
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [erroFormulario, setErroFormulario] = useState("");
@@ -126,6 +97,7 @@ export default function AgendaPage() {
       ...eventoInicial,
       id: Date.now(),
     });
+
     setEditandoId(null);
     setErroFormulario("");
   }
@@ -159,9 +131,7 @@ export default function AgendaPage() {
     }
 
     if (existeConflito(novoEvento)) {
-      setErroFormulario(
-        "Já existe um compromisso nesse mesmo dia e horário."
-      );
+      setErroFormulario("Já existe um compromisso nesse mesmo dia e horário.");
       return;
     }
 
@@ -234,18 +204,44 @@ export default function AgendaPage() {
     );
   }, [eventos, diasSemana]);
 
+  const eventosParaCalendario = useMemo(() => {
+    return eventos
+      .filter(
+        (evento) =>
+          evento.data &&
+          evento.horario &&
+          evento.mentorado &&
+          evento.tipo
+      )
+      .map((evento) => {
+        const inicio = new Date(`${evento.data}T${evento.horario}:00`);
+        const fim = new Date(inicio.getTime() + 60 * 60 * 1000);
+
+        return {
+          id: String(evento.id),
+          titulo: `${evento.tipo} com ${evento.mentorado}`,
+          descricao: evento.observacao || "",
+          local: "",
+          inicio,
+          fim,
+        };
+      });
+  }, [eventos]);
+
   if (!usuario || !carregouEventos) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-[#f3f5f8] text-[#0B1D59]">
-        Carregando...
+      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#0B1D59]">
+        Carregando agenda...
       </main>
     );
   }
 
   const totalEventos = eventos.length;
+
   const confirmados = eventos.filter(
     (evento: EventoAgenda) => evento.status === "Confirmada"
   ).length;
+
   const aguardando = eventos.filter(
     (evento: EventoAgenda) => evento.status === "Aguardando"
   ).length;
@@ -260,27 +256,31 @@ export default function AgendaPage() {
 
         <div className="relative z-10">
           <div className="print-title hidden">
-            <h1 className="text-2xl font-bold">Agenda - CEO Club</h1>
+            <h1 className="text-2xl font-bold">Agenda</h1>
+
             <p className="mt-1 text-sm text-slate-600">
               Data selecionada: {formatarData(diaSelecionado)}
             </p>
           </div>
 
           <div className="mb-8 rounded-[28px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white shadow-[0_24px_60px_rgba(8,22,63,0.18)]">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.32em] text-[#C9CED6]">
-                  Agenda CEO Club
+                  Agenda
                 </p>
+
                 <h1 className="text-3xl font-bold">
                   Mentorias, módulos e reuniões
                 </h1>
+
                 <p className="mt-2 text-[#D9DEE7]">
-                  Organize os encontros da mentora com os mentorados.
+                  Organize os compromissos cadastrados e exporte para
+                  calendários externos.
                 </p>
               </div>
 
-              <div className="flex gap-3 flex-wrap no-print">
+              <div className="no-print flex flex-wrap gap-3">
                 <button
                   onClick={() => setModoVisualizacao("lista")}
                   className={`rounded-2xl px-4 py-3 font-bold transition ${
@@ -335,26 +335,35 @@ export default function AgendaPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4 mb-6">
-            <ResumoCard titulo="Total de compromissos" valor={String(totalEventos)} />
+          <div className="no-print mb-8">
+            <CalendarSyncButtons eventos={eventosParaCalendario} />
+          </div>
+
+          <div className="mb-6 grid gap-4 md:grid-cols-3">
+            <ResumoCard
+              titulo="Total de compromissos"
+              valor={String(totalEventos)}
+            />
+
             <ResumoCard titulo="Confirmados" valor={String(confirmados)} />
+
             <ResumoCard titulo="Aguardando" valor={String(aguardando)} />
           </div>
 
-          <div className="mb-6 rounded-[24px] border border-white/50 bg-white/85 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm no-print">
+          <div className="no-print mb-6 rounded-[24px] border border-white/50 bg-white/85 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
             <input
               type="text"
               placeholder="Buscar por nome do mentorado"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59] placeholder:text-slate-400 outline-none focus:border-[#12317C]"
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59] outline-none placeholder:text-slate-400 focus:border-[#12317C]"
             />
           </div>
 
           {mostrarFormulario && (
             <form
               onSubmit={salvarEvento}
-              className="mb-6 rounded-[28px] border border-white/50 bg-white/85 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm no-print"
+              className="no-print mb-6 rounded-[28px] border border-white/50 bg-white/85 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm"
             >
               <h2 className="mb-4 text-xl font-semibold text-[#08163F]">
                 {editandoId !== null
@@ -362,7 +371,7 @@ export default function AgendaPage() {
                   : "Cadastrar novo compromisso"}
               </h2>
 
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <input
                   type="text"
                   placeholder="Nome do mentorado"
@@ -390,6 +399,7 @@ export default function AgendaPage() {
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
                 >
                   <option value="">Selecione o horário</option>
+
                   {horarios.map((hora: string) => (
                     <option key={hora} value={hora}>
                       {hora}
@@ -437,7 +447,7 @@ export default function AgendaPage() {
                       observacao: e.target.value,
                     })
                   }
-                  className="md:col-span-2 min-h-[110px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
+                  className="min-h-[110px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59] md:col-span-2"
                 />
               </div>
 
@@ -447,12 +457,14 @@ export default function AgendaPage() {
                 </p>
               )}
 
-              <div className="mt-4 flex gap-3 flex-wrap">
+              <div className="mt-4 flex flex-wrap gap-3">
                 <button
                   type="submit"
                   className="rounded-2xl bg-[#08163F] px-5 py-3 font-bold text-white transition hover:brightness-110"
                 >
-                  {editandoId !== null ? "Salvar alterações" : "Salvar compromisso"}
+                  {editandoId !== null
+                    ? "Salvar alterações"
+                    : "Salvar compromisso"}
                 </button>
 
                 <button
@@ -477,46 +489,54 @@ export default function AgendaPage() {
                 <span>Ações</span>
               </div>
 
-              {eventosFiltrados.map((evento: EventoAgenda) => (
-                <div
-                  key={evento.id}
-                  className="grid grid-cols-6 items-center border-t border-slate-200 p-4 text-sm"
-                >
-                  <span>{evento.mentorado}</span>
-                  <span>{formatarData(evento.data)}</span>
-                  <span>{evento.horario}</span>
-                  <span>{evento.tipo}</span>
-                  <span>
-                    <StatusBadge status={evento.status} />
-                  </span>
-
-                  <div className="flex gap-4">
-                    <button
-                      onClick={() => editarEvento(evento)}
-                      className="font-semibold text-[#0B1D59] hover:underline"
-                    >
-                      Editar
-                    </button>
-
-                    <button
-                      onClick={() => excluirEvento(evento.id)}
-                      className="font-semibold text-red-600 hover:underline"
-                    >
-                      Excluir
-                    </button>
-                  </div>
+              {eventosFiltrados.length === 0 ? (
+                <div className="p-10 text-center text-sm font-semibold text-slate-500">
+                  Nenhum compromisso encontrado.
                 </div>
-              ))}
+              ) : (
+                eventosFiltrados.map((evento: EventoAgenda) => (
+                  <div
+                    key={evento.id}
+                    className="grid grid-cols-6 items-center border-t border-slate-200 p-4 text-sm"
+                  >
+                    <span>{evento.mentorado}</span>
+                    <span>{formatarData(evento.data)}</span>
+                    <span>{evento.horario}</span>
+                    <span>{evento.tipo}</span>
+
+                    <span>
+                      <StatusBadge status={evento.status} />
+                    </span>
+
+                    <div className="flex gap-4">
+                      <button
+                        onClick={() => editarEvento(evento)}
+                        className="font-semibold text-[#0B1D59] hover:underline"
+                      >
+                        Editar
+                      </button>
+
+                      <button
+                        onClick={() => excluirEvento(evento.id)}
+                        className="font-semibold text-red-600 hover:underline"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
 
           {modoVisualizacao === "calendario" && (
             <div className="rounded-[28px] border border-white/50 bg-white/85 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-              <div className="mb-6 flex items-center justify-between gap-4 flex-wrap no-print">
+              <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-semibold text-[#08163F]">
                     Visão do dia
                   </h2>
+
                   <p className="mt-1 text-sm text-slate-500">
                     Visualize os compromissos do dia por horário.
                   </p>
@@ -555,9 +575,11 @@ export default function AgendaPage() {
                                 <h3 className="font-bold text-[#08163F]">
                                   {eventoNoHorario.mentorado}
                                 </h3>
+
                                 <p className="mt-1 text-sm text-slate-600">
                                   {eventoNoHorario.tipo}
                                 </p>
+
                                 {eventoNoHorario.observacao && (
                                   <p className="mt-2 text-sm text-slate-500">
                                     {eventoNoHorario.observacao}
@@ -583,11 +605,12 @@ export default function AgendaPage() {
 
           {modoVisualizacao === "semanal" && (
             <div className="rounded-[28px] border border-white/50 bg-white/85 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-              <div className="mb-6 flex items-center justify-between gap-4 flex-wrap no-print">
+              <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-semibold text-[#08163F]">
                     Visão semanal
                   </h2>
+
                   <p className="mt-1 text-sm text-slate-500">
                     Veja a semana inteira de forma rápida.
                   </p>
@@ -609,9 +632,11 @@ export default function AgendaPage() {
                   }}
                 >
                   <div className="border-r border-white/10 p-4">Horário</div>
+
                   {diasSemana.map((dia: string) => (
                     <div key={dia} className="border-l border-white/10 p-4">
                       {formatarDiaSemana(dia)}
+
                       <div className="mt-1 text-xs font-normal">
                         {formatarData(dia)}
                       </div>
@@ -653,6 +678,7 @@ export default function AgendaPage() {
                                 <h3 className="text-xs font-bold">
                                   {evento.mentorado}
                                 </h3>
+
                                 <p className="mt-1 text-xs text-slate-600">
                                   {evento.tipo}
                                 </p>
@@ -708,13 +734,7 @@ export default function AgendaPage() {
   );
 }
 
-function ResumoCard({
-  titulo,
-  valor,
-}: {
-  titulo: string;
-  valor: string;
-}) {
+function ResumoCard({ titulo, valor }: { titulo: string; valor: string }) {
   return (
     <div className="rounded-[24px] border border-white/50 bg-white/85 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
       <h2 className="text-lg font-semibold text-[#08163F]">{titulo}</h2>
@@ -744,7 +764,9 @@ function StatusBadge({ status }: { status: string }) {
 
 function formatarData(data: string) {
   if (!data) return "";
+
   const [ano, mes, dia] = data.split("-");
+
   return `${dia}/${mes}/${ano}`;
 }
 
@@ -752,6 +774,7 @@ function formatarDataISO(data: Date) {
   const ano = data.getFullYear();
   const mes = String(data.getMonth() + 1).padStart(2, "0");
   const dia = String(data.getDate()).padStart(2, "0");
+
   return `${ano}-${mes}-${dia}`;
 }
 
@@ -765,7 +788,9 @@ function formatarDiaSemana(data: string) {
     "Sexta",
     "Sábado",
   ];
+
   const dia = new Date(`${data}T12:00:00`).getDay();
+
   return dias[dia];
 }
 
