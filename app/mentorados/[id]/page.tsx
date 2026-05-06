@@ -1,87 +1,10 @@
-  "use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
-
-type Mentorado = {
-  id: string;
-  nome: string;
-  especialidade: string;
-  area: string;
-  progresso: number;
-  sessoes: number;
-  acoes: number;
-  status: "Excelente" | "Em evolução" | "Atenção";
-  proximoEncontro: string;
-  email: string;
-  telefone: string;
-  observacao: string;
-};
-
-const mentoradosMock: Mentorado[] = [
-  {
-    id: "joao",
-    nome: "Dr. João Almeida",
-    especialidade: "Implantodontia",
-    area: "Vendas",
-    progresso: 72,
-    sessoes: 8,
-    acoes: 21,
-    status: "Em evolução",
-    proximoEncontro: "06/05 às 14h",
-    email: "joao@ceoclub.com",
-    telefone: "(15) 99999-0001",
-    observacao:
-      "Bom ritmo de evolução. Precisa transformar o posicionamento em rotina comercial.",
-  },
-  {
-    id: "ana",
-    nome: "Dra. Ana Martins",
-    especialidade: "Harmonização",
-    area: "Marketing",
-    progresso: 44,
-    sessoes: 4,
-    acoes: 9,
-    status: "Atenção",
-    proximoEncontro: "08/05 às 10h",
-    email: "ana@ceoclub.com",
-    telefone: "(15) 99999-0002",
-    observacao:
-      "Está com execução abaixo do esperado. Precisa de acompanhamento mais próximo nesta semana.",
-  },
-  {
-    id: "carlos",
-    nome: "Dr. Carlos Vieira",
-    especialidade: "Ortodontia",
-    area: "Posicionamento",
-    progresso: 91,
-    sessoes: 11,
-    acoes: 34,
-    status: "Excelente",
-    proximoEncontro: "10/05 às 16h",
-    email: "carlos@ceoclub.com",
-    telefone: "(15) 99999-0003",
-    observacao:
-      "Mentorado em ótima fase. Pode avançar para uma etapa mais estratégica.",
-  },
-  {
-    id: "julia",
-    nome: "Dra. Julia Rocha",
-    especialidade: "Clínica Geral",
-    area: "Fechamento",
-    progresso: 58,
-    sessoes: 6,
-    acoes: 16,
-    status: "Em evolução",
-    proximoEncontro: "12/05 às 9h",
-    email: "julia@ceoclub.com",
-    telefone: "(15) 99999-0004",
-    observacao:
-      "Boa evolução, mas ainda precisa ganhar consistência nas ações semanais.",
-  },
-];
+import { useMentoradosSupabase } from "@/utils/useMentoradosSupabase";
 
 export default function PerfilMentoradoPage() {
   const router = useRouter();
@@ -91,9 +14,11 @@ export default function PerfilMentoradoPage() {
 
   const mentoradoId = String(params.id);
 
+  const { mentorados, carregando, erro } = useMentoradosSupabase();
+
   const mentorado = useMemo(() => {
-    return mentoradosMock.find((item) => item.id === mentoradoId);
-  }, [mentoradoId]);
+    return mentorados.find((item) => item.id === mentoradoId) ?? null;
+  }, [mentorados, mentoradoId]);
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -122,10 +47,33 @@ export default function PerfilMentoradoPage() {
     router.replace("/login");
   }
 
-  if (!usuario) {
+  if (!usuario || carregando) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
         Carregando perfil do mentorado...
+      </main>
+    );
+  }
+
+  if (erro) {
+    return (
+      <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
+        <Sidebar nome={usuario.nome} role={usuario.role} />
+
+        <section className="flex flex-1 items-center justify-center p-8">
+          <div className="max-w-lg rounded-[30px] bg-white p-8 text-center shadow-lg">
+            <h1 className="text-3xl font-black">Erro ao carregar perfil</h1>
+
+            <p className="mt-3 text-gray-500">{erro}</p>
+
+            <button
+              onClick={() => router.push("/mentorados")}
+              className="mt-6 rounded-2xl bg-[#08163F] px-6 py-3 font-bold text-white"
+            >
+              Voltar para mentorados
+            </button>
+          </div>
+        </section>
       </main>
     );
   }
@@ -138,8 +86,9 @@ export default function PerfilMentoradoPage() {
         <section className="flex flex-1 items-center justify-center p-8">
           <div className="max-w-lg rounded-[30px] bg-white p-8 text-center shadow-lg">
             <h1 className="text-3xl font-black">Mentorado não encontrado</h1>
+
             <p className="mt-3 text-gray-500">
-              Esse perfil não existe ou ainda não foi cadastrado.
+              Esse perfil não existe ou ainda não foi cadastrado no Supabase.
             </p>
 
             <button
@@ -153,6 +102,8 @@ export default function PerfilMentoradoPage() {
       </main>
     );
   }
+
+  const status = mentorado.status ?? "Ativo";
 
   return (
     <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
@@ -172,6 +123,7 @@ export default function PerfilMentoradoPage() {
               <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
                 Perfil do mentorado
               </p>
+
               <h1 className="text-xl font-black">{mentorado.nome}</h1>
             </div>
           </div>
@@ -190,91 +142,148 @@ export default function PerfilMentoradoPage() {
               <div className="flex items-center gap-6">
                 <div className="flex h-28 w-28 items-center justify-center rounded-full border border-white/15 bg-white/10 shadow-lg">
                   <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#D9DEE7] to-[#9CA3AF] text-3xl font-black text-white">
-                    {mentorado.nome.charAt(0)}
+                    {mentorado.nome?.charAt(0) ?? "M"}
                   </div>
                 </div>
 
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
-                    {mentorado.especialidade}
+                    Código de inscrição
                   </p>
-                  <h2 className="mt-2 text-4xl font-black">{mentorado.nome}</h2>
+
+                  <h2 className="mt-2 text-4xl font-black">
+                    {mentorado.nome}
+                  </h2>
+
                   <p className="mt-2 text-[#D9DEE7]">
-                    Etapa atual:{" "}
-                    <span className="font-bold text-white">{mentorado.area}</span>
+                    Código:{" "}
+                    <span className="font-bold text-white">
+                      {mentorado.codigo_inscricao ?? "—"}
+                    </span>
                   </p>
                 </div>
               </div>
 
-              <StatusBadge status={mentorado.status} />
+              <StatusBadge status={status} />
             </div>
           </section>
 
           <section className="mb-7 grid gap-5 xl:grid-cols-4">
-            <KPI titulo="Progresso" valor={`${mentorado.progresso}%`} destaque />
-            <KPI titulo="Sessões" valor={mentorado.sessoes} />
-            <KPI titulo="Ações executadas" valor={mentorado.acoes} />
-            <KPI titulo="Próximo encontro" valor={mentorado.proximoEncontro} />
-          </section>
+            <KPI
+              titulo="Status"
+              valor={status}
+              destaque
+            />
 
-          <section className="mb-8 rounded-[26px] bg-white p-5 shadow-lg">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-bold text-gray-500">
-                Evolução individual
-              </p>
-              <p className="text-sm font-black text-[#08163F]">
-                {mentorado.progresso}%
-              </p>
-            </div>
+            <KPI
+              titulo="Código"
+              valor={mentorado.codigo_inscricao ?? "—"}
+            />
 
-            <div className="h-5 overflow-hidden rounded-full bg-gray-100">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] via-[#12317C] to-[#07122F]"
-                style={{ width: `${mentorado.progresso}%` }}
-              />
-            </div>
+            <KPI
+              titulo="Cadastro"
+              valor={formatarData(mentorado.created_at)}
+            />
+
+            <KPI
+              titulo="Tipo"
+              valor="Mentorado"
+            />
           </section>
 
           <section className="grid gap-6 xl:grid-cols-2">
             <Card titulo="Dados do mentorado">
               <Info label="Nome" value={mentorado.nome} />
               <Info label="E-mail" value={mentorado.email} />
-              <Info label="Telefone" value={mentorado.telefone} />
-              <Info label="Especialidade" value={mentorado.especialidade} />
+              <Info
+                label="Telefone"
+                value={mentorado.telefone || "Telefone não informado"}
+              />
+              <Info
+                label="Código de inscrição"
+                value={mentorado.codigo_inscricao || "Código não gerado"}
+              />
+              <Info label="Status" value={status} />
             </Card>
 
-            <Card titulo="Anotações da mentora">
+            <Card titulo="Acompanhamento">
               <div className="rounded-2xl bg-[#f9fafb] p-5">
                 <p className="text-sm font-semibold leading-relaxed text-gray-600">
-                  {mentorado.observacao}
+                  Este perfil já está conectado ao Supabase. As próximas
+                  informações exibidas aqui serão progresso, agenda, simulados,
+                  financeiro e observações da mentora.
                 </p>
               </div>
 
-              <button className="mt-5 rounded-2xl bg-[#08163F] px-5 py-3 font-black text-white transition hover:brightness-110">
-                + Nova anotação
-              </button>
-            </Card>
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <ActionButton
+                  label="Agendar sessão"
+                  onClick={() => router.push("/agenda")}
+                />
 
-            <Card titulo="Trilha atual">
-              <Etapa titulo="Boas-vindas" progresso={100} status="Concluído" />
-              <Etapa titulo="Posicionamento" progresso={80} status="Concluído" />
-              <Etapa titulo={mentorado.area} progresso={mentorado.progresso} status="Em andamento" />
-              <Etapa titulo="Escala" progresso={0} status="Bloqueado" />
-            </Card>
+                <ActionButton
+                  label="Ver relatórios"
+                  onClick={() => router.push("/relatorios")}
+                />
 
-            <Card titulo="Ações rápidas">
-              <div className="grid gap-4 md:grid-cols-2">
-                <ActionButton label="Agendar sessão" />
-                <ActionButton label="Enviar tarefa" />
-                <ActionButton label="Abrir progresso" />
-                <ActionButton label="Gerar relatório" />
+                <ActionButton
+                  label="Abrir progresso"
+                  onClick={() => router.push("/relatorios")}
+                />
+
+                <ActionButton
+                  label="Financeiro"
+                  onClick={() => router.push("/financeiro")}
+                />
               </div>
+            </Card>
+
+            <Card titulo="Progresso">
+              <div className="rounded-2xl bg-[#f9fafb] p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-bold text-gray-500">
+                    Evolução individual
+                  </p>
+
+                  <p className="text-sm font-black text-[#08163F]">0%</p>
+                </div>
+
+                <div className="h-5 overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] via-[#12317C] to-[#07122F]"
+                    style={{ width: "0%" }}
+                  />
+                </div>
+
+                <p className="mt-4 text-sm font-semibold leading-6 text-gray-500">
+                  O progresso real será calculado quando as aulas concluídas
+                  forem conectadas ao banco.
+                </p>
+              </div>
+            </Card>
+
+            <Card titulo="Próximas conexões">
+              <Etapa titulo="Cadastro no Supabase" status="Concluído" />
+              <Etapa titulo="Agenda real" status="Pendente" />
+              <Etapa titulo="Progresso real" status="Pendente" />
+              <Etapa titulo="Simulados e resultados" status="Pendente" />
+              <Etapa titulo="Financeiro" status="Pendente" />
             </Card>
           </section>
         </div>
       </section>
     </main>
   );
+}
+
+function formatarData(data?: string | null) {
+  if (!data) return "—";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(data));
 }
 
 function KPI({
@@ -294,9 +303,14 @@ function KPI({
           : "bg-white text-[#08163F]"
       }`}
     >
-      <p className={`text-sm font-bold ${destaque ? "text-[#C9CED6]" : "text-gray-500"}`}>
+      <p
+        className={`text-sm font-bold ${
+          destaque ? "text-[#C9CED6]" : "text-gray-500"
+        }`}
+      >
         {titulo}
       </p>
+
       <p className="mt-4 text-3xl font-black">{valor}</p>
     </div>
   );
@@ -326,6 +340,7 @@ function Info({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">
         {label}
       </p>
+
       <p className="mt-1 font-black text-[#08163F]">{value}</p>
     </div>
   );
@@ -333,51 +348,65 @@ function Info({ label, value }: { label: string; value: string }) {
 
 function Etapa({
   titulo,
-  progresso,
   status,
 }: {
   titulo: string;
-  progresso: number;
-  status: "Concluído" | "Em andamento" | "Bloqueado";
+  status: "Concluído" | "Pendente";
 }) {
+  const concluido = status === "Concluído";
+
   return (
-    <div className="rounded-2xl bg-[#f9fafb] p-4">
-      <div className="mb-2 flex justify-between gap-4">
-        <div>
-          <p className="font-black text-[#08163F]">{titulo}</p>
-          <p className="text-sm font-semibold text-gray-500">{status}</p>
-        </div>
+    <div className="flex items-center justify-between rounded-2xl bg-[#f9fafb] p-4">
+      <div>
+        <p className="font-black text-[#08163F]">{titulo}</p>
 
-        <span className="font-black text-[#08163F]">{progresso}%</span>
+        <p className="text-sm font-semibold text-gray-500">{status}</p>
       </div>
 
-      <div className="h-3 overflow-hidden rounded-full bg-gray-200">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] to-[#12317C]"
-          style={{ width: `${progresso}%` }}
-        />
-      </div>
+      <span
+        className={`rounded-full px-4 py-2 text-xs font-black ${
+          concluido
+            ? "bg-emerald-50 text-emerald-700"
+            : "bg-slate-100 text-slate-500"
+        }`}
+      >
+        {concluido ? "ok" : "aguardando"}
+      </span>
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: Mentorado["status"] }) {
-  const classes = {
-    Excelente: "bg-green-100 text-green-700",
-    "Em evolução": "bg-blue-100 text-blue-700",
-    Atenção: "bg-red-100 text-red-700",
-  };
+function StatusBadge({ status }: { status: string }) {
+  const statusLower = status.toLowerCase();
+
+  const classe =
+    statusLower === "ativo"
+      ? "bg-green-100 text-green-700"
+      : statusLower === "pendente"
+      ? "bg-amber-100 text-amber-700"
+      : statusLower === "inativo"
+      ? "bg-slate-100 text-slate-600"
+      : "bg-blue-100 text-blue-700";
 
   return (
-    <span className={`rounded-full px-4 py-2 text-sm font-black ${classes[status]}`}>
+    <span className={`rounded-full px-4 py-2 text-sm font-black ${classe}`}>
       {status}
     </span>
   );
 }
 
-function ActionButton({ label }: { label: string }) {
+function ActionButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
   return (
-    <button className="rounded-2xl bg-[#f9fafb] p-5 text-left font-black text-[#08163F] transition hover:bg-white hover:shadow-md">
+    <button
+      onClick={onClick}
+      className="rounded-2xl bg-[#f9fafb] p-5 text-left font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+    >
       {label} →
     </button>
   );

@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import CalendarSyncButtons from "@/components/CalendarSyncButtons";
-import { useLocalStorage } from "@/utils/useLocalStorage";
-import { useMentorados } from "@/utils/useMentorados";
+import { supabase } from "@/utils/supabase";
 
 import {
   getUsuarioLogado,
@@ -13,81 +12,85 @@ import {
   User,
 } from "@/utils/auth";
 
+type TipoAgenda = "Mentoria" | "Módulo" | "Reunião";
+type StatusAgenda = "Confirmada" | "Aguardando" | "Concluída" | "Cancelada";
+
+type Mentorado = {
+  id: string;
+  nome: string;
+  email: string;
+  telefone: string | null;
+  codigo_inscricao: string | null;
+  status: string | null;
+};
+
 type EventoAgenda = {
-  id: number;
-  mentoradoId: string;
-  mentoradoCodigo: string;
-  mentorado: string;
-  mentoradoEmail: string;
+  id: string;
+  mentorado_id: string;
+  titulo: string | null;
+  tipo: TipoAgenda;
   data: string;
   horario: string;
-  tipo: "Mentoria" | "Módulo" | "Reunião";
-  status: "Confirmada" | "Aguardando" | "Concluída" | "Cancelada";
+  status: StatusAgenda;
+  observacao: string | null;
+  criado_por: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type EventoComMentorado = EventoAgenda & {
+  mentoradoNome: string;
+  mentoradoEmail: string;
+  mentoradoCodigo: string;
+};
+
+type EventoFormulario = {
+  mentorado_id: string;
+  titulo: string;
+  tipo: TipoAgenda;
+  data: string;
+  horario: string;
+  status: StatusAgenda;
   observacao: string;
 };
 
-const STORAGE_KEY_AGENDA = "ceoclub_agenda_v3";
-
-const horarios = [
-  "08:00",
-  "09:00",
-  "10:00",
-  "11:00",
-  "12:00",
-  "13:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-  "18:00",
-];
-
-const eventoInicial: EventoAgenda = {
-  id: 0,
-  mentoradoId: "",
-  mentoradoCodigo: "",
-  mentorado: "",
-  mentoradoEmail: "",
+const eventoInicial: EventoFormulario = {
+  mentorado_id: "",
+  titulo: "",
+  tipo: "Mentoria",
   data: "",
   horario: "",
-  tipo: "Mentoria",
   status: "Confirmada",
   observacao: "",
 };
-
-const eventosIniciais: EventoAgenda[] = [];
 
 export default function AgendaPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
-
-  const {
-    mentorados,
-    carregando: carregandoMentorados,
-    erro: erroMentorados,
-  } = useMentorados();
+  const [mentorados, setMentorados] = useState<Mentorado[]>([]);
+  const [eventos, setEventos] = useState<EventoAgenda[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
 
   const [modoVisualizacao, setModoVisualizacao] = useState<
-    "lista" | "calendario" | "semanal"
-  >("lista");
+    "mes" | "lista" | "dia"
+  >("mes");
 
+  const [busca, setBusca] = useState("");
   const [diaSelecionado, setDiaSelecionado] = useState(() =>
     formatarDataISO(new Date())
   );
+  const [mesAtual, setMesAtual] = useState(() => new Date());
 
-  const [busca, setBusca] = useState("");
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
-  const [erroFormulario, setErroFormulario] = useState("");
-  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [novoEvento, setNovoEvento] =
+    useState<EventoFormulario>(eventoInicial);
 
-  const [novoEvento, setNovoEvento] = useState<EventoAgenda>({
-    ...eventoInicial,
-    id: Date.now(),
-  });
-
-  const [eventos, setEventos, carregouEventos] =
-    useLocalStorage<EventoAgenda[]>(STORAGE_KEY_AGENDA, eventosIniciais);
+  const [eventoSelecionado, setEventoSelecionado] =
+    useState<EventoComMentorado | null>(null);
 
   useEffect(() => {
     const usuarioLogado = getUsuarioLogado();
@@ -105,179 +108,288 @@ export default function AgendaPage() {
     setUsuario(usuarioLogado);
   }, [router]);
 
-  function limparFormulario() {
-    setNovoEvento({
-      ...eventoInicial,
-      id: Date.now(),
-    });
+  useEffect(() => {
+    carregarDados();
+  }, []);
 
+  async function carregarDados() {
+    setCarregando(true);
+    setErro("");
+
+    const { data: mentoradosData, error: mentoradosError } = await supabase
+      .from("profiles")
+      .select("id, nome, email, telefone, codigo_inscricao, status")
+      .eq("role", "mentorado")
+      .order("created_at", { ascending: false });
+
+    if (mentoradosError) {
+      setErro(mentoradosError.message);
+      setCarregando(false);
+      return;
+    }
+
+    const { data: eventosData, error: eventosError } = await supabase
+      .from("agenda_eventos")
+      .select(
+        "id, mentorado_id, titulo, tipo, data, horario, status, observacao, criado_por, created_at, updated_at"
+      )
+      .order("data", { ascending: true })
+      .order("horario", { ascending: true });
+
+    if (eventosError) {
+      setErro(eventosError.message);
+      setCarregando(false);
+      return;
+    }
+
+    setMentorados((mentoradosData ?? []) as Mentorado[]);
+    setEventos((eventosData ?? []) as EventoAgenda[]);
+    setCarregando(false);
+  }
+
+  const eventosComMentorado = useMemo<EventoComMentorado[]>(() => {
+    return eventos.map((evento) => {
+      const mentorado = mentorados.find(
+        (item) => item.id === evento.mentorado_id
+      );
+
+      return {
+        ...evento,
+        mentoradoNome: mentorado?.nome ?? "Mentorado não encontrado",
+        mentoradoEmail: mentorado?.email ?? "",
+        mentoradoCodigo: mentorado?.codigo_inscricao ?? "",
+      };
+    });
+  }, [eventos, mentorados]);
+
+  const eventosFiltrados = useMemo(() => {
+    const termo = busca.toLowerCase().trim();
+
+    if (!termo) return eventosComMentorado;
+
+    return eventosComMentorado.filter((evento) => {
+      return (
+        evento.mentoradoNome.toLowerCase().includes(termo) ||
+        evento.mentoradoEmail.toLowerCase().includes(termo) ||
+        evento.mentoradoCodigo.toLowerCase().includes(termo) ||
+        evento.tipo.toLowerCase().includes(termo) ||
+        (evento.titulo ?? "").toLowerCase().includes(termo)
+      );
+    });
+  }, [eventosComMentorado, busca]);
+
+  const eventosDoDia = useMemo(() => {
+    return eventosFiltrados
+      .filter((evento) => evento.data === diaSelecionado)
+      .sort((a, b) =>
+        limparHorario(a.horario).localeCompare(limparHorario(b.horario))
+      );
+  }, [eventosFiltrados, diaSelecionado]);
+
+  const diasDoMes = useMemo(() => {
+    return montarDiasDoMes(mesAtual);
+  }, [mesAtual]);
+
+  const totalEventos = eventos.length;
+
+  const confirmados = eventos.filter(
+    (evento) => evento.status === "Confirmada"
+  ).length;
+
+  const aguardando = eventos.filter(
+    (evento) => evento.status === "Aguardando"
+  ).length;
+
+  const concluidos = eventos.filter(
+    (evento) => evento.status === "Concluída"
+  ).length;
+
+  const eventosParaCalendario = useMemo(() => {
+    return eventosComMentorado.map((evento) => {
+      const inicio = new Date(
+        `${evento.data}T${limparHorario(evento.horario)}:00`
+      );
+      const fim = new Date(inicio.getTime() + 60 * 60 * 1000);
+
+      return {
+        id: evento.id,
+        titulo: `${evento.tipo} com ${evento.mentoradoNome}`,
+        descricao: evento.observacao || "",
+        local: "CEO Club",
+        inicio,
+        fim,
+      };
+    });
+  }, [eventosComMentorado]);
+
+  function limparFormulario() {
+    setNovoEvento(eventoInicial);
     setEditandoId(null);
-    setErroFormulario("");
+    setErro("");
   }
 
   function abrirNovoEvento() {
     limparFormulario();
-    setMostrarFormulario((atual) => !atual);
+    setMostrarFormulario(true);
   }
 
-  function selecionarMentorado(mentoradoId: string) {
-    const mentoradoSelecionado = mentorados.find(
-      (mentorado) => mentorado.id === mentoradoId
-    );
-
-    setNovoEvento({
-      ...novoEvento,
-      mentoradoId: mentoradoSelecionado?.id ?? "",
-      mentoradoCodigo: mentoradoSelecionado?.codigoInscricao ?? "",
-      mentorado: mentoradoSelecionado?.nome ?? "",
-      mentoradoEmail: mentoradoSelecionado?.email ?? "",
-    });
-  }
-
-  function existeConflito(evento: EventoAgenda) {
-    return eventos.some(
-      (item: EventoAgenda) =>
-        item.id !== evento.id &&
-        item.data === evento.data &&
-        item.horario === evento.horario
-    );
-  }
-
-  function salvarEvento(e: React.FormEvent) {
-    e.preventDefault();
-    setErroFormulario("");
-
-    if (
-      !novoEvento.mentoradoId ||
-      !novoEvento.data ||
-      !novoEvento.horario ||
-      !novoEvento.tipo
-    ) {
-      setErroFormulario("Preencha todos os campos obrigatórios.");
-      return;
-    }
-
-    if (existeConflito(novoEvento)) {
-      setErroFormulario("Já existe um compromisso nesse mesmo dia e horário.");
-      return;
-    }
-
-    if (editandoId !== null) {
-      setEventos((estadoAtual: EventoAgenda[]) =>
-        estadoAtual.map((evento: EventoAgenda) =>
-          evento.id === editandoId ? novoEvento : evento
-        )
-      );
-    } else {
-      setEventos((estadoAtual: EventoAgenda[]) => [
-        { ...novoEvento, id: Date.now() },
-        ...estadoAtual,
-      ]);
-    }
-
+  function fecharFormulario() {
     limparFormulario();
     setMostrarFormulario(false);
   }
 
-  function editarEvento(evento: EventoAgenda) {
-    setNovoEvento(evento);
-    setEditandoId(evento.id);
-    setMostrarFormulario(true);
-    setErroFormulario("");
+  function eventosDoDiaNoMes(dataISO: string) {
+    return eventosFiltrados
+      .filter((evento) => evento.data === dataISO)
+      .sort((a, b) =>
+        limparHorario(a.horario).localeCompare(limparHorario(b.horario))
+      );
   }
 
-  function excluirEvento(id: number) {
-    setEventos((estadoAtual: EventoAgenda[]) =>
-      estadoAtual.filter((evento: EventoAgenda) => evento.id !== id)
+  function mudarMes(direcao: "anterior" | "proximo") {
+    setMesAtual((dataAtual) => {
+      const novaData = new Date(dataAtual);
+
+      if (direcao === "anterior") {
+        novaData.setMonth(novaData.getMonth() - 1);
+      } else {
+        novaData.setMonth(novaData.getMonth() + 1);
+      }
+
+      return novaData;
+    });
+  }
+
+  function existeConflito(evento: EventoFormulario) {
+    return eventos.some((item) => {
+      return (
+        item.id !== editandoId &&
+        item.data === evento.data &&
+        limparHorario(item.horario) === limparHorario(evento.horario)
+      );
+    });
+  }
+
+  async function salvarEvento(e: React.FormEvent) {
+    e.preventDefault();
+    setErro("");
+
+    if (
+      !novoEvento.mentorado_id ||
+      !novoEvento.data ||
+      !novoEvento.horario ||
+      !novoEvento.tipo
+    ) {
+      setErro("Preencha mentorado, data, horário e tipo.");
+      return;
+    }
+
+    if (existeConflito(novoEvento)) {
+      setErro("Já existe um compromisso nesse mesmo dia e horário.");
+      return;
+    }
+
+    try {
+      setSalvando(true);
+
+      const payload = {
+        mentorado_id: novoEvento.mentorado_id,
+        titulo: novoEvento.titulo.trim() || novoEvento.tipo,
+        tipo: novoEvento.tipo,
+        data: novoEvento.data,
+        horario: novoEvento.horario,
+        status: novoEvento.status,
+        observacao: novoEvento.observacao.trim(),
+        updated_at: new Date().toISOString(),
+      };
+
+      if (editandoId) {
+        const { error } = await supabase
+          .from("agenda_eventos")
+          .update(payload)
+          .eq("id", editandoId);
+
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabase.from("agenda_eventos").insert({
+          ...payload,
+          criado_por: null,
+        });
+
+        if (error) throw new Error(error.message);
+      }
+
+      await carregarDados();
+
+      limparFormulario();
+      setMostrarFormulario(false);
+      setEventoSelecionado(null);
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar o compromisso."
+      );
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  function editarEvento(evento: EventoComMentorado) {
+    setNovoEvento({
+      mentorado_id: evento.mentorado_id,
+      titulo: evento.titulo ?? "",
+      tipo: evento.tipo,
+      data: evento.data,
+      horario: limparHorario(evento.horario),
+      status: evento.status,
+      observacao: evento.observacao ?? "",
+    });
+
+    setEditandoId(evento.id);
+    setMostrarFormulario(true);
+    setEventoSelecionado(null);
+  }
+
+  async function excluirEvento(id: string) {
+    const confirmar = window.confirm(
+      "Tem certeza que deseja excluir este compromisso?"
     );
+
+    if (!confirmar) return;
+
+    try {
+      setErro("");
+
+      const { error } = await supabase
+        .from("agenda_eventos")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw new Error(error.message);
+
+      await carregarDados();
+      setEventoSelecionado(null);
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível excluir o compromisso."
+      );
+    }
   }
 
   function imprimirAgenda() {
     window.print();
   }
 
-  const eventosFiltrados = useMemo(() => {
-    const termo = busca.toLowerCase();
-
-    return eventos.filter((evento: EventoAgenda) => {
-      return (
-        evento.mentorado.toLowerCase().includes(termo) ||
-        evento.mentoradoEmail.toLowerCase().includes(termo) ||
-        evento.mentoradoCodigo.toLowerCase().includes(termo)
-      );
-    });
-  }, [eventos, busca]);
-
-  const eventosDoDia = useMemo(() => {
-    return eventos
-      .filter((evento: EventoAgenda) => evento.data === diaSelecionado)
-      .sort((a: EventoAgenda, b: EventoAgenda) =>
-        a.horario.localeCompare(b.horario)
-      );
-  }, [eventos, diaSelecionado]);
-
-  const diasSemana = useMemo(() => {
-    const base = new Date(`${diaSelecionado}T12:00:00`);
-    const diaDaSemana = base.getDay();
-    const diferencaParaSegunda = diaDaSemana === 0 ? -6 : 1 - diaDaSemana;
-
-    const segunda = new Date(base);
-    segunda.setDate(base.getDate() + diferencaParaSegunda);
-
-    return Array.from({ length: 7 }, (_, index) => {
-      const dia = new Date(segunda);
-      dia.setDate(segunda.getDate() + index);
-      return formatarDataISO(dia);
-    });
-  }, [diaSelecionado]);
-
-  const eventosSemana = useMemo(() => {
-    return eventos.filter((evento: EventoAgenda) =>
-      diasSemana.includes(evento.data)
-    );
-  }, [eventos, diasSemana]);
-
-  const eventosParaCalendario = useMemo(() => {
-    return eventos
-      .filter(
-        (evento) =>
-          evento.data &&
-          evento.horario &&
-          evento.mentorado &&
-          evento.tipo
-      )
-      .map((evento) => {
-        const inicio = new Date(`${evento.data}T${evento.horario}:00`);
-        const fim = new Date(inicio.getTime() + 60 * 60 * 1000);
-
-        return {
-          id: String(evento.id),
-          titulo: `${evento.tipo} com ${evento.mentorado}`,
-          descricao: evento.observacao || "",
-          local: "",
-          inicio,
-          fim,
-        };
-      });
-  }, [eventos]);
-
-  if (!usuario || !carregouEventos) {
+  if (!usuario || carregando) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#0B1D59]">
         Carregando agenda...
       </main>
     );
   }
-
-  const totalEventos = eventos.length;
-
-  const confirmados = eventos.filter(
-    (evento: EventoAgenda) => evento.status === "Confirmada"
-  ).length;
-
-  const aguardando = eventos.filter(
-    (evento: EventoAgenda) => evento.status === "Aguardando"
-  ).length;
 
   return (
     <main className="flex min-h-screen bg-[#f3f5f8] text-[#0B1D59]">
@@ -290,79 +402,45 @@ export default function AgendaPage() {
         <div className="relative z-10">
           <div className="print-title hidden">
             <h1 className="text-2xl font-bold">Agenda</h1>
-
             <p className="mt-1 text-sm text-slate-600">
-              Data selecionada: {formatarData(diaSelecionado)}
+              Mês: {formatarMesAno(mesAtual)}
             </p>
           </div>
 
-          <div className="mb-8 rounded-[28px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white shadow-[0_24px_60px_rgba(8,22,63,0.18)]">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-[0_24px_60px_rgba(8,22,63,0.18)]">
+            <div className="flex flex-wrap items-start justify-between gap-6">
               <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.32em] text-[#C9CED6]">
-                  Agenda
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.32em] text-[#C9CED6]">
+                  Agenda da mentora
                 </p>
 
-                <h1 className="text-3xl font-bold">
-                  Mentorias, módulos e reuniões
+                <h1 className="max-w-4xl text-4xl font-black leading-tight">
+                  Gerencie compromissos reais dos mentorados.
                 </h1>
 
-                <p className="mt-2 text-[#D9DEE7]">
-                  Organize os compromissos cadastrados e exporte para
-                  calendários externos.
+                <p className="mt-3 max-w-2xl text-[#D9DEE7]">
+                  Cadastre mentorias, reuniões e módulos com data, horário livre
+                  e detalhes salvos direto no Supabase.
                 </p>
               </div>
 
               <div className="no-print flex flex-wrap gap-3">
                 <button
-                  onClick={() => setModoVisualizacao("lista")}
-                  className={`rounded-2xl px-4 py-3 font-bold transition ${
-                    modoVisualizacao === "lista"
-                      ? "bg-white text-[#08163F]"
-                      : "border border-white/20 bg-white/10 text-white"
-                  }`}
-                >
-                  Lista
-                </button>
-
-                <button
-                  onClick={() => setModoVisualizacao("calendario")}
-                  className={`rounded-2xl px-4 py-3 font-bold transition ${
-                    modoVisualizacao === "calendario"
-                      ? "bg-white text-[#08163F]"
-                      : "border border-white/20 bg-white/10 text-white"
-                  }`}
-                >
-                  Calendário
-                </button>
-
-                <button
-                  onClick={() => setModoVisualizacao("semanal")}
-                  className={`rounded-2xl px-4 py-3 font-bold transition ${
-                    modoVisualizacao === "semanal"
-                      ? "bg-white text-[#08163F]"
-                      : "border border-white/20 bg-white/10 text-white"
-                  }`}
-                >
-                  Semanal
-                </button>
-
-                <button
-                  onClick={imprimirAgenda}
-                  className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3 font-bold text-white transition hover:bg-white/15"
-                >
-                  Imprimir
-                </button>
-
-                <button
                   onClick={abrirNovoEvento}
-                  className="rounded-2xl px-5 py-3 font-bold text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105"
+                  className="rounded-2xl px-5 py-3 font-black text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105"
                   style={{
                     background:
                       "linear-gradient(180deg, #F3F4F6 0%, #D1D5DB 55%, #9CA3AF 100%)",
                   }}
                 >
-                  {mostrarFormulario ? "Fechar formulário" : "Novo compromisso"}
+                  Novo compromisso
+                </button>
+
+                <button
+                  onClick={imprimirAgenda}
+                  className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3 font-black text-white transition hover:bg-white/15"
+                >
+                  Imprimir
                 </button>
               </div>
             </div>
@@ -372,57 +450,120 @@ export default function AgendaPage() {
             <CalendarSyncButtons eventos={eventosParaCalendario} />
           </div>
 
-          <div className="mb-6 grid gap-4 md:grid-cols-3">
+          <div className="mb-6 grid gap-4 md:grid-cols-4">
             <ResumoCard
               titulo="Total de compromissos"
               valor={String(totalEventos)}
+              destaque
             />
-
             <ResumoCard titulo="Confirmados" valor={String(confirmados)} />
-
             <ResumoCard titulo="Aguardando" valor={String(aguardando)} />
+            <ResumoCard titulo="Concluídos" valor={String(concluidos)} />
           </div>
 
-          <div className="no-print mb-6 rounded-[24px] border border-white/50 bg-white/85 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-            <input
-              type="text"
-              placeholder="Buscar por nome, e-mail ou inscrição"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59] outline-none placeholder:text-slate-400 focus:border-[#12317C]"
-            />
+          <div className="no-print mb-6 grid gap-4 rounded-[28px] border border-white/50 bg-white/85 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm lg:grid-cols-[1.4fr_0.8fr]">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Busca
+              </p>
+
+              <input
+                type="text"
+                placeholder="Buscar por nome, e-mail, inscrição, tipo ou título"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59] outline-none placeholder:text-slate-400 focus:border-[#12317C]"
+              />
+            </div>
+
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Visualização
+              </p>
+
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <ModoButton
+                  label="Mês"
+                  ativo={modoVisualizacao === "mes"}
+                  onClick={() => setModoVisualizacao("mes")}
+                />
+                <ModoButton
+                  label="Lista"
+                  ativo={modoVisualizacao === "lista"}
+                  onClick={() => setModoVisualizacao("lista")}
+                />
+                <ModoButton
+                  label="Dia"
+                  ativo={modoVisualizacao === "dia"}
+                  onClick={() => setModoVisualizacao("dia")}
+                />
+              </div>
+            </div>
           </div>
+
+          {erro && (
+            <div className="mb-6 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+              {erro}
+            </div>
+          )}
 
           {mostrarFormulario && (
             <form
               onSubmit={salvarEvento}
-              className="no-print mb-6 rounded-[28px] border border-white/50 bg-white/85 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm"
+              className="no-print mb-6 rounded-[28px] border border-white/50 bg-white/90 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm"
             >
-              <h2 className="mb-4 text-xl font-semibold text-[#08163F]">
-                {editandoId !== null
-                  ? "Editar compromisso"
-                  : "Cadastrar novo compromisso"}
-              </h2>
+              <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
+                    {editandoId ? "Editar" : "Novo"} compromisso
+                  </p>
+
+                  <h2 className="mt-1 text-2xl font-black text-[#08163F]">
+                    {editandoId
+                      ? "Atualizar compromisso"
+                      : "Cadastrar compromisso"}
+                  </h2>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fecharFormulario}
+                  className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-slate-200"
+                >
+                  Fechar
+                </button>
+              </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <select
-                  value={novoEvento.mentoradoId}
-                  onChange={(e) => selecionarMentorado(e.target.value)}
+                  value={novoEvento.mentorado_id}
+                  onChange={(e) =>
+                    setNovoEvento({
+                      ...novoEvento,
+                      mentorado_id: e.target.value,
+                    })
+                  }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
                 >
-                  <option value="">
-                    {carregandoMentorados
-                      ? "Carregando mentorados..."
-                      : "Selecione o mentorado"}
-                  </option>
+                  <option value="">Selecione o mentorado</option>
 
                   {mentorados.map((mentorado) => (
                     <option key={mentorado.id} value={mentorado.id}>
-                      {mentorado.codigoInscricao} · {mentorado.nome} ·{" "}
+                      {mentorado.codigo_inscricao ?? "—"} · {mentorado.nome} ·{" "}
                       {mentorado.email}
                     </option>
                   ))}
                 </select>
+
+                <input
+                  type="text"
+                  placeholder="Título, ex: Mentoria individual"
+                  value={novoEvento.titulo}
+                  onChange={(e) =>
+                    setNovoEvento({ ...novoEvento, titulo: e.target.value })
+                  }
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
+                />
 
                 <input
                   type="date"
@@ -433,28 +574,21 @@ export default function AgendaPage() {
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
                 />
 
-                <select
+                <input
+                  type="time"
                   value={novoEvento.horario}
                   onChange={(e) =>
                     setNovoEvento({ ...novoEvento, horario: e.target.value })
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
-                >
-                  <option value="">Selecione o horário</option>
-
-                  {horarios.map((hora: string) => (
-                    <option key={hora} value={hora}>
-                      {hora}
-                    </option>
-                  ))}
-                </select>
+                />
 
                 <select
                   value={novoEvento.tipo}
                   onChange={(e) =>
                     setNovoEvento({
                       ...novoEvento,
-                      tipo: e.target.value as EventoAgenda["tipo"],
+                      tipo: e.target.value as TipoAgenda,
                     })
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
@@ -469,7 +603,7 @@ export default function AgendaPage() {
                   onChange={(e) =>
                     setNovoEvento({
                       ...novoEvento,
-                      status: e.target.value as EventoAgenda["status"],
+                      status: e.target.value as StatusAgenda,
                     })
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
@@ -481,7 +615,7 @@ export default function AgendaPage() {
                 </select>
 
                 <textarea
-                  placeholder="Observação"
+                  placeholder="Observação, detalhes, link ou orientação"
                   value={novoEvento.observacao}
                   onChange={(e) =>
                     setNovoEvento({
@@ -489,35 +623,19 @@ export default function AgendaPage() {
                       observacao: e.target.value,
                     })
                   }
-                  className="min-h-[110px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59] md:col-span-2"
+                  className="min-h-[120px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59] md:col-span-2"
                 />
               </div>
 
-              {novoEvento.mentoradoId && (
-                <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-600">
-                  Inscrição: {novoEvento.mentoradoCodigo} ·{" "}
-                  {novoEvento.mentorado} · {novoEvento.mentoradoEmail}
-                </div>
-              )}
-
-              {erroMentorados && (
-                <p className="mt-4 text-sm font-bold text-red-600">
-                  {erroMentorados}
-                </p>
-              )}
-
-              {erroFormulario && (
-                <p className="mt-4 text-sm font-medium text-red-600">
-                  {erroFormulario}
-                </p>
-              )}
-
-              <div className="mt-4 flex flex-wrap gap-3">
+              <div className="mt-5 flex flex-wrap gap-3">
                 <button
                   type="submit"
-                  className="rounded-2xl bg-[#08163F] px-5 py-3 font-bold text-white transition hover:brightness-110"
+                  disabled={salvando}
+                  className="rounded-2xl bg-[#08163F] px-5 py-3 font-black text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {editandoId !== null
+                  {salvando
+                    ? "Salvando..."
+                    : editandoId
                     ? "Salvar alterações"
                     : "Salvar compromisso"}
                 </button>
@@ -525,7 +643,7 @@ export default function AgendaPage() {
                 <button
                   type="button"
                   onClick={limparFormulario}
-                  className="rounded-2xl border border-slate-300 bg-white px-5 py-3 font-bold text-[#0B1D59] transition hover:bg-slate-50"
+                  className="rounded-2xl border border-slate-300 bg-white px-5 py-3 font-black text-[#0B1D59] transition hover:bg-slate-50"
                 >
                   Limpar
                 </button>
@@ -533,9 +651,118 @@ export default function AgendaPage() {
             </form>
           )}
 
+          {modoVisualizacao === "mes" && (
+            <section className="overflow-hidden rounded-[30px] bg-white shadow-xl shadow-slate-200/70">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 bg-gradient-to-r from-[#f9fafb] to-white p-6">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
+                    Calendário mensal
+                  </p>
+
+                  <h3 className="mt-1 text-2xl font-black text-[#050816]">
+                    {formatarMesAno(mesAtual)}
+                  </h3>
+                </div>
+
+                <div className="no-print flex flex-wrap gap-3">
+                  <button
+                    onClick={() => mudarMes("anterior")}
+                    className="rounded-2xl bg-[#f3f5f8] px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+                  >
+                    ← Mês anterior
+                  </button>
+
+                  <button
+                    onClick={() => setMesAtual(new Date())}
+                    className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#08163F] shadow-sm ring-1 ring-slate-100 transition hover:shadow-md"
+                  >
+                    Hoje
+                  </button>
+
+                  <button
+                    onClick={() => mudarMes("proximo")}
+                    className="rounded-2xl bg-[#08163F] px-4 py-3 text-sm font-black text-white transition hover:brightness-110"
+                  >
+                    Próximo mês →
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-7 border-b border-slate-100 bg-[#f9fafb] text-center text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(
+                  (dia) => (
+                    <div key={dia} className="p-4">
+                      {dia}
+                    </div>
+                  )
+                )}
+              </div>
+
+              <div className="grid grid-cols-7">
+                {diasDoMes.map((dia) => {
+                  const eventosDia = eventosDoDiaNoMes(dia.dataISO);
+                  const ehHoje = dia.dataISO === formatarDataISO(new Date());
+
+                  return (
+                    <div
+                      key={dia.dataISO}
+                      className={`min-h-[150px] border-b border-r border-slate-100 p-3 ${
+                        dia.ehMesAtual
+                          ? "bg-white"
+                          : "bg-[#f9fafb] text-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`flex h-8 w-8 items-center justify-center rounded-xl text-sm font-black ${
+                            ehHoje
+                              ? "bg-[#08163F] text-white"
+                              : dia.ehMesAtual
+                              ? "text-[#08163F]"
+                              : "text-slate-300"
+                          }`}
+                        >
+                          {dia.numero}
+                        </span>
+
+                        {eventosDia.length > 0 && (
+                          <span className="rounded-full bg-[#EEF2FF] px-2 py-1 text-[10px] font-black text-[#08163F]">
+                            {eventosDia.length}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-3 space-y-2">
+                        {eventosDia.slice(0, 3).map((evento) => (
+                          <button
+                            key={evento.id}
+                            type="button"
+                            onClick={() => setEventoSelecionado(evento)}
+                            className="block w-full rounded-xl bg-[#F3F5FF] px-3 py-2 text-left text-[11px] font-black text-[#08163F] transition hover:bg-[#08163F] hover:text-white"
+                          >
+                            <span className="block truncate">
+                              {limparHorario(evento.horario)} ·{" "}
+                              {evento.mentoradoNome}
+                            </span>
+                          </button>
+                        ))}
+
+                        {eventosDia.length > 3 && (
+                          <p className="text-[11px] font-bold text-slate-400">
+                            +{eventosDia.length - 3} compromisso(s)
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           {modoVisualizacao === "lista" && (
-            <div className="overflow-hidden rounded-[28px] border border-white/50 bg-white/85 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-              <div className="grid grid-cols-6 bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white">
+            <section className="overflow-hidden rounded-[30px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+              <div className="grid grid-cols-[1.2fr_0.7fr_0.5fr_0.6fr_0.7fr_0.6fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white">
                 <span>Mentorado</span>
                 <span>Data</span>
                 <span>Horário</span>
@@ -549,215 +776,104 @@ export default function AgendaPage() {
                   Nenhum compromisso encontrado.
                 </div>
               ) : (
-                eventosFiltrados.map((evento: EventoAgenda) => (
-                  <div
-                    key={evento.id}
-                    className="grid grid-cols-6 items-center border-t border-slate-200 p-4 text-sm"
-                  >
-                    <span>
-                      <strong className="block">{evento.mentorado}</strong>
-                      <small className="text-xs text-slate-400">
-                        {evento.mentoradoCodigo} · {evento.mentoradoEmail}
-                      </small>
-                    </span>
-
-                    <span>{formatarData(evento.data)}</span>
-                    <span>{evento.horario}</span>
-                    <span>{evento.tipo}</span>
-
-                    <span>
-                      <StatusBadge status={evento.status} />
-                    </span>
-
-                    <div className="flex gap-4">
-                      <button
-                        onClick={() => editarEvento(evento)}
-                        className="font-semibold text-[#0B1D59] hover:underline"
-                      >
-                        Editar
-                      </button>
-
-                      <button
-                        onClick={() => excluirEvento(evento.id)}
-                        className="font-semibold text-red-600 hover:underline"
-                      >
-                        Excluir
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {modoVisualizacao === "calendario" && (
-            <div className="rounded-[28px] border border-white/50 bg-white/85 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-              <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-[#08163F]">
-                    Visão do dia
-                  </h2>
-
-                  <p className="mt-1 text-sm text-slate-500">
-                    Visualize os compromissos do dia por horário.
-                  </p>
-                </div>
-
-                <input
-                  type="date"
-                  value={diaSelecionado}
-                  onChange={(e) => setDiaSelecionado(e.target.value)}
-                  className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-[#0B1D59]"
-                />
-              </div>
-
-              <div className="space-y-3">
-                {horarios.map((hora: string) => {
-                  const eventoNoHorario = eventosDoDia.find(
-                    (evento: EventoAgenda) => evento.horario === hora
-                  );
-
-                  return (
+                <div className="divide-y divide-slate-100">
+                  {eventosFiltrados.map((evento) => (
                     <div
-                      key={hora}
-                      className="grid grid-cols-[120px_1fr] gap-4 rounded-2xl border border-slate-200 bg-white p-4"
+                      key={evento.id}
+                      className="grid grid-cols-[1.2fr_0.7fr_0.5fr_0.6fr_0.7fr_0.6fr] items-center p-4 text-sm"
                     >
-                      <div className="font-semibold text-[#08163F]">{hora}</div>
+                      <span>
+                        <strong className="block">{evento.mentoradoNome}</strong>
+                        <small className="text-xs text-slate-400">
+                          {evento.mentoradoCodigo || "—"} ·{" "}
+                          {evento.mentoradoEmail}
+                        </small>
+                      </span>
 
-                      <div>
-                        {eventoNoHorario ? (
-                          <div
-                            className={`rounded-2xl border-l-4 p-4 ${estiloCardCalendario(
-                              eventoNoHorario.status
-                            )}`}
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <div>
-                                <h3 className="font-bold text-[#08163F]">
-                                  {eventoNoHorario.mentorado}
-                                </h3>
+                      <span>{formatarData(evento.data)}</span>
+                      <span>{limparHorario(evento.horario)}</span>
+                      <span>{evento.tipo}</span>
 
-                                <p className="mt-1 text-sm text-slate-600">
-                                  {eventoNoHorario.mentoradoCodigo} ·{" "}
-                                  {eventoNoHorario.tipo}
-                                </p>
+                      <span>
+                        <StatusBadge status={evento.status} />
+                      </span>
 
-                                {eventoNoHorario.observacao && (
-                                  <p className="mt-2 text-sm text-slate-500">
-                                    {eventoNoHorario.observacao}
-                                  </p>
-                                )}
-                              </div>
-
-                              <StatusBadge status={eventoNoHorario.status} />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-sm text-slate-400">
-                            Horário livre
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {modoVisualizacao === "semanal" && (
-            <div className="rounded-[28px] border border-white/50 bg-white/85 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-              <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-[#08163F]">
-                    Visão semanal
-                  </h2>
-
-                  <p className="mt-1 text-sm text-slate-500">
-                    Veja a semana inteira de forma rápida.
-                  </p>
-                </div>
-
-                <input
-                  type="date"
-                  value={diaSelecionado}
-                  onChange={(e) => setDiaSelecionado(e.target.value)}
-                  className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-[#0B1D59]"
-                />
-              </div>
-
-              <div className="overflow-x-auto rounded-[22px] border border-slate-200">
-                <div
-                  className="grid min-w-[1200px] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] font-semibold text-white"
-                  style={{
-                    gridTemplateColumns: `100px repeat(${diasSemana.length}, minmax(160px, 1fr))`,
-                  }}
-                >
-                  <div className="border-r border-white/10 p-4">Horário</div>
-
-                  {diasSemana.map((dia: string) => (
-                    <div key={dia} className="border-l border-white/10 p-4">
-                      {formatarDiaSemana(dia)}
-
-                      <div className="mt-1 text-xs font-normal">
-                        {formatarData(dia)}
+                      <div className="flex gap-4">
+                        <button
+                          onClick={() => setEventoSelecionado(evento)}
+                          className="font-semibold text-[#0B1D59] hover:underline"
+                        >
+                          Abrir
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
+              )}
+            </section>
+          )}
 
-                {horarios.map((hora: string) => (
-                  <div
-                    key={hora}
-                    className="grid min-w-[1200px] border-t border-slate-200"
-                    style={{
-                      gridTemplateColumns: `100px repeat(${diasSemana.length}, minmax(160px, 1fr))`,
-                    }}
-                  >
-                    <div className="border-r border-slate-200 bg-slate-50 p-4 text-sm font-medium">
-                      {hora}
-                    </div>
+          {modoVisualizacao === "dia" && (
+            <section className="rounded-[30px] border border-white/50 bg-white/85 p-6 shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+              <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-black text-[#08163F]">
+                    Visão do dia
+                  </h2>
 
-                    {diasSemana.map((dia: string) => {
-                      const eventosNoSlot = eventosSemana.filter(
-                        (evento: EventoAgenda) =>
-                          evento.data === dia && evento.horario === hora
-                      );
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    Visualize os compromissos do dia selecionado.
+                  </p>
+                </div>
 
-                      return (
-                        <div
-                          key={`${dia}-${hora}`}
-                          className="min-h-[120px] space-y-2 border-l border-slate-200 p-2"
-                        >
-                          {eventosNoSlot.length > 0 ? (
-                            eventosNoSlot.map((evento: EventoAgenda) => (
-                              <div
-                                key={evento.id}
-                                className={`rounded-xl border-l-4 p-3 ${estiloCardCalendario(
-                                  evento.status
-                                )}`}
-                              >
-                                <h3 className="text-xs font-bold">
-                                  {evento.mentorado}
-                                </h3>
+                <input
+                  type="date"
+                  value={diaSelecionado}
+                  onChange={(e) => setDiaSelecionado(e.target.value)}
+                  className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-[#0B1D59]"
+                />
+              </div>
 
-                                <p className="mt-1 text-xs text-slate-600">
-                                  {evento.mentoradoCodigo} · {evento.tipo}
-                                </p>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="flex h-full items-center text-xs text-slate-400">
-                              Livre
-                            </div>
+              {eventosDoDia.length === 0 ? (
+                <div className="rounded-2xl bg-slate-50 p-8 text-center text-sm font-semibold text-slate-500">
+                  Nenhum compromisso neste dia.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {eventosDoDia.map((evento) => (
+                    <button
+                      key={evento.id}
+                      type="button"
+                      onClick={() => setEventoSelecionado(evento)}
+                      className={`w-full rounded-2xl border-l-4 p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md ${estiloCardCalendario(
+                        evento.status
+                      )}`}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <h3 className="font-black text-[#08163F]">
+                            {limparHorario(evento.horario)} ·{" "}
+                            {evento.mentoradoNome}
+                          </h3>
+
+                          <p className="mt-1 text-sm font-semibold text-slate-600">
+                            {evento.mentoradoCodigo || "—"} · {evento.tipo}
+                          </p>
+
+                          {evento.observacao && (
+                            <p className="mt-2 text-sm text-slate-500">
+                              {evento.observacao}
+                            </p>
                           )}
                         </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
+
+                        <StatusBadge status={evento.status} />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
           )}
 
           <style jsx global>{`
@@ -792,16 +908,140 @@ export default function AgendaPage() {
           `}</style>
         </div>
       </section>
+
+      {eventoSelecionado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-3xl overflow-hidden rounded-[34px] bg-white shadow-2xl">
+            <div className="bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
+                    Detalhes do compromisso
+                  </p>
+
+                  <h2 className="mt-3 text-3xl font-black">
+                    {eventoSelecionado.titulo ||
+                      `${eventoSelecionado.tipo} com ${eventoSelecionado.mentoradoNome}`}
+                  </h2>
+
+                  <p className="mt-2 text-sm font-bold text-blue-100">
+                    {eventoSelecionado.mentoradoCodigo || "—"} ·{" "}
+                    {eventoSelecionado.mentoradoEmail}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setEventoSelecionado(null)}
+                  className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-2xl font-black text-white transition hover:bg-white/20"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <StatusBadge status={eventoSelecionado.status} />
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-white">
+                  {eventoSelecionado.tipo}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid gap-4 p-7 md:grid-cols-2">
+              <InfoBox label="Mentorado" value={eventoSelecionado.mentoradoNome} />
+              <InfoBox
+                label="Inscrição"
+                value={eventoSelecionado.mentoradoCodigo || "—"}
+              />
+              <InfoBox label="Data" value={formatarData(eventoSelecionado.data)} />
+              <InfoBox
+                label="Horário"
+                value={limparHorario(eventoSelecionado.horario)}
+              />
+              <InfoBox label="Tipo" value={eventoSelecionado.tipo} />
+              <InfoBox label="Status" value={eventoSelecionado.status} />
+
+              <div className="rounded-2xl bg-[#f9fafb] p-5 md:col-span-2">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  Observação
+                </p>
+
+                <p className="mt-2 text-sm font-semibold leading-7 text-slate-600">
+                  {eventoSelecionado.observacao ||
+                    "Nenhuma observação adicionada."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3 md:col-span-2">
+                <button
+                  onClick={() => editarEvento(eventoSelecionado)}
+                  className="rounded-2xl bg-[#08163F] px-5 py-4 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                >
+                  Editar compromisso
+                </button>
+
+                <button
+                  onClick={() => excluirEvento(eventoSelecionado.id)}
+                  className="rounded-2xl bg-red-50 px-5 py-4 text-sm font-black text-red-600 transition hover:bg-red-100"
+                >
+                  Excluir compromisso
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
 
-function ResumoCard({ titulo, valor }: { titulo: string; valor: string }) {
+function ResumoCard({
+  titulo,
+  valor,
+  destaque,
+}: {
+  titulo: string;
+  valor: string;
+  destaque?: boolean;
+}) {
   return (
-    <div className="rounded-[24px] border border-white/50 bg-white/85 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-      <h2 className="text-lg font-semibold text-[#08163F]">{titulo}</h2>
-      <p className="mt-3 text-2xl font-bold text-[#12317C]">{valor}</p>
+    <div
+      className={`rounded-[24px] border border-white/50 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm ${
+        destaque ? "bg-[#071A55] text-white" : "bg-white/85 text-[#08163F]"
+      }`}
+    >
+      <h2
+        className={`text-sm font-black ${
+          destaque ? "text-blue-100" : "text-slate-500"
+        }`}
+      >
+        {titulo}
+      </h2>
+
+      <p className="mt-3 text-3xl font-black">{valor}</p>
     </div>
+  );
+}
+
+function ModoButton({
+  label,
+  ativo,
+  onClick,
+}: {
+  label: string;
+  ativo: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+        ativo
+          ? "bg-[#08163F] text-white shadow-lg"
+          : "bg-white text-slate-500 hover:text-[#08163F] hover:shadow-md"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -815,7 +1055,7 @@ function StatusBadge({ status }: { status: string }) {
 
   return (
     <span
-      className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
+      className={`inline-block rounded-full px-3 py-1 text-xs font-black ${
         estilos[status] || "bg-slate-100 text-slate-700"
       }`}
     >
@@ -824,11 +1064,55 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function InfoBox({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl bg-[#f9fafb] p-5">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-2 text-lg font-black text-[#08163F]">{value}</p>
+    </div>
+  );
+}
+
+function montarDiasDoMes(dataBase: Date) {
+  const ano = dataBase.getFullYear();
+  const mes = dataBase.getMonth();
+
+  const primeiroDiaMes = new Date(ano, mes, 1);
+  const ultimoDiaMes = new Date(ano, mes + 1, 0);
+
+  const inicioCalendario = new Date(primeiroDiaMes);
+  inicioCalendario.setDate(
+    primeiroDiaMes.getDate() - primeiroDiaMes.getDay()
+  );
+
+  const fimCalendario = new Date(ultimoDiaMes);
+  fimCalendario.setDate(
+    ultimoDiaMes.getDate() + (6 - ultimoDiaMes.getDay())
+  );
+
+  const dias = [];
+  const cursor = new Date(inicioCalendario);
+
+  while (cursor <= fimCalendario) {
+    dias.push({
+      dataISO: formatarDataISO(cursor),
+      numero: cursor.getDate(),
+      ehMesAtual: cursor.getMonth() === mes,
+    });
+
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return dias;
+}
+
 function formatarData(data: string) {
-  if (!data) return "";
+  if (!data) return "—";
 
   const [ano, mes, dia] = data.split("-");
-
   return `${dia}/${mes}/${ano}`;
 }
 
@@ -840,20 +1124,15 @@ function formatarDataISO(data: Date) {
   return `${ano}-${mes}-${dia}`;
 }
 
-function formatarDiaSemana(data: string) {
-  const dias = [
-    "Domingo",
-    "Segunda",
-    "Terça",
-    "Quarta",
-    "Quinta",
-    "Sexta",
-    "Sábado",
-  ];
+function formatarMesAno(data: Date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+  }).format(data);
+}
 
-  const dia = new Date(`${data}T12:00:00`).getDay();
-
-  return dias[dia];
+function limparHorario(horario: string) {
+  return horario?.slice(0, 5) || "";
 }
 
 function estiloCardCalendario(status: string) {

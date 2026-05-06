@@ -1,13 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import { useMentoradosSupabase } from "@/utils/useMentoradosSupabase";
 
 export default function MentoradosPage() {
   const router = useRouter();
+
   const [usuario, setUsuario] = useState<User | null>(null);
+  const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("Todos");
+
+  const { mentorados, carregando, erro, ativos, pendentes, total } =
+    useMentoradosSupabase();
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -31,7 +38,26 @@ export default function MentoradosPage() {
     setUsuario(user);
   }, [router]);
 
-  if (!usuario) {
+  const mentoradosFiltrados = useMemo(() => {
+    const termo = busca.toLowerCase().trim();
+
+    return mentorados.filter((mentorado) => {
+      const status = mentorado.status ?? "Ativo";
+
+      const bateBusca =
+        mentorado.nome?.toLowerCase().includes(termo) ||
+        mentorado.email?.toLowerCase().includes(termo) ||
+        mentorado.telefone?.toLowerCase().includes(termo) ||
+        mentorado.codigo_inscricao?.toLowerCase().includes(termo);
+
+      const bateStatus =
+        filtroStatus === "Todos" || status === filtroStatus;
+
+      return bateBusca && bateStatus;
+    });
+  }, [mentorados, busca, filtroStatus]);
+
+  if (!usuario || carregando) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
         Carregando mentorados...
@@ -79,19 +105,18 @@ export default function MentoradosPage() {
                 </p>
 
                 <h2 className="mt-4 max-w-4xl text-3xl font-black leading-tight md:text-4xl xl:text-[3.05rem]">
-                  Acompanhe mentorados com clareza, contexto e visão
-                  estratégica.
+                  Acompanhe mentorados com dados reais do CEO Club.
                 </h2>
 
                 <p className="mt-4 max-w-2xl text-base leading-7 text-blue-100 md:text-lg">
-                  Centralize acessos, evolução, status e acompanhamento em uma
-                  área pronta para receber os dados reais do CEO Club.
+                  Visualize cadastros, códigos de inscrição, status e acessos
+                  dos mentorados salvos diretamente no Supabase.
                 </p>
 
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <Tag>visão geral</Tag>
-                  <Tag>progresso</Tag>
-                  <Tag>acessos</Tag>
+                  <Tag>dados reais</Tag>
+                  <Tag>código de inscrição</Tag>
+                  <Tag>status</Tag>
                   <Tag>acompanhamento</Tag>
                 </div>
               </div>
@@ -108,17 +133,19 @@ export default function MentoradosPage() {
                     </p>
 
                     <strong className="mt-2 block text-3xl font-black">
-                      0
+                      {total}
                     </strong>
 
                     <p className="mt-1 text-sm text-blue-100">
-                      Nenhum cadastro encontrado ainda.
+                      {total === 1
+                        ? "1 cadastro encontrado."
+                        : `${total} cadastros encontrados.`}
                     </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <MiniMetric titulo="Ativos" valor="0" />
-                    <MiniMetric titulo="Alertas" valor="0" />
+                    <MiniMetric titulo="Ativos" valor={String(ativos)} />
+                    <MiniMetric titulo="Pendentes" valor={String(pendentes)} />
                   </div>
                 </div>
               </div>
@@ -128,27 +155,27 @@ export default function MentoradosPage() {
           <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             <KPI
               titulo="Mentorados cadastrados"
-              valor="0"
-              texto="Nenhum cadastro encontrado."
+              valor={String(total)}
+              texto="Dados buscados no Supabase."
               destaque
             />
 
             <KPI
               titulo="Ativos"
-              valor="0"
-              texto="Aguardando dados reais."
+              valor={String(ativos)}
+              texto="Mentorados com status ativo."
             />
 
             <KPI
               titulo="Pendentes"
-              valor="0"
-              texto="Nenhum convite pendente."
+              valor={String(pendentes)}
+              texto="Cadastros aguardando atenção."
             />
 
             <KPI
               titulo="Em atenção"
               valor="0"
-              texto="Nenhum alerta registrado."
+              texto="Alertas serão calculados pelo progresso."
               alerta
             />
           </section>
@@ -165,9 +192,8 @@ export default function MentoradosPage() {
                 </h3>
 
                 <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-                  Quando os mentorados forem cadastrados, eles aparecerão aqui
-                  com status, progresso, último acesso e atalho para análise
-                  individual.
+                  Mentorados cadastrados no sistema aparecem aqui com código de
+                  inscrição, status e dados de contato.
                 </p>
               </div>
 
@@ -175,78 +201,166 @@ export default function MentoradosPage() {
                 onClick={() => router.push("/usuarios")}
                 className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
               >
-                Cadastrar primeiro mentorado
+                + Cadastrar mentorado
               </button>
             </div>
 
-            <div className="mt-6 grid gap-4 rounded-[1.7rem] border border-slate-100 bg-[#f9fafb] p-4 md:grid-cols-4">
-              <FilterCard titulo="Busca" texto="Nome, e-mail ou telefone" />
-              <FilterCard titulo="Status" texto="Ativo, pendente ou inativo" />
-              <FilterCard titulo="Módulo" texto="Etapa atual da jornada" />
-              <FilterCard titulo="Risco" texto="Atenção ou baixa atividade" />
+            {erro && (
+              <div className="mt-5 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+                {erro}
+              </div>
+            )}
+
+            <div className="mt-6 grid gap-4 rounded-[1.7rem] border border-slate-100 bg-[#f9fafb] p-4 md:grid-cols-[1.6fr_0.8fr]">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  Busca
+                </p>
+
+                <input
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Nome, e-mail, telefone ou código"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C]"
+                />
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  Status
+                </p>
+
+                <select
+                  value={filtroStatus}
+                  onChange={(e) => setFiltroStatus(e.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C]"
+                >
+                  <option>Todos</option>
+                  <option>Ativo</option>
+                  <option>Pendente</option>
+                  <option>Inativo</option>
+                </select>
+              </div>
             </div>
 
             <div className="mt-7 overflow-hidden rounded-[1.8rem] border border-slate-100 bg-white">
-              <div className="grid grid-cols-[1.3fr_0.8fr_0.8fr_0.8fr] bg-slate-50 px-6 py-4 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              <div className="grid grid-cols-[1.2fr_0.7fr_1fr_0.7fr_0.6fr] bg-slate-50 px-6 py-4 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
                 <span>Mentorado</span>
+                <span>Código</span>
+                <span>Contato</span>
                 <span>Status</span>
-                <span>Progresso</span>
-                <span>Último acesso</span>
+                <span>Ação</span>
               </div>
 
-              <div className="border-t border-slate-100 bg-white px-6 py-12 text-center">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-[#f3f5f8] text-3xl shadow-sm">
-                  ✦
-                </div>
+              {mentoradosFiltrados.length === 0 ? (
+                <div className="border-t border-slate-100 bg-white px-6 py-12 text-center">
+                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-[#f3f5f8] text-3xl shadow-sm">
+                    ✦
+                  </div>
 
-                <h4 className="mt-5 text-xl font-black">
-                  Nenhum mentorado cadastrado ainda
-                </h4>
+                  <h4 className="mt-5 text-xl font-black">
+                    Nenhum mentorado encontrado
+                  </h4>
 
-                <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-500">
-                  Sem dados fictícios nesta tela. A lista está pronta para
-                  exibir mentorados reais quando a integração estiver ativa.
-                </p>
+                  <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-500">
+                    Cadastre um mentorado em usuários ou ajuste os filtros da
+                    busca.
+                  </p>
 
-                <div className="mt-6 flex flex-wrap justify-center gap-3">
                   <button
                     onClick={() => router.push("/usuarios")}
-                    className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
+                    className="mt-6 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
                   >
                     Cadastrar mentorado
                   </button>
-
-                  <button
-                    onClick={() => router.push("/relatorios")}
-                    className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-sm ring-1 ring-slate-100 transition hover:shadow-md"
-                  >
-                    Ver relatórios
-                  </button>
                 </div>
-              </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {mentoradosFiltrados.map((mentorado) => (
+                    <button
+                      key={mentorado.id}
+                      type="button"
+                      onClick={() => router.push(`/mentorados/${mentorado.id}`)}
+                      className="grid w-full grid-cols-[1.2fr_0.7fr_1fr_0.7fr_0.6fr] items-center px-6 py-5 text-left transition hover:bg-[#f9fafb]"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] to-[#12317C] text-sm font-black text-white">
+                          {mentorado.nome?.charAt(0) ?? "M"}
+                        </div>
+
+                        <div>
+                          <p className="font-black text-[#08163F]">
+                            {mentorado.nome}
+                          </p>
+
+                          <p className="mt-1 text-xs font-bold text-slate-400">
+                            Cadastrado em {formatarData(mentorado.created_at)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="rounded-full bg-[#EEF2FF] px-4 py-2 text-xs font-black text-[#08163F]">
+                          {mentorado.codigo_inscricao ?? "—"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-bold text-[#08163F]">
+                          {mentorado.email}
+                        </p>
+
+                        <p className="mt-1 text-xs font-bold text-slate-400">
+                          {mentorado.telefone || "Telefone não informado"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <StatusBadge status={mentorado.status ?? "Ativo"} />
+                      </div>
+
+                      <div>
+                        <span className="text-sm font-black text-[#08163F]">
+                          Abrir →
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
           <section className="mt-8 grid gap-6 xl:grid-cols-3">
             <InsightCard
               titulo="Acompanhamento"
-              texto="Veja rapidamente quem está ativo, quem está pendente e quem precisa de contato."
+              texto="Veja rapidamente quem está ativo e quem precisa de atualização cadastral."
             />
 
             <InsightCard
-              titulo="Evolução"
-              texto="Quando conectado ao banco, o sistema mostrará avanço por módulo e etapa da jornada."
+              titulo="Código de inscrição"
+              texto="Cada mentorado recebe um código automático no formato 260001, 260002 e assim por diante."
             />
 
             <InsightCard
-              titulo="Decisão"
-              texto="Use os dados para saber onde orientar, reforçar conteúdos e priorizar atendimentos."
+              titulo="Próximas integrações"
+              texto="Progresso, agenda, simulados e financeiro serão vinculados ao ID real do mentorado."
             />
           </section>
         </div>
       </section>
     </main>
   );
+}
+
+function formatarData(data?: string | null) {
+  if (!data) return "—";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(data));
 }
 
 function Tag({ children }: { children: React.ReactNode }) {
@@ -265,18 +379,6 @@ function MiniMetric({ titulo, valor }: { titulo: string; valor: string }) {
       </p>
 
       <strong className="mt-2 block text-2xl font-black">{valor}</strong>
-    </div>
-  );
-}
-
-function FilterCard({ titulo, texto }: { titulo: string; texto: string }) {
-  return (
-    <div className="rounded-2xl bg-white px-4 py-4 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-        {titulo}
-      </p>
-
-      <p className="mt-2 text-sm font-bold text-[#08163F]">{texto}</p>
     </div>
   );
 }
@@ -346,5 +448,24 @@ function KPI({
         {texto}
       </p>
     </article>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const statusLower = status.toLowerCase();
+
+  const classe =
+    statusLower === "ativo"
+      ? "bg-emerald-50 text-emerald-700"
+      : statusLower === "pendente"
+      ? "bg-amber-50 text-amber-700"
+      : statusLower === "inativo"
+      ? "bg-slate-100 text-slate-500"
+      : "bg-[#EEF2FF] text-[#08163F]";
+
+  return (
+    <span className={`rounded-full px-4 py-2 text-xs font-black ${classe}`}>
+      {status}
+    </span>
   );
 }

@@ -3,124 +3,50 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import { getUsuarioLogado, usuarioTemPermissao, User } from "@/utils/auth";
+import { useCeoClubDados } from "@/utils/useCeoClubDados";
+import {
+  gerarId,
+  Simulado,
+  QuestaoSimulado,
+  useSimulados,
+} from "@/utils/useSimulados";
 
-type StatusSimulado = "Rascunho" | "Publicado" | "Bloqueado";
-
-type Questao = {
-  id: string;
-  pergunta: string;
-  alternativas: string[];
-  correta: number;
-  explicacao: string;
+const simuladoInicial = {
+  titulo: "",
+  descricao: "",
+  moduloId: "",
 };
 
-type Simulado = {
-  id: string;
-  titulo: string;
-  modulo: string;
-  descricao: string;
-  publicadoPor: string;
-  status: StatusSimulado;
-  tempoEstimado: string;
-  dataCriacao: string;
-  mentorados: number;
-  questoes: Questao[];
+const questaoInicial = {
+  enunciado: "",
+  alternativa1: "",
+  alternativa2: "",
+  alternativa3: "",
+  alternativa4: "",
+  correta: "1",
 };
 
-const STORAGE_KEY = "ceoclub_simulados_mentor";
-
-const simuladosIniciais: Simulado[] = [
-  {
-    id: "posicionamento-teste",
-    titulo: "Simulado de Posicionamento",
-    modulo: "Posicionamento",
-    descricao:
-      "Teste de protótipo sobre clareza de marca, autoridade e diferenciação.",
-    publicadoPor: "Mentora Dra. Luciana Rocha",
-    status: "Bloqueado",
-    tempoEstimado: "5 min",
-    dataCriacao: "30/04",
-    mentorados: 12,
-    questoes: [
-      {
-        id: "q1",
-        pergunta:
-          "Qual é o principal objetivo do posicionamento dentro de uma marca pessoal?",
-        alternativas: [
-          "Copiar concorrentes",
-          "Ser lembrado por uma percepção clara e estratégica",
-          "Postar sem estratégia",
-          "Usar apenas identidade visual bonita",
-        ],
-        correta: 1,
-        explicacao:
-          "Posicionamento é sobre ocupar um espaço claro na mente do público.",
-      },
-      {
-        id: "q2",
-        pergunta: "Uma boa promessa de posicionamento deve se basear em:",
-        alternativas: [
-          "Preço baixo",
-          "Quantidade de seguidores",
-          "Valor percebido e transformação entregue",
-          "Sorte no algoritmo",
-        ],
-        correta: 2,
-        explicacao:
-          "A promessa precisa comunicar transformação, clareza e valor percebido.",
-      },
-      {
-        id: "q3",
-        pergunta:
-          "Quando um profissional tenta falar com todo mundo, o que costuma acontecer?",
-        alternativas: [
-          "A comunicação fica mais forte",
-          "A marca fica mais memorável",
-          "A mensagem perde força e clareza",
-          "O público entende melhor a oferta",
-        ],
-        correta: 2,
-        explicacao:
-          "Falar com todo mundo geralmente dilui a mensagem e enfraquece a marca.",
-      },
-    ],
-  },
-  {
-    id: "vendas-consultivas",
-    titulo: "Simulado de Vendas Consultivas",
-    modulo: "Vendas",
-    descricao:
-      "Simulado completo sobre diagnóstico, objeções e fechamento premium.",
-    publicadoPor: "Mentora Dra. Luciana Rocha",
-    status: "Publicado",
-    tempoEstimado: "30 min",
-    dataCriacao: "28/04",
-    mentorados: 8,
-    questoes: Array.from({ length: 30 }, (_, index) => ({
-      id: `vendas-${index + 1}`,
-      pergunta: `Pergunta ${index + 1} de vendas consultivas`,
-      alternativas: ["Alternativa A", "Alternativa B", "Alternativa C", "Alternativa D"],
-      correta: 1,
-      explicacao: "Explicação da questão.",
-    })),
-  },
-];
-
-export default function SimuladosMentoraPage() {
+export default function SimuladosPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [simulados, setSimulados] = useState<Simulado[]>([]);
+  const [simuladoAbertoId, setSimuladoAbertoId] = useState("");
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
-  const [busca, setBusca] = useState("");
+  const [novoSimulado, setNovoSimulado] = useState(simuladoInicial);
+  const [questaoPorSimulado, setQuestaoPorSimulado] = useState<
+    Record<string, typeof questaoInicial>
+  >({});
   const [erro, setErro] = useState("");
-  const [sucesso, setSucesso] = useState("");
 
-  const [titulo, setTitulo] = useState("");
-  const [modulo, setModulo] = useState("Posicionamento");
-  const [descricao, setDescricao] = useState("");
-  const [tempoEstimado, setTempoEstimado] = useState("30 min");
+  const { modulos, carregando: carregandoDados } = useCeoClubDados();
+  const {
+    carregando: carregandoSimulados,
+    simulados,
+    setSimulados,
+    totalQuestoes,
+    resultados,
+  } = useSimulados();
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -130,138 +56,167 @@ export default function SimuladosMentoraPage() {
       return;
     }
 
-    if (user.role === "mentorado") {
-      router.replace("/mentorado/dashboard");
-      return;
-    }
-
-    if (user.role !== "mentor") {
-      logoutUsuario();
-      router.replace("/login");
+    if (!usuarioTemPermissao(user, ["mentor"])) {
+      router.replace("/dashboard");
       return;
     }
 
     setUsuario(user);
-
-    const dadosSalvos = localStorage.getItem(STORAGE_KEY);
-
-    if (dadosSalvos) {
-      setSimulados(JSON.parse(dadosSalvos));
-    } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(simuladosIniciais));
-      setSimulados(simuladosIniciais);
-    }
   }, [router]);
 
-  useEffect(() => {
-    if (simulados.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(simulados));
-    }
+  const simuladosPublicados = useMemo(() => {
+    return simulados.filter((simulado) => simulado.ativo).length;
   }, [simulados]);
 
-  const simuladosFiltrados = useMemo(() => {
-    return simulados.filter((simulado) =>
-      `${simulado.titulo} ${simulado.modulo} ${simulado.status}`
-        .toLowerCase()
-        .includes(busca.toLowerCase())
+  const mediaResultados = useMemo(() => {
+    if (resultados.length === 0) return 0;
+
+    const soma = resultados.reduce(
+      (total, resultado) => total + resultado.percentual,
+      0
     );
-  }, [simulados, busca]);
 
-  const resumo = useMemo(() => {
-    return {
-      total: simulados.length,
-      publicados: simulados.filter((s) => s.status === "Publicado").length,
-      rascunhos: simulados.filter((s) => s.status === "Rascunho").length,
-      bloqueados: simulados.filter((s) => s.status === "Bloqueado").length,
-    };
-  }, [simulados]);
+    return Math.round(soma / resultados.length);
+  }, [resultados]);
 
-  function sair() {
-    logoutUsuario();
-    router.replace("/login");
-  }
-
-  function limparFormulario() {
-    setTitulo("");
-    setModulo("Posicionamento");
-    setDescricao("");
-    setTempoEstimado("30 min");
-    setErro("");
-    setSucesso("");
-  }
-
-  function criarSimulado(e: React.FormEvent<HTMLFormElement>) {
+  function criarSimulado(e: React.FormEvent) {
     e.preventDefault();
     setErro("");
-    setSucesso("");
 
-    if (!titulo.trim()) {
-      setErro("Digite um título para o simulado.");
+    if (!novoSimulado.titulo.trim()) {
+      setErro("Informe o título do simulado.");
       return;
     }
 
-    if (!descricao.trim()) {
-      setErro("Digite uma descrição para orientar o mentorado.");
-      return;
-    }
+    const moduloSelecionado = modulos.find(
+      (modulo) => modulo.id === novoSimulado.moduloId
+    );
 
-    const novoSimulado: Simulado = {
-      id: String(Date.now()),
-      titulo: titulo.trim(),
-      modulo,
-      descricao: descricao.trim(),
-      publicadoPor: usuario?.nome ?? "Mentora",
-      status: "Bloqueado",
-      tempoEstimado,
-      dataCriacao: "Hoje",
-      mentorados: 0,
+    const simulado: Simulado = {
+      id: gerarId("simulado"),
+      titulo: novoSimulado.titulo.trim(),
+      descricao: novoSimulado.descricao.trim(),
+      moduloId: moduloSelecionado?.id ?? "",
+      moduloTitulo: moduloSelecionado?.titulo ?? "",
+      ativo: false,
       questoes: [],
+      criadoEm: new Date().toISOString(),
+      atualizadoEm: new Date().toISOString(),
     };
 
-    const novaLista = [novoSimulado, ...simulados];
-
-    setSimulados(novaLista);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(novaLista));
-
-    limparFormulario();
+    setSimulados((estadoAtual) => [simulado, ...estadoAtual]);
+    setNovoSimulado(simuladoInicial);
     setMostrarFormulario(false);
-
-    router.push(`/simulados/${novoSimulado.id}/editar`);
+    setSimuladoAbertoId(simulado.id);
   }
 
-  function publicarSimulado(id: string) {
+  function excluirSimulado(simuladoId: string) {
+    setSimulados((estadoAtual) =>
+      estadoAtual.filter((simulado) => simulado.id !== simuladoId)
+    );
+
+    if (simuladoAbertoId === simuladoId) {
+      setSimuladoAbertoId("");
+    }
+  }
+
+  function alternarPublicacao(simuladoId: string) {
+    setSimulados((estadoAtual) =>
+      estadoAtual.map((simulado) =>
+        simulado.id === simuladoId
+          ? {
+              ...simulado,
+              ativo: !simulado.ativo,
+              atualizadoEm: new Date().toISOString(),
+            }
+          : simulado
+      )
+    );
+  }
+
+  function atualizarQuestaoTemporaria(
+    simuladoId: string,
+    campo: keyof typeof questaoInicial,
+    valor: string
+  ) {
+    setQuestaoPorSimulado((estadoAtual) => ({
+      ...estadoAtual,
+      [simuladoId]: {
+        ...(estadoAtual[simuladoId] ?? questaoInicial),
+        [campo]: valor,
+      },
+    }));
+  }
+
+  function adicionarQuestao(simuladoId: string) {
     setErro("");
-    setSucesso("");
 
-    const simulado = simulados.find((item) => item.id === id);
+    const questaoTemp = questaoPorSimulado[simuladoId] ?? questaoInicial;
 
-    if (!simulado) return;
-
-    if (simulado.questoes.length < 30) {
-      setErro(
-        `O simulado "${simulado.titulo}" tem ${simulado.questoes.length} questões. Para publicar, precisa ter no mínimo 30.`
-      );
+    if (!questaoTemp.enunciado.trim()) {
+      setErro("Informe o enunciado da questão.");
       return;
     }
 
-    setSimulados((atual) =>
-      atual.map((item) =>
-        item.id === id ? { ...item, status: "Publicado" } : item
+    const alternativasTexto = [
+      questaoTemp.alternativa1,
+      questaoTemp.alternativa2,
+      questaoTemp.alternativa3,
+      questaoTemp.alternativa4,
+    ].map((item) => item.trim());
+
+    if (alternativasTexto.some((item) => !item)) {
+      setErro("Preencha as quatro alternativas da questão.");
+      return;
+    }
+
+    const alternativas = alternativasTexto.map((texto, index) => ({
+      id: `${index + 1}`,
+      texto,
+    }));
+
+    const questao: QuestaoSimulado = {
+      id: gerarId("questao"),
+      enunciado: questaoTemp.enunciado.trim(),
+      alternativas,
+      respostaCorretaId: questaoTemp.correta,
+    };
+
+    setSimulados((estadoAtual) =>
+      estadoAtual.map((simulado) =>
+        simulado.id === simuladoId
+          ? {
+              ...simulado,
+              questoes: [...simulado.questoes, questao],
+              atualizadoEm: new Date().toISOString(),
+            }
+          : simulado
       )
     );
 
-    setSucesso("Simulado publicado para os mentorados.");
+    setQuestaoPorSimulado((estadoAtual) => ({
+      ...estadoAtual,
+      [simuladoId]: questaoInicial,
+    }));
   }
 
-  function excluirSimulado(id: string) {
-    const confirmar = confirm("Tem certeza que deseja excluir este simulado?");
-
-    if (!confirmar) return;
-
-    setSimulados((atual) => atual.filter((simulado) => simulado.id !== id));
+  function removerQuestao(simuladoId: string, questaoId: string) {
+    setSimulados((estadoAtual) =>
+      estadoAtual.map((simulado) =>
+        simulado.id === simuladoId
+          ? {
+              ...simulado,
+              questoes: simulado.questoes.filter(
+                (questao) => questao.id !== questaoId
+              ),
+              atualizadoEm: new Date().toISOString(),
+            }
+          : simulado
+      )
+    );
   }
 
-  if (!usuario) {
+  if (!usuario || carregandoDados || carregandoSimulados) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
         Carregando simulados...
@@ -276,394 +231,413 @@ export default function SimuladosMentoraPage() {
       <section className="flex-1 overflow-hidden">
         <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-8 backdrop-blur-xl">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
+            <p className="text-xs font-black uppercase tracking-[0.26em] text-slate-400">
               Área da mentora
             </p>
             <h1 className="text-xl font-black">Simulados</h1>
           </div>
 
           <button
-            onClick={sair}
-            className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110"
+            onClick={() => setMostrarFormulario((atual) => !atual)}
+            className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
           >
-            Sair
+            {mostrarFormulario ? "Fechar" : "+ Novo simulado"}
           </button>
         </header>
 
         <div className="h-[calc(100vh-82px)] overflow-y-auto px-8 py-10">
-          <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-xl">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <section className="relative overflow-hidden rounded-[2.2rem] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-9 text-white shadow-2xl shadow-[#07122F]/20">
+            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -bottom-24 left-12 h-56 w-56 rounded-full bg-blue-400/20 blur-3xl" />
+
+            <div className="relative grid gap-8 xl:grid-cols-[1.2fr_0.8fr] xl:items-center">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
-                  Gestão de simulados
+                <p className="text-xs font-black uppercase tracking-[0.32em] text-blue-200">
+                  Prática e avaliação
                 </p>
 
-                <h2 className="mt-3 text-4xl font-black">
-                  Crie, edite e publique avaliações
+                <h2 className="mt-4 max-w-4xl text-4xl font-black leading-tight">
+                  Crie simulados para medir entendimento e evolução dos mentorados.
                 </h2>
 
-                <p className="mt-3 max-w-2xl text-[#D9DEE7]">
-                  Crie simulados por módulo, cadastre perguntas e publique para
-                  os mentorados. Para publicar, o simulado precisa ter pelo menos
-                  30 questões.
+                <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-blue-100">
+                  Monte perguntas, vincule aos módulos e publique para o
+                  mentorado responder na área de prática.
                 </p>
               </div>
 
-              <button
-                onClick={() => setMostrarFormulario((atual) => !atual)}
-                className="rounded-2xl bg-white px-6 py-4 font-black text-[#08163F] shadow-lg transition hover:brightness-95"
-              >
-                {mostrarFormulario ? "Fechar formulário" : "+ Novo simulado"}
-              </button>
+              <div className="grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/10 p-6 backdrop-blur-md">
+                <Metric titulo="Simulados" valor={String(simulados.length)} />
+                <div className="grid grid-cols-3 gap-4">
+                  <MiniMetric titulo="Publicados" valor={String(simuladosPublicados)} />
+                  <MiniMetric titulo="Questões" valor={String(totalQuestoes)} />
+                  <MiniMetric titulo="Média" valor={`${mediaResultados}%`} />
+                </div>
+              </div>
             </div>
           </section>
-
-          <section className="mb-7 grid gap-5 xl:grid-cols-4">
-            <KPI titulo="Total" valor={resumo.total} destaque />
-            <KPI titulo="Publicados" valor={resumo.publicados} />
-            <KPI titulo="Rascunhos" valor={resumo.rascunhos} />
-            <KPI titulo="Bloqueados" valor={resumo.bloqueados} alerta />
-          </section>
-
-          {erro && (
-            <div className="mb-6 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
-              {erro}
-            </div>
-          )}
-
-          {sucesso && (
-            <div className="mb-6 rounded-2xl bg-green-50 p-4 text-sm font-bold text-green-700">
-              {sucesso}
-            </div>
-          )}
 
           {mostrarFormulario && (
             <form
               onSubmit={criarSimulado}
-              className="mb-8 rounded-[32px] bg-white p-7 shadow-lg"
+              className="mt-8 rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70"
             >
-              <div className="mb-6">
-                <h3 className="text-2xl font-black text-[#050816]">
-                  Criar novo simulado
-                </h3>
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
+                Novo simulado
+              </p>
 
-                <p className="mt-2 text-sm font-semibold text-gray-500">
-                  Primeiro crie o rascunho. Depois você será levado para a tela
-                  de edição para cadastrar as perguntas.
-                </p>
-              </div>
+              <h3 className="mt-1 text-2xl font-black">
+                Criar avaliação prática
+              </h3>
 
-              <div className="grid gap-5 md:grid-cols-2">
-                <Campo label="Título do simulado">
-                  <input
-                    value={titulo}
-                    onChange={(e) => setTitulo(e.target.value)}
-                    placeholder="Ex: Simulado de Vendas Premium"
-                    className="input-ceo"
-                  />
-                </Campo>
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <input
+                  type="text"
+                  placeholder="Título do simulado"
+                  value={novoSimulado.titulo}
+                  onChange={(e) =>
+                    setNovoSimulado({
+                      ...novoSimulado,
+                      titulo: e.target.value,
+                    })
+                  }
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C]"
+                />
 
-                <Campo label="Módulo">
-                  <select
-                    value={modulo}
-                    onChange={(e) => setModulo(e.target.value)}
-                    className="input-ceo"
-                  >
-                    <option>Posicionamento</option>
-                    <option>Vendas</option>
-                    <option>Marketing</option>
-                    <option>Fechamento</option>
-                    <option>Gestão</option>
-                  </select>
-                </Campo>
-
-                <Campo label="Tempo estimado">
-                  <input
-                    value={tempoEstimado}
-                    onChange={(e) => setTempoEstimado(e.target.value)}
-                    placeholder="Ex: 30 min"
-                    className="input-ceo"
-                  />
-                </Campo>
-
-                <Campo label="Publicado por">
-                  <input
-                    value={usuario.nome}
-                    disabled
-                    className="input-ceo cursor-not-allowed opacity-70"
-                  />
-                </Campo>
-
-                <div className="md:col-span-2">
-                  <Campo label="Descrição para o mentorado">
-                    <textarea
-                      value={descricao}
-                      onChange={(e) => setDescricao(e.target.value)}
-                      placeholder="Explique o objetivo deste simulado..."
-                      rows={4}
-                      className="input-ceo resize-none"
-                    />
-                  </Campo>
-                </div>
-              </div>
-
-              <div className="mt-6 rounded-2xl bg-yellow-50 p-5">
-                <p className="font-black text-yellow-800">
-                  Regra de publicação
-                </p>
-                <p className="mt-2 text-sm font-bold leading-relaxed text-yellow-700">
-                  O simulado será criado como bloqueado enquanto tiver menos de
-                  30 questões. Você poderá adicionar perguntas na tela de edição.
-                </p>
-              </div>
-
-              <div className="mt-6 flex flex-wrap gap-4">
-                <button
-                  type="submit"
-                  className="rounded-2xl bg-[#08163F] px-7 py-4 font-black text-white shadow-lg transition hover:brightness-110"
+                <select
+                  value={novoSimulado.moduloId}
+                  onChange={(e) =>
+                    setNovoSimulado({
+                      ...novoSimulado,
+                      moduloId: e.target.value,
+                    })
+                  }
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C]"
                 >
-                  Criar e editar perguntas →
-                </button>
+                  <option value="">Vincular a um módulo</option>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    limparFormulario();
-                    setMostrarFormulario(false);
-                  }}
-                  className="rounded-2xl bg-[#f3f5f8] px-7 py-4 font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
-                >
-                  Cancelar
-                </button>
+                  {modulos.map((modulo) => (
+                    <option key={modulo.id} value={modulo.id}>
+                      {modulo.titulo}
+                    </option>
+                  ))}
+                </select>
+
+                <textarea
+                  placeholder="Descrição do simulado"
+                  value={novoSimulado.descricao}
+                  onChange={(e) =>
+                    setNovoSimulado({
+                      ...novoSimulado,
+                      descricao: e.target.value,
+                    })
+                  }
+                  className="min-h-[120px] rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C] md:col-span-2"
+                />
               </div>
+
+              {erro && (
+                <p className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+                  {erro}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                className="mt-6 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
+              >
+                Criar simulado
+              </button>
             </form>
           )}
 
-          <div className="mb-6 rounded-[26px] bg-white p-4 shadow-lg">
-            <input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar por título, módulo ou status..."
-              className="w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-5 py-4 font-bold text-[#08163F] outline-none transition focus:border-[#12317C] focus:ring-4 focus:ring-[#12317C]/10"
-            />
-          </div>
+          <section className="mt-8 rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
+                  Banco de simulados
+                </p>
 
-          <section className="grid gap-6 xl:grid-cols-[1fr_420px]">
-            <div className="space-y-5">
-              {simuladosFiltrados.map((simulado) => (
-                <div
-                  key={simulado.id}
-                  className="rounded-[30px] bg-white p-6 shadow-lg"
-                >
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <div className="mb-4 flex flex-wrap items-center gap-3">
-                        <StatusBadge status={simulado.status} />
+                <h3 className="mt-1 text-2xl font-black">
+                  Simulados cadastrados
+                </h3>
+              </div>
 
-                        <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-xs font-black text-[#08163F]">
-                          {simulado.modulo}
-                        </span>
-                      </div>
-
-                      <h3 className="text-2xl font-black text-[#050816]">
-                        {simulado.titulo}
-                      </h3>
-
-                      <p className="mt-2 max-w-2xl text-sm font-semibold leading-relaxed text-gray-500">
-                        {simulado.descricao}
-                      </p>
-
-                      <p className="mt-4 text-sm font-bold text-gray-400">
-                        Criado em {simulado.dataCriacao} · {simulado.mentorados}{" "}
-                        mentorados
-                      </p>
-                    </div>
-
-                    <div className="grid min-w-[260px] grid-cols-2 gap-3">
-                      <MiniInfo label="Questões" value={simulado.questoes.length} />
-                      <MiniInfo label="Tempo" value={simulado.tempoEstimado} />
-                    </div>
-                  </div>
-
-                  <div className="mt-6 flex flex-wrap justify-end gap-3">
-                    <button
-                      onClick={() =>
-                        router.push(`/simulados/${simulado.id}/editar`)
-                      }
-                      className="rounded-2xl bg-[#f3f5f8] px-5 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
-                    >
-                      Editar →
-                    </button>
-
-                    <button
-                      onClick={() => publicarSimulado(simulado.id)}
-                      className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
-                    >
-                      Publicar
-                    </button>
-
-                    <button
-                      onClick={() => excluirSimulado(simulado.id)}
-                      className="rounded-2xl bg-red-50 px-5 py-3 text-sm font-black text-red-700 transition hover:bg-red-100"
-                    >
-                      Excluir
-                    </button>
-                  </div>
-                </div>
-              ))}
+              <button
+                onClick={() => setMostrarFormulario(true)}
+                className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
+              >
+                + Criar simulado
+              </button>
             </div>
 
-            <aside className="space-y-6">
-              <Card titulo="Regra de publicação">
-                <div className="rounded-2xl bg-yellow-50 p-5">
-                  <p className="text-sm font-bold leading-relaxed text-yellow-800">
-                    A publicação será bloqueada se o simulado tiver menos de 30
-                    questões. No protótipo, você pode criar com menos perguntas
-                    para testar o fluxo, mas ele não será publicado.
-                  </p>
-                </div>
-              </Card>
+            {erro && !mostrarFormulario && (
+              <p className="mt-5 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+                {erro}
+              </p>
+            )}
 
-              <Card titulo="Fluxo ideal">
-                <div className="space-y-4">
-                  <Regra numero="1" texto="Crie o simulado como rascunho." />
-                  <Regra numero="2" texto="Adicione perguntas e alternativas." />
-                  <Regra numero="3" texto="Cadastre pelo menos 30 questões." />
-                  <Regra numero="4" texto="Publique para os mentorados." />
+            {simulados.length === 0 ? (
+              <div className="mt-7 rounded-[1.8rem] border border-dashed border-slate-200 bg-[#f9fafb] p-10 text-center">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-white text-3xl shadow-sm">
+                  ✦
                 </div>
-              </Card>
-            </aside>
+
+                <h4 className="mt-5 text-xl font-black">
+                  Nenhum simulado criado ainda
+                </h4>
+
+                <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-500">
+                  Crie o primeiro simulado para liberar atividades práticas ao
+                  mentorado.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-7 space-y-5">
+                {simulados.map((simulado) => {
+                  const aberto = simuladoAbertoId === simulado.id;
+                  const questaoTemp =
+                    questaoPorSimulado[simulado.id] ?? questaoInicial;
+
+                  return (
+                    <article
+                      key={simulado.id}
+                      className="overflow-hidden rounded-[1.8rem] border border-slate-100 bg-[#f9fafb]"
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSimuladoAbertoId(aberto ? "" : simulado.id)
+                        }
+                        className="flex w-full flex-wrap items-center justify-between gap-4 bg-white p-6 text-left"
+                      >
+                        <div>
+                          <div className="flex flex-wrap gap-2">
+                            <span
+                              className={`rounded-full px-4 py-2 text-xs font-black ${
+                                simulado.ativo
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              {simulado.ativo ? "Publicado" : "Rascunho"}
+                            </span>
+
+                            {simulado.moduloTitulo && (
+                              <span className="rounded-full bg-[#EEF2FF] px-4 py-2 text-xs font-black text-[#08163F]">
+                                {simulado.moduloTitulo}
+                              </span>
+                            )}
+                          </div>
+
+                          <h4 className="mt-4 text-2xl font-black">
+                            {simulado.titulo}
+                          </h4>
+
+                          {simulado.descricao && (
+                            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+                              {simulado.descricao}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <span className="rounded-full bg-white px-4 py-2 text-xs font-black text-slate-500 ring-1 ring-slate-100">
+                            {simulado.questoes.length} questões
+                          </span>
+
+                          <span className="rounded-full bg-white px-4 py-2 text-xs font-black text-slate-500 ring-1 ring-slate-100">
+                            {aberto ? "Recolher" : "Editar"}
+                          </span>
+                        </div>
+                      </button>
+
+                      {aberto && (
+                        <div className="space-y-5 border-t border-slate-100 p-6">
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() => alternarPublicacao(simulado.id)}
+                              className={`rounded-2xl px-5 py-3 text-sm font-black shadow-sm transition hover:-translate-y-0.5 ${
+                                simulado.ativo
+                                  ? "bg-slate-100 text-slate-700"
+                                  : "bg-emerald-600 text-white"
+                              }`}
+                            >
+                              {simulado.ativo
+                                ? "Despublicar"
+                                : "Publicar simulado"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => excluirSimulado(simulado.id)}
+                              className="rounded-2xl bg-red-50 px-5 py-3 text-sm font-black text-red-600 transition hover:bg-red-100"
+                            >
+                              Excluir simulado
+                            </button>
+                          </div>
+
+                          <div className="rounded-[1.5rem] bg-white p-5 shadow-sm">
+                            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                              Nova questão
+                            </p>
+
+                            <textarea
+                              placeholder="Enunciado da questão"
+                              value={questaoTemp.enunciado}
+                              onChange={(e) =>
+                                atualizarQuestaoTemporaria(
+                                  simulado.id,
+                                  "enunciado",
+                                  e.target.value
+                                )
+                              }
+                              className="mt-4 min-h-[110px] w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C]"
+                            />
+
+                            <div className="mt-4 grid gap-3 md:grid-cols-2">
+                              {[1, 2, 3, 4].map((numero) => (
+                                <input
+                                  key={numero}
+                                  type="text"
+                                  placeholder={`Alternativa ${numero}`}
+                                  value={
+                                    questaoTemp[
+                                      `alternativa${numero}` as keyof typeof questaoInicial
+                                    ]
+                                  }
+                                  onChange={(e) =>
+                                    atualizarQuestaoTemporaria(
+                                      simulado.id,
+                                      `alternativa${numero}` as keyof typeof questaoInicial,
+                                      e.target.value
+                                    )
+                                  }
+                                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C]"
+                                />
+                              ))}
+                            </div>
+
+                            <select
+                              value={questaoTemp.correta}
+                              onChange={(e) =>
+                                atualizarQuestaoTemporaria(
+                                  simulado.id,
+                                  "correta",
+                                  e.target.value
+                                )
+                              }
+                              className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C]"
+                            >
+                              <option value="1">Alternativa 1 correta</option>
+                              <option value="2">Alternativa 2 correta</option>
+                              <option value="3">Alternativa 3 correta</option>
+                              <option value="4">Alternativa 4 correta</option>
+                            </select>
+
+                            <button
+                              type="button"
+                              onClick={() => adicionarQuestao(simulado.id)}
+                              className="mt-4 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
+                            >
+                              + Adicionar questão
+                            </button>
+                          </div>
+
+                          {simulado.questoes.length === 0 ? (
+                            <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-white p-8 text-center">
+                              <p className="font-black">
+                                Nenhuma questão adicionada
+                              </p>
+                              <p className="mt-2 text-sm font-semibold text-slate-500">
+                                Adicione questões antes de publicar para os
+                                mentorados.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="grid gap-5 xl:grid-cols-2">
+                              {simulado.questoes.map((questao, index) => (
+                                <div
+                                  key={questao.id}
+                                  className="rounded-[1.5rem] bg-white p-5 shadow-sm"
+                                >
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                                        Questão {index + 1}
+                                      </p>
+
+                                      <h5 className="mt-2 text-lg font-black">
+                                        {questao.enunciado}
+                                      </h5>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        removerQuestao(
+                                          simulado.id,
+                                          questao.id
+                                        )
+                                      }
+                                      className="rounded-xl bg-red-50 px-3 py-2 text-xs font-black text-red-600"
+                                    >
+                                      Remover
+                                    </button>
+                                  </div>
+
+                                  <div className="mt-4 space-y-2">
+                                    {questao.alternativas.map((alternativa) => (
+                                      <div
+                                        key={alternativa.id}
+                                        className={`rounded-2xl p-3 text-sm font-bold ${
+                                          alternativa.id ===
+                                          questao.respostaCorretaId
+                                            ? "bg-emerald-50 text-emerald-700"
+                                            : "bg-slate-50 text-slate-600"
+                                        }`}
+                                      >
+                                        {alternativa.id}. {alternativa.texto}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </section>
         </div>
       </section>
-
-      <style jsx global>{`
-        .input-ceo {
-          width: 100%;
-          border-radius: 1rem;
-          border: 1px solid #e5e7eb;
-          background: #f9fafb;
-          padding: 1rem;
-          font-weight: 700;
-          color: #08163f;
-          outline: none;
-          transition: 0.2s ease;
-        }
-
-        .input-ceo::placeholder {
-          color: #9ca3af;
-        }
-
-        .input-ceo:focus {
-          border-color: #12317c;
-          box-shadow: 0 0 0 4px rgba(18, 49, 124, 0.1);
-          background: white;
-        }
-      `}</style>
     </main>
   );
 }
 
-function KPI({
-  titulo,
-  valor,
-  destaque,
-  alerta,
-}: {
-  titulo: string;
-  valor: React.ReactNode;
-  destaque?: boolean;
-  alerta?: boolean;
-}) {
+function Metric({ titulo, valor }: { titulo: string; valor: string }) {
   return (
-    <div
-      className={`rounded-[26px] p-6 shadow-lg ${
-        destaque
-          ? "bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-white"
-          : alerta
-          ? "bg-red-50 text-red-800"
-          : "bg-white text-[#08163F]"
-      }`}
-    >
-      <p
-        className={`text-sm font-bold ${
-          destaque ? "text-[#C9CED6]" : alerta ? "text-red-500" : "text-gray-500"
-        }`}
-      >
+    <div className="rounded-2xl bg-white/10 px-4 py-4">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">
         {titulo}
       </p>
-
-      <p className="mt-4 text-3xl font-black">{valor}</p>
+      <strong className="mt-2 block text-3xl font-black">{valor}</strong>
     </div>
   );
 }
 
-function Campo({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function MiniMetric({ titulo, valor }: { titulo: string; valor: string }) {
   return (
-    <label>
-      <span className="text-sm font-black text-gray-500">{label}</span>
-      <div className="mt-2">{children}</div>
-    </label>
-  );
-}
-
-function MiniInfo({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl bg-[#f9fafb] p-4">
-      <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">
-        {label}
+    <div className="rounded-2xl bg-white/10 px-4 py-4">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">
+        {titulo}
       </p>
-      <p className="mt-1 font-black text-[#08163F]">{value}</p>
+      <strong className="mt-2 block text-2xl font-black">{valor}</strong>
     </div>
-  );
-}
-
-function Card({
-  titulo,
-  children,
-}: {
-  titulo: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="overflow-hidden rounded-[30px] border border-gray-200 bg-white shadow-lg">
-      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-6">
-        <h3 className="text-2xl font-black text-[#050816]">{titulo}</h3>
-      </div>
-
-      <div className="p-6">{children}</div>
-    </div>
-  );
-}
-
-function Regra({ numero, texto }: { numero: string; texto: string }) {
-  return (
-    <div className="flex gap-4 rounded-2xl bg-[#f9fafb] p-4">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#08163F] text-sm font-black text-white">
-        {numero}
-      </div>
-
-      <p className="text-sm font-bold leading-relaxed text-gray-600">{texto}</p>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: StatusSimulado }) {
-  const classes = {
-    Rascunho: "bg-yellow-100 text-yellow-700",
-    Publicado: "bg-green-100 text-green-700",
-    Bloqueado: "bg-red-100 text-red-700",
-  };
-
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black ${classes[status]}`}>
-      {status}
-    </span>
   );
 }

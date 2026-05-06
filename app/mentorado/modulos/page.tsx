@@ -2,159 +2,68 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import { useCeoClubDados } from "@/utils/useCeoClubDados";
 
-type Aula = {
-  id: string;
-  titulo: string;
-  duracao: string;
-  concluida: boolean;
-  descricao: string;
-  modulo: string;
-  videoLabel: string;
-  arquivos: {
-    nome: string;
-    tamanho: string;
-  }[];
-};
+function converterYoutubeParaEmbed(url: string) {
+  if (!url?.trim()) return "";
 
-type Modulo = {
-  id: string;
-  titulo: string;
-  numero: number;
-  aulas: Aula[];
-};
+  try {
+    const urlObj = new URL(url);
 
-const modulosMock: Modulo[] = [
-  {
-    id: "comeco",
-    numero: 1,
-    titulo: "Comece aqui",
-    aulas: [
-      {
-        id: "boas-vindas",
-        titulo: "Seja bem-vindo!",
-        duracao: "2 min",
-        concluida: true,
-        modulo: "Módulo 1 - Comece aqui",
-        videoLabel: "Boas-vindas CEO Club",
-        descricao:
-          "Nesta aula, você entende como a jornada CEO Club funciona, como acompanhar seu progresso e como transformar aprendizado em execução prática.",
-        arquivos: [
-          {
-            nome: "Guia inicial CEO Club.pdf",
-            tamanho: "148 KB",
-          },
-        ],
-      },
-      {
-        id: "plataforma",
-        titulo: "Conhecendo a plataforma",
-        duracao: "4 min",
-        concluida: false,
-        modulo: "Módulo 1 - Comece aqui",
-        videoLabel: "Conhecendo a plataforma",
-        descricao:
-          "Aprenda como navegar pelos módulos, acessar atividades, acompanhar tarefas e usar a área de prática para reforçar os conteúdos.",
-        arquivos: [],
-      },
-    ],
-  },
-  {
-    id: "posicionamento",
-    numero: 2,
-    titulo: "Posicionamento",
-    aulas: [
-      {
-        id: "clareza-marca",
-        titulo: "Clareza de marca e autoridade",
-        duracao: "16 min",
-        concluida: false,
-        modulo: "Módulo 2 - Posicionamento",
-        videoLabel: "Clareza de marca",
-        descricao:
-          "Nesta aula, você aprende a construir uma comunicação clara, fortalecer autoridade e definir uma posição mais estratégica na mente do seu público.",
-        arquivos: [
-          {
-            nome: "Checklist de posicionamento.pdf",
-            tamanho: "212 KB",
-          },
-          {
-            nome: "Mapa de clareza da marca.pdf",
-            tamanho: "185 KB",
-          },
-        ],
-      },
-      {
-        id: "diferenciacao",
-        titulo: "Diferenciação no mercado",
-        duracao: "12 min",
-        concluida: false,
-        modulo: "Módulo 2 - Posicionamento",
-        videoLabel: "Diferenciação",
-        descricao:
-          "Entenda como sair da comparação por preço e comunicar valor de forma mais forte, elegante e memorável.",
-        arquivos: [
-          {
-            nome: "Exercício de diferenciação.pdf",
-            tamanho: "96 KB",
-          },
-        ],
-      },
-      {
-        id: "persona",
-        titulo: "Persona, promessa e linguagem",
-        duracao: "18 min",
-        concluida: false,
-        modulo: "Módulo 2 - Posicionamento",
-        videoLabel: "Persona e linguagem",
-        descricao:
-          "Aprenda a definir para quem você fala, qual transformação oferece e como traduzir isso em uma linguagem comercial mais precisa.",
-        arquivos: [],
-      },
-    ],
-  },
-  {
-    id: "vendas",
-    numero: 3,
-    titulo: "Vendas - Nível Inicial",
-    aulas: [
-      {
-        id: "venda-consultiva",
-        titulo: "Venda consultiva",
-        duracao: "20 min",
-        concluida: false,
-        modulo: "Módulo 3 - Vendas",
-        videoLabel: "Venda consultiva",
-        descricao:
-          "Aprenda a conduzir uma conversa comercial com diagnóstico, escuta ativa e conexão entre desejo, valor e decisão.",
-        arquivos: [
-          {
-            nome: "Roteiro de venda consultiva.pdf",
-            tamanho: "173 KB",
-          },
-        ],
-      },
-      {
-        id: "objecoes",
-        titulo: "Como lidar com objeções",
-        duracao: "15 min",
-        concluida: false,
-        modulo: "Módulo 3 - Vendas",
-        videoLabel: "Objeções",
-        descricao:
-          "Entenda como transformar objeções em pontos de clareza, sem pressionar o cliente e sem desvalorizar sua oferta.",
-        arquivos: [],
-      },
-    ],
-  },
-];
+    if (urlObj.hostname.includes("youtube.com")) {
+      const videoId = urlObj.searchParams.get("v");
 
-export default function ModulosMentoradoPage() {
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+
+      if (urlObj.pathname.startsWith("/embed/")) {
+        return url;
+      }
+
+      if (urlObj.pathname.startsWith("/shorts/")) {
+        const videoIdShorts = urlObj.pathname
+          .split("/shorts/")[1]
+          ?.split("/")[0];
+
+        if (videoIdShorts) {
+          return `https://www.youtube.com/embed/${videoIdShorts}`;
+        }
+      }
+    }
+
+    if (urlObj.hostname.includes("youtu.be")) {
+      const videoId = urlObj.pathname.replace("/", "");
+
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+    }
+
+    return "";
+  } catch {
+    return "";
+  }
+}
+
+export default function MentoradoModulosPage() {
   const router = useRouter();
+
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [aulaSelecionadaId, setAulaSelecionadaId] = useState("clareza-marca");
+  const [moduloSelecionadoId, setModuloSelecionadoId] = useState("");
+  const [aulaSelecionadaId, setAulaSelecionadaId] = useState("");
   const [modalArquivosAberto, setModalArquivosAberto] = useState(false);
+
+  const {
+    carregando,
+    modulos,
+    aulas,
+    aulasConcluidas,
+    setAulasConcluidas,
+    progressoGeral,
+  } = useCeoClubDados();
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -164,301 +73,463 @@ export default function ModulosMentoradoPage() {
       return;
     }
 
-    if (user.role === "mentor") {
-      router.replace("/dashboard");
-      return;
-    }
-
     if (user.role !== "mentorado") {
-      logoutUsuario();
-      router.replace("/login");
+      router.replace("/dashboard");
       return;
     }
 
     setUsuario(user);
   }, [router]);
 
-  const todasAulas = useMemo(() => {
-    return modulosMock.flatMap((modulo) => modulo.aulas);
-  }, []);
+  useEffect(() => {
+    if (carregando || modulos.length === 0) return;
+
+    const primeiroModulo = modulos[0];
+    const primeiraAula = primeiroModulo.aulas[0];
+
+    setModuloSelecionadoId((atual) => atual || primeiroModulo.id);
+    setAulaSelecionadaId((atual) => atual || primeiraAula?.id || "");
+  }, [carregando, modulos]);
+
+  const moduloSelecionado = useMemo(() => {
+    return (
+      modulos.find((modulo) => modulo.id === moduloSelecionadoId) ??
+      modulos[0] ??
+      null
+    );
+  }, [modulos, moduloSelecionadoId]);
 
   const aulaSelecionada = useMemo(() => {
-    return (
-      todasAulas.find((aula) => aula.id === aulaSelecionadaId) ?? todasAulas[0]
-    );
-  }, [aulaSelecionadaId, todasAulas]);
+    if (!moduloSelecionado) return null;
 
-  const totalAulas = todasAulas.length;
-  const aulasConcluidas = todasAulas.filter((aula) => aula.concluida).length;
+    return (
+      moduloSelecionado.aulas.find((aula) => aula.id === aulaSelecionadaId) ??
+      moduloSelecionado.aulas[0] ??
+      null
+    );
+  }, [moduloSelecionado, aulaSelecionadaId]);
+
+  const totalAulas = aulas.length;
+
+  const arquivosDaAula = aulaSelecionada?.arquivos ?? [];
+
+  const embedUrl = aulaSelecionada?.videoUrl
+    ? converterYoutubeParaEmbed(aulaSelecionada.videoUrl)
+    : "";
+
+  function selecionarAula(moduloId: string, aulaId: string) {
+    setModuloSelecionadoId(moduloId);
+    setAulaSelecionadaId(aulaId);
+    setModalArquivosAberto(false);
+  }
+
+  function alternarConclusao(aulaId: string) {
+    setAulasConcluidas((estadoAtual) => {
+      if (estadoAtual.includes(aulaId)) {
+        return estadoAtual.filter((id) => id !== aulaId);
+      }
+
+      return [...estadoAtual, aulaId];
+    });
+  }
 
   function sair() {
     logoutUsuario();
     router.replace("/login");
   }
 
-  if (!usuario) {
+  if (!usuario || carregando) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        Carregando módulo de aula...
+        Carregando módulos...
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
-      <aside className="hidden min-h-screen w-[310px] flex-col border-r border-black/5 bg-white p-5 shadow-[10px_0_40px_rgba(15,23,42,0.04)] lg:flex">
-        <div className="mb-8 flex items-center gap-3 rounded-[24px] bg-[#f8fafc] p-3">
-          <div className="h-14 w-14 overflow-hidden rounded-2xl bg-[#08163F] p-1">
-            <img
-              src="/images/logo.jpeg"
-              alt="CEO Club"
-              className="h-full w-full rounded-xl object-cover"
-            />
-          </div>
+    <main className="min-h-screen bg-[#f3f5f8] text-[#08163F]">
+      <div className="grid min-h-screen lg:grid-cols-[320px_1fr]">
+        <aside className="hidden border-r border-slate-100 bg-white p-6 lg:block">
+          <div className="rounded-[1.5rem] bg-[#f7f9fc] p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-[#07122F] text-sm font-black text-white">
+                CC
+              </div>
 
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-gray-400">
-              Curso
-            </p>
-            <h1 className="text-lg font-black text-[#08163F]">CEO Club</h1>
-          </div>
-        </div>
-
-        <nav className="space-y-2">
-          <MenuItem label="Início" onClick={() => router.push("/mentorado/dashboard")} />
-          <MenuItem ativo label="Assistir aula" onClick={() => router.push("/mentorado/modulos")} />
-          <MenuItem label="Praticar" onClick={() => router.push("/mentorado/praticar")} />
-          <MenuItem label="Meu progresso" onClick={() => router.push("/mentorado/progresso")} />
-          <MenuItem label="Minha agenda" onClick={() => router.push("/mentorado/agenda")} />
-          <MenuItem label="Tarefas" onClick={() => router.push("/mentorado/tarefas")} />
-          <MenuItem label="Minha conta" onClick={() => router.push("/mentorado/conta")} />
-        </nav>
-
-        <div className="mt-auto rounded-[24px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#C9CED6]">
-            Mentorado
-          </p>
-          <p className="mt-2 font-black">{usuario.nome}</p>
-
-          <button
-            onClick={sair}
-            className="mt-5 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#08163F] transition hover:brightness-95"
-          >
-            Sair
-          </button>
-        </div>
-      </aside>
-
-      <section className="flex-1 overflow-hidden">
-        <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-6 backdrop-blur-xl md:px-8">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push("/mentorado/dashboard")}
-              className="rounded-2xl bg-[#f3f5f8] px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
-            >
-              ← Voltar
-            </button>
-
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
-                Aula CEO Club
-              </p>
-              <h1 className="text-xl font-black">{aulaSelecionada.titulo}</h1>
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
+                  Curso
+                </p>
+                <h1 className="text-xl font-black">CEO Club</h1>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push("/mentorado/suporte")}
-              className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
-            >
-              Suporte
-            </button>
+          <nav className="mt-10 space-y-3">
+            <MenuItem
+              label="Início"
+              onClick={() => router.push("/mentorado/dashboard")}
+            />
+
+            <MenuItem label="Assistir aula" ativo />
+
+            <MenuItem
+              label="Praticar"
+              onClick={() => router.push("/mentorado/praticar")}
+            />
+
+            <MenuItem
+              label="Meu progresso"
+              onClick={() => router.push("/mentorado/progresso")}
+            />
+
+            <MenuItem
+              label="Minha agenda"
+              onClick={() => router.push("/mentorado/agenda")}
+            />
+
+            <MenuItem
+              label="Financeiro"
+              onClick={() => router.push("/mentorado/financeiro")}
+            />
+
+            <MenuItem
+              label="Minha conta"
+              onClick={() => router.push("/mentorado/conta")}
+            />
+          </nav>
+
+          <div className="mt-10 rounded-[1.5rem] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white">
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
+              Mentorado
+            </p>
+
+            <p className="mt-3 text-lg font-black">{usuario.nome}</p>
 
             <button
               onClick={sair}
-              className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110"
+              className="mt-5 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#08163F]"
             >
               Sair
             </button>
           </div>
-        </header>
+        </aside>
 
-        <div className="h-[calc(100vh-82px)] overflow-y-auto px-6 py-10 md:px-8">
-          <section className="grid gap-8 xl:grid-cols-[1fr_430px]">
-            <div>
-              <div className="overflow-hidden rounded-[32px] bg-black shadow-xl">
-                <div className="flex aspect-video items-center justify-center bg-gradient-to-br from-[#020617] via-[#07122F] to-[#12317C] text-white">
-                  <div className="text-center">
-                    <p className="text-xs font-bold uppercase tracking-[0.34em] text-[#C9CED6]">
-                      Mentoria CEO Club
-                    </p>
-                    <h2 className="mt-4 text-5xl font-black">
-                      {aulaSelecionada.videoLabel}
-                    </h2>
-                    <p className="mt-4 text-sm font-semibold text-[#D9DEE7]">
-                      Player de vídeo demonstrativo
-                    </p>
+        <section className="flex min-w-0 flex-col">
+          <header className="sticky top-0 z-20 flex h-[88px] items-center justify-between border-b border-slate-100 bg-white/85 px-6 backdrop-blur-xl lg:px-9">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push("/mentorado/dashboard")}
+                className="rounded-2xl bg-[#f3f5f8] px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+              >
+                ← Voltar
+              </button>
 
-                    <button className="mt-8 rounded-full bg-white px-8 py-4 font-black text-[#08163F] shadow-lg transition hover:brightness-95">
-                      ▶ Reproduzir aula
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-7 flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                <div>
-                  <h2 className="text-4xl font-black text-[#050816]">
-                    {aulaSelecionada.titulo}
-                  </h2>
-
-                  <p className="mt-3 text-lg font-bold text-gray-500">
-                    CEO Club · {aulaSelecionada.modulo}
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => setModalArquivosAberto(true)}
-                  className="rounded-full border border-gray-200 bg-white px-8 py-4 font-black text-[#08163F] shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
-                >
-                  📄 Arquivos disponíveis
-                </button>
-              </div>
-
-              <div className="mt-7 max-w-3xl rounded-[30px] bg-white p-7 shadow-lg">
-                <p className="text-sm font-bold uppercase tracking-[0.22em] text-gray-400">
-                  Sobre esta aula
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-slate-400">
+                  Aula CEO Club
                 </p>
 
-                <p className="mt-4 text-lg font-semibold leading-relaxed text-gray-600">
-                  {aulaSelecionada.descricao}
-                </p>
-
-                <div className="mt-6 rounded-[24px] bg-[#f9fafb] p-5">
-                  <p className="font-black text-[#08163F]">Objetivo da aula</p>
-                  <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
-                    Entender o conteúdo, aplicar no contexto da sua mentoria e
-                    depois reforçar o aprendizado na área de prática.
-                  </p>
-
-                  <button
-                    onClick={() => router.push("/mentorado/praticar")}
-                    className="mt-5 rounded-2xl bg-[#08163F] px-6 py-3 font-black text-white transition hover:brightness-110"
-                  >
-                    Praticar este conteúdo →
-                  </button>
-                </div>
+                <h2 className="line-clamp-1 text-xl font-black md:text-2xl">
+                  {aulaSelecionada?.titulo ?? "Módulos"}
+                </h2>
               </div>
             </div>
 
-            <aside className="rounded-[32px] bg-white p-5 shadow-lg">
-              <div className="mb-5 rounded-[26px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white">
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#C9CED6]">
-                  Progresso do curso
-                </p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push("/mentorado/suporte")}
+                className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-sm"
+              >
+                Suporte
+              </button>
 
-                <p className="mt-3 text-4xl font-black">
-                  {aulasConcluidas}/{totalAulas}
-                </p>
+              <button
+                onClick={sair}
+                className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg"
+              >
+                Sair
+              </button>
+            </div>
+          </header>
 
-                <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/15">
-                  <div
-                    className="h-full rounded-full bg-white"
-                    style={{
-                      width: `${(aulasConcluidas / totalAulas) * 100}%`,
-                    }}
-                  />
+          <div className="grid gap-8 p-6 lg:grid-cols-[1fr_430px] lg:p-9">
+            {modulos.length === 0 ? (
+              <section className="lg:col-span-2">
+                <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white p-10 text-center shadow-xl shadow-slate-200/70">
+                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-[#f3f5f8] text-3xl">
+                    ✦
+                  </div>
+
+                  <h1 className="mt-5 text-2xl font-black">
+                    Nenhum módulo disponível ainda
+                  </h1>
+
+                  <p className="mx-auto mt-3 max-w-xl text-sm font-semibold leading-6 text-slate-500">
+                    Assim que a mentora cadastrar módulos e aulas, eles
+                    aparecerão automaticamente aqui.
+                  </p>
                 </div>
-              </div>
+              </section>
+            ) : (
+              <>
+                <section className="min-w-0">
+                  <div className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] shadow-2xl shadow-[#07122F]/20">
+                    {embedUrl ? (
+                      <iframe
+                        src={embedUrl}
+                        title={aulaSelecionada?.titulo ?? "Aula"}
+                        className="aspect-video w-full bg-black"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <div className="flex aspect-video items-center justify-center p-8 text-center text-white">
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-[0.32em] text-blue-200">
+                            Mentoria CEO Club
+                          </p>
 
-              <div className="max-h-[calc(100vh-250px)] space-y-4 overflow-y-auto pr-2">
-                {modulosMock.map((modulo) => {
-                  const aulasModulo = modulo.aulas.length;
-                  const concluidasModulo = modulo.aulas.filter(
-                    (aula) => aula.concluida
-                  ).length;
+                          <h1 className="mt-5 text-4xl font-black md:text-5xl">
+                            {aulaSelecionada?.titulo ?? "Aula"}
+                          </h1>
 
-                  return (
-                    <div
-                      key={modulo.id}
-                      className="overflow-hidden rounded-[24px] border border-gray-200 bg-white"
-                    >
-                      <div className="border-b border-gray-100 bg-[#f9fafb] p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="rounded-full bg-[#08163F] px-4 py-2 text-xs font-black text-white">
-                            Módulo {modulo.numero}
-                          </span>
-
-                          <span className="text-sm font-black text-gray-500">
-                            {concluidasModulo}/{aulasModulo}
-                          </span>
+                          <p className="mx-auto mt-5 max-w-xl text-sm font-bold text-blue-100">
+                            Vídeo ainda não disponível para esta aula.
+                          </p>
                         </div>
-
-                        <h3 className="mt-3 text-lg font-black text-[#08163F]">
-                          {modulo.titulo}
-                        </h3>
                       </div>
+                    )}
+                  </div>
 
-                      <div>
-                        {modulo.aulas.map((aula, index) => {
-                          const ativa = aula.id === aulaSelecionada.id;
+                  <div className="mt-7 flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                    <div>
+                      <h1 className="max-w-3xl text-4xl font-black leading-tight text-[#050816]">
+                        {aulaSelecionada?.titulo ?? moduloSelecionado?.titulo}
+                      </h1>
 
-                          return (
-                            <button
-                              key={aula.id}
-                              onClick={() => setAulaSelecionadaId(aula.id)}
-                              className={`flex w-full items-center gap-4 border-b border-gray-100 p-4 text-left transition last:border-b-0 ${
-                                ativa
-                                  ? "bg-[#EEF2FF]"
-                                  : "bg-white hover:bg-[#f9fafb]"
-                              }`}
-                            >
-                              <div
-                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${
-                                  aula.concluida
-                                    ? "bg-green-100 text-green-700"
-                                    : ativa
-                                    ? "bg-[#08163F] text-white"
-                                    : "bg-gray-100 text-gray-500"
-                                }`}
-                              >
-                                {aula.concluida ? "✓" : index + 1}
-                              </div>
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        {moduloSelecionado?.titulo && (
+                          <span className="rounded-full bg-white px-4 py-2 text-sm font-black text-slate-500 shadow-sm">
+                            {moduloSelecionado.titulo}
+                          </span>
+                        )}
 
-                              <div className="min-w-0 flex-1">
-                                <p className="font-black text-[#08163F]">
-                                  {aula.titulo}
-                                </p>
+                        {aulaSelecionada?.duracao && (
+                          <span className="rounded-full bg-white px-4 py-2 text-sm font-black text-slate-500 shadow-sm">
+                            ▶ {aulaSelecionada.duracao}
+                          </span>
+                        )}
 
-                                <p className="mt-1 text-sm font-semibold text-gray-500">
-                                  ▶ {aula.duracao}
-                                </p>
-                              </div>
-
-                              <span className="text-xl font-black text-gray-400">
-                                {ativa ? "•" : "›"}
-                              </span>
-                            </button>
-                          );
-                        })}
+                        <span className="rounded-full bg-white px-4 py-2 text-sm font-black text-slate-500 shadow-sm">
+                          {arquivosDaAula.length} material(is)
+                        </span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </aside>
-          </section>
-        </div>
-      </section>
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        onClick={() => setModalArquivosAberto(true)}
+                        className="rounded-full border border-gray-200 bg-white px-7 py-4 font-black text-[#08163F] shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+                      >
+                        📄 Arquivos disponíveis
+                      </button>
+
+                      {aulaSelecionada && (
+                        <button
+                          onClick={() => alternarConclusao(aulaSelecionada.id)}
+                          className={`rounded-full px-7 py-4 font-black shadow-lg transition hover:-translate-y-0.5 ${
+                            aulasConcluidas.includes(aulaSelecionada.id)
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-[#08163F] text-white"
+                          }`}
+                        >
+                          {aulasConcluidas.includes(aulaSelecionada.id)
+                            ? "Aula concluída"
+                            : "Marcar concluída"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_0.85fr]">
+                    <div className="rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
+                      <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
+                        Sobre esta aula
+                      </p>
+
+                      <h3 className="mt-1 text-2xl font-black">
+                        Descrição do conteúdo
+                      </h3>
+
+                      <p className="mt-4 text-sm font-semibold leading-7 text-slate-500">
+                        {aulaSelecionada?.descricao ||
+                          "A mentora ainda não adicionou uma descrição para esta aula."}
+                      </p>
+                    </div>
+
+                    <div className="rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
+                      <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
+                        Objetivo
+                      </p>
+
+                      <h3 className="mt-1 text-2xl font-black">
+                        O que você deve absorver
+                      </h3>
+
+                      <p className="mt-4 text-sm font-semibold leading-7 text-slate-500">
+                        {aulaSelecionada?.objetivo ||
+                          "A mentora ainda não adicionou um objetivo específico para esta aula."}
+                      </p>
+
+                      <button
+                        onClick={() => router.push("/mentorado/praticar")}
+                        className="mt-6 rounded-2xl bg-[#08163F] px-6 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
+                      >
+                        Praticar este conteúdo →
+                      </button>
+                    </div>
+                  </section>
+                </section>
+
+                <aside className="min-w-0">
+                  <section className="rounded-[2rem] bg-white p-5 shadow-xl shadow-slate-200/70">
+                    <div className="rounded-[1.5rem] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-6 text-white">
+                      <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
+                        Progresso do curso
+                      </p>
+
+                      <strong className="mt-5 block text-4xl font-black">
+                        {aulasConcluidas.length}/{totalAulas}
+                      </strong>
+
+                      <p className="mt-2 text-sm font-bold text-blue-100">
+                        {progressoGeral}% concluído
+                      </p>
+
+                      <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/15">
+                        <div
+                          className="h-full rounded-full bg-white"
+                          style={{
+                            width: `${progressoGeral}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-5 max-h-[calc(100vh-310px)] space-y-5 overflow-y-auto pr-2">
+                      {modulos.map((modulo) => {
+                        const aulasConcluidasModulo = modulo.aulas.filter(
+                          (aula) => aulasConcluidas.includes(aula.id)
+                        ).length;
+
+                        return (
+                          <div
+                            key={modulo.id}
+                            className="overflow-hidden rounded-[1.5rem] border border-slate-100"
+                          >
+                            <div className="flex items-center justify-between bg-[#f9fafb] px-5 py-4">
+                              <div>
+                                <span className="rounded-full bg-[#08163F] px-4 py-2 text-xs font-black text-white">
+                                  Módulo {modulo.ordem}
+                                </span>
+
+                                <h3 className="mt-4 text-xl font-black">
+                                  {modulo.titulo}
+                                </h3>
+                              </div>
+
+                              <span className="text-sm font-black text-slate-500">
+                                {aulasConcluidasModulo}/{modulo.aulas.length}
+                              </span>
+                            </div>
+
+                            {modulo.aulas.length === 0 ? (
+                              <div className="px-5 py-5 text-sm font-bold text-slate-400">
+                                Nenhuma aula cadastrada neste módulo.
+                              </div>
+                            ) : (
+                              <div className="divide-y divide-slate-100">
+                                {modulo.aulas.map((aula) => {
+                                  const concluida = aulasConcluidas.includes(
+                                    aula.id
+                                  );
+
+                                  const selecionada =
+                                    aulaSelecionada?.id === aula.id;
+
+                                  return (
+                                    <button
+                                      key={aula.id}
+                                      type="button"
+                                      onClick={() =>
+                                        selecionarAula(modulo.id, aula.id)
+                                      }
+                                      className={`flex w-full items-center gap-4 px-5 py-4 text-left transition ${
+                                        selecionada
+                                          ? "bg-[#EEF2FF]"
+                                          : "bg-white hover:bg-slate-50"
+                                      }`}
+                                    >
+                                      <span
+                                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black ${
+                                          concluida
+                                            ? "bg-emerald-100 text-emerald-700"
+                                            : selecionada
+                                            ? "bg-[#08163F] text-white"
+                                            : "bg-slate-100 text-slate-500"
+                                        }`}
+                                      >
+                                        {concluida ? "✓" : aula.ordem}
+                                      </span>
+
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block truncate font-black">
+                                          {aula.titulo}
+                                        </span>
+
+                                        <span className="mt-1 block text-xs font-bold text-slate-400">
+                                          {aula.duracao
+                                            ? `▶ ${aula.duracao}`
+                                            : aula.videoUrl
+                                            ? "Vídeo disponível"
+                                            : "Sem vídeo"}
+                                        </span>
+                                      </span>
+
+                                      <span className="text-xl text-slate-400">
+                                        {selecionada ? "•" : "›"}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                </aside>
+              </>
+            )}
+          </div>
+        </section>
+      </div>
 
       {modalArquivosAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
           <div className="w-full max-w-4xl rounded-[34px] bg-white p-7 shadow-2xl">
             <div className="mb-7 flex items-center justify-between gap-4">
-              <h2 className="text-4xl font-black text-[#050816]">
-                Arquivos disponíveis
-              </h2>
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
+                  Materiais da aula
+                </p>
+
+                <h2 className="text-4xl font-black text-[#050816]">
+                  Arquivos disponíveis
+                </h2>
+              </div>
 
               <button
                 onClick={() => setModalArquivosAberto(false)}
@@ -468,11 +539,11 @@ export default function ModulosMentoradoPage() {
               </button>
             </div>
 
-            {aulaSelecionada.arquivos.length > 0 ? (
+            {arquivosDaAula.length > 0 ? (
               <div className="space-y-4">
-                {aulaSelecionada.arquivos.map((arquivo) => (
+                {arquivosDaAula.map((arquivo) => (
                   <div
-                    key={arquivo.nome}
+                    key={arquivo.id}
                     className="flex flex-col gap-4 rounded-[26px] bg-[#f9fafb] p-5 md:flex-row md:items-center md:justify-between"
                   >
                     <div>
@@ -480,14 +551,19 @@ export default function ModulosMentoradoPage() {
                         📄 {arquivo.nome}
                       </p>
 
-                      <p className="mt-1 text-sm font-bold text-gray-500">
-                        {arquivo.tamanho}
+                      <p className="mt-1 max-w-xl truncate text-sm font-bold text-gray-500">
+                        {arquivo.url}
                       </p>
                     </div>
 
-                    <button className="rounded-full bg-gradient-to-b from-[#F3F4F6] via-[#D1D5DB] to-[#9CA3AF] px-8 py-4 font-black text-[#08163F] shadow-lg transition hover:brightness-105">
-                      Baixar
-                    </button>
+                    <a
+                      href={arquivo.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-full bg-gradient-to-b from-[#F3F4F6] via-[#D1D5DB] to-[#9CA3AF] px-8 py-4 text-center font-black text-[#08163F] shadow-lg transition hover:brightness-105"
+                    >
+                      Abrir material
+                    </a>
                   </div>
                 ))}
               </div>
@@ -496,6 +572,7 @@ export default function ModulosMentoradoPage() {
                 <p className="text-2xl font-black text-[#08163F]">
                   Nenhum arquivo disponível
                 </p>
+
                 <p className="mt-2 text-sm font-semibold text-gray-500">
                   Esta aula ainda não possui materiais anexados.
                 </p>
@@ -515,15 +592,16 @@ function MenuItem({
 }: {
   label: string;
   ativo?: boolean;
-  onClick: () => void;
+  onClick?: () => void;
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-black transition ${
+      className={`flex w-full items-center justify-between rounded-2xl px-4 py-4 text-left text-sm font-black transition ${
         ativo
           ? "bg-[#EEF2FF] text-[#08163F]"
-          : "text-gray-500 hover:bg-[#f8fafc] hover:text-[#08163F]"
+          : "text-slate-500 hover:bg-slate-50 hover:text-[#08163F]"
       }`}
     >
       <span>{label}</span>
