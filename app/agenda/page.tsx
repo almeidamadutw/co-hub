@@ -304,21 +304,22 @@ export default function AgendaPage() {
       };
 
       if (editandoId) {
-        const { error } = await supabase
-          .from("agenda_eventos")
-          .update(payload)
-          .eq("id", editandoId);
+  const { error: updateError } = await supabase
+    .from("agenda_eventos")
+    .update(payload)
+    .eq("id", editandoId);
 
-        if (error) throw new Error(error.message);
-      } else {
-        const { error } = await supabase.from("agenda_eventos").insert({
-          ...payload,
-          criado_por: null,
-        });
+  if (updateError) throw new Error(updateError.message);
+} else {
+  const usuarioId = (usuario as User & { id?: string })?.id ?? null;
 
-        if (error) throw new Error(error.message);
-      }
+  const { error: insertError } = await supabase.from("agenda_eventos").insert({
+    ...payload,
+    criado_por: usuarioId,
+  });
 
+  if (insertError) throw new Error(insertError.message);
+}
       await carregarDados();
 
       limparFormulario();
@@ -414,14 +415,13 @@ export default function AgendaPage() {
                   Agenda da mentora
                 </p>
 
-                <h1 className="max-w-4xl text-4xl font-black leading-tight">
-                  Gerencie compromissos reais dos mentorados.
-                </h1>
+               <h1 className="max-w-4xl text-4xl font-black leading-tight">
+  Gerencie os compromissos dos mentorados.
+</h1>
 
-                <p className="mt-3 max-w-2xl text-[#D9DEE7]">
-                  Cadastre mentorias, reuniões e módulos com data, horário livre
-                  e detalhes salvos direto no Supabase.
-                </p>
+<p className="mt-3 max-w-2xl text-[#D9DEE7]">
+  Cadastre mentorias, reuniões e módulos com data, horário e detalhes da jornada.
+</p>
               </div>
 
               <div className="no-print flex flex-wrap gap-3">

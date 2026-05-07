@@ -66,53 +66,60 @@ export default function AgendaMentoradoPage() {
   useEffect(() => {
   if (!usuario) return;
 
-  const usuarioAtual = usuario;
-
-  async function carregarAgendaReal() {
+  async function carregarAgenda() {
     setCarregando(true);
     setErro("");
+
+    const usuarioId = (usuario as User & { id?: string })?.id;
+
+    if (!usuarioId) {
+      setErro("Não foi possível identificar o usuário logado.");
+      setEventos([]);
+      setCarregando(false);
+      return;
+    }
 
     const { data: perfilData, error: perfilError } = await supabase
       .from("profiles")
       .select("id, nome, email, codigo_inscricao")
-      .eq("email", usuarioAtual.email)
+      .eq("id", usuarioId)
       .eq("role", "mentorado")
       .single();
 
-      if (perfilError || !perfilData) {
-        setErro(
-          perfilError?.message ||
-            "Não foi possível encontrar o perfil do mentorado."
-        );
-        setEventos([]);
-        setCarregando(false);
-        return;
-      }
-
-      setPerfil(perfilData);
-
-      const { data: eventosData, error: eventosError } = await supabase
-        .from("agenda_eventos")
-        .select(
-          "id, mentorado_id, titulo, data, horario, tipo, status, observacao, created_at"
-        )
-        .eq("mentorado_id", perfilData.id)
-        .order("data", { ascending: true })
-        .order("horario", { ascending: true });
-
-      if (eventosError) {
-        setErro(eventosError.message);
-        setEventos([]);
-        setCarregando(false);
-        return;
-      }
-
-      setEventos((eventosData ?? []) as EventoAgenda[]);
+    if (perfilError || !perfilData) {
+      setErro(
+        perfilError?.message ||
+          "Não foi possível encontrar o perfil do mentorado."
+      );
+      setEventos([]);
       setCarregando(false);
+      return;
     }
 
-    carregarAgendaReal();
-  }, [usuario]);
+    setPerfil(perfilData as PerfilMentorado);
+
+    const { data: eventosData, error: eventosError } = await supabase
+      .from("agenda_eventos")
+      .select(
+        "id, mentorado_id, titulo, data, horario, tipo, status, observacao, created_at"
+      )
+      .eq("mentorado_id", perfilData.id)
+      .order("data", { ascending: true })
+      .order("horario", { ascending: true });
+
+    if (eventosError) {
+      setErro(eventosError.message);
+      setEventos([]);
+      setCarregando(false);
+      return;
+    }
+
+    setEventos((eventosData ?? []) as EventoAgenda[]);
+    setCarregando(false);
+  }
+
+  carregarAgenda();
+}, [usuario]);
 
   const eventosFiltrados = useMemo(() => {
     if (filtro === "Todos") return eventos;
@@ -317,10 +324,9 @@ export default function AgendaMentoradoPage() {
                   Sua agenda CEO Club
                 </h2>
 
-                <p className="mt-3 max-w-2xl text-[#D9DEE7]">
-                  Veja seus compromissos reais em visão mensal, com detalhes ao
-                  clicar em cada evento.
-                </p>
+              <p className="mt-3 max-w-2xl text-[#D9DEE7]">
+  Veja seus compromissos em visão mensal, com detalhes ao clicar em cada evento.
+</p>
               </div>
 
               <div className="rounded-[26px] bg-white/10 p-5 backdrop-blur-sm">

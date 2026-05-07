@@ -4,17 +4,32 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
-import { useMentoradosSupabase } from "@/utils/useMentoradosSupabase";
+import { supabase } from "@/utils/supabase";
+
+type StatusMentorado = "Ativo" | "Pendente" | "Inativo";
+
+type Mentorado = {
+  id: string;
+  nome: string;
+  email: string;
+  telefone: string | null;
+  codigo_inscricao: string | null;
+  status: StatusMentorado | null;
+  role: string;
+  created_at: string;
+  updated_at: string | null;
+};
 
 export default function MentoradosPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
+  const [mentorados, setMentorados] = useState<Mentorado[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
+
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("Todos");
-
-  const { mentorados, carregando, erro, ativos, pendentes, total } =
-    useMentoradosSupabase();
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -29,14 +44,67 @@ export default function MentoradosPage() {
       return;
     }
 
-    if (user.role !== "mentor") {
+    if (user.role !== "mentor" && user.role !== "financeiro") {
       logoutUsuario();
       router.replace("/login");
       return;
     }
 
     setUsuario(user);
+    carregarMentorados();
   }, [router]);
+
+  async function carregarMentorados() {
+    try {
+      setCarregando(true);
+      setErro("");
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(
+          "id, nome, email, telefone, codigo_inscricao, status, role, created_at, updated_at"
+        )
+        .eq("role", "mentorado")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setMentorados((data ?? []) as Mentorado[]);
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar os mentorados."
+      );
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  const total = mentorados.length;
+
+  const ativos = useMemo(() => {
+    return mentorados.filter((mentorado) => {
+      const status = mentorado.status ?? "Ativo";
+      return status === "Ativo";
+    }).length;
+  }, [mentorados]);
+
+  const pendentes = useMemo(() => {
+    return mentorados.filter((mentorado) => {
+      const status = mentorado.status ?? "Ativo";
+      return status === "Pendente";
+    }).length;
+  }, [mentorados]);
+
+  const inativos = useMemo(() => {
+    return mentorados.filter((mentorado) => {
+      const status = mentorado.status ?? "Ativo";
+      return status === "Inativo";
+    }).length;
+  }, [mentorados]);
 
   const mentoradosFiltrados = useMemo(() => {
     const termo = busca.toLowerCase().trim();
@@ -45,13 +113,13 @@ export default function MentoradosPage() {
       const status = mentorado.status ?? "Ativo";
 
       const bateBusca =
+        !termo ||
         mentorado.nome?.toLowerCase().includes(termo) ||
         mentorado.email?.toLowerCase().includes(termo) ||
         mentorado.telefone?.toLowerCase().includes(termo) ||
         mentorado.codigo_inscricao?.toLowerCase().includes(termo);
 
-      const bateStatus =
-        filtroStatus === "Todos" || status === filtroStatus;
+      const bateStatus = filtroStatus === "Todos" || status === filtroStatus;
 
       return bateBusca && bateStatus;
     });
@@ -105,16 +173,16 @@ export default function MentoradosPage() {
                 </p>
 
                 <h2 className="mt-4 max-w-4xl text-3xl font-black leading-tight md:text-4xl xl:text-[3.05rem]">
-                  Acompanhe mentorados com dados reais do CEO Club.
+                  Acompanhe mentorados, acessos e evolução em um só lugar.
                 </h2>
 
                 <p className="mt-4 max-w-2xl text-base leading-7 text-blue-100 md:text-lg">
-                  Visualize cadastros, códigos de inscrição, status e acessos
-                  dos mentorados salvos diretamente no Supabase.
+                  Visualize cadastros, códigos de inscrição, status e dados de
+                  contato dos participantes do CEO Club.
                 </p>
 
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <Tag>dados reais</Tag>
+                  <Tag>cadastros</Tag>
                   <Tag>código de inscrição</Tag>
                   <Tag>status</Tag>
                   <Tag>acompanhamento</Tag>
@@ -156,14 +224,14 @@ export default function MentoradosPage() {
             <KPI
               titulo="Mentorados cadastrados"
               valor={String(total)}
-              texto="Dados buscados no Supabase."
+              texto="Total de participantes cadastrados."
               destaque
             />
 
             <KPI
               titulo="Ativos"
               valor={String(ativos)}
-              texto="Mentorados com status ativo."
+              texto="Mentorados com acesso ativo."
             />
 
             <KPI
@@ -173,10 +241,10 @@ export default function MentoradosPage() {
             />
 
             <KPI
-              titulo="Em atenção"
-              valor="0"
-              texto="Alertas serão calculados pelo progresso."
-              alerta
+              titulo="Inativos"
+              valor={String(inativos)}
+              texto="Participantes sem acesso ativo."
+              alerta={inativos > 0}
             />
           </section>
 
@@ -192,8 +260,8 @@ export default function MentoradosPage() {
                 </h3>
 
                 <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-                  Mentorados cadastrados no sistema aparecem aqui com código de
-                  inscrição, status e dados de contato.
+                  Abra o perfil de cada mentorado para acompanhar agenda,
+                  financeiro, progresso e participação.
                 </p>
               </div>
 
@@ -284,7 +352,7 @@ export default function MentoradosPage() {
                       className="grid w-full grid-cols-[1.2fr_0.7fr_1fr_0.7fr_0.6fr] items-center px-6 py-5 text-left transition hover:bg-[#f9fafb]"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] to-[#12317C] text-sm font-black text-white">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] to-[#12317C] text-sm font-black uppercase text-white">
                           {mentorado.nome?.charAt(0) ?? "M"}
                         </div>
 
@@ -334,17 +402,17 @@ export default function MentoradosPage() {
           <section className="mt-8 grid gap-6 xl:grid-cols-3">
             <InsightCard
               titulo="Acompanhamento"
-              texto="Veja rapidamente quem está ativo e quem precisa de atualização cadastral."
+              texto="Veja rapidamente quem está ativo, pendente ou inativo."
             />
 
             <InsightCard
               titulo="Código de inscrição"
-              texto="Cada mentorado recebe um código automático no formato 260001, 260002 e assim por diante."
+              texto="Use o código para localizar mentorados com rapidez dentro do sistema."
             />
 
             <InsightCard
-              titulo="Próximas integrações"
-              texto="Progresso, agenda, simulados e financeiro serão vinculados ao ID real do mentorado."
+              titulo="Próximas conexões"
+              texto="Agenda, financeiro, progresso e simulados usam o ID do mentorado como referência."
             />
           </section>
         </div>

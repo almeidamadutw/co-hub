@@ -58,6 +58,14 @@ type FormularioCobranca = {
   observacao: string;
 };
 
+type ParcelaPreview = {
+  numero: number;
+  total: number;
+  valor: number;
+  vencimento: string;
+  status: StatusCobranca;
+};
+
 const formularioInicial: FormularioCobranca = {
   mentorado_id: "",
   titulo: "",
@@ -90,6 +98,8 @@ export default function FinanceiroPage() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [formulario, setFormulario] =
     useState<FormularioCobranca>(formularioInicial);
+
+  const [mostrarPreviewParcelas, setMostrarPreviewParcelas] = useState(false);
 
   const [cobrancaSelecionada, setCobrancaSelecionada] =
     useState<CobrancaComMentorado | null>(null);
@@ -210,9 +220,44 @@ export default function FinanceiroPage() {
     };
   }, [cobrancas]);
 
+  const previewParcelas = useMemo<ParcelaPreview[]>(() => {
+    const valorTotal = Number(formulario.valor_total);
+    const quantidadeParcelas = Number(formulario.quantidade_parcelas);
+
+    if (
+      !formulario.data_vencimento ||
+      valorTotal <= 0 ||
+      quantidadeParcelas <= 0
+    ) {
+      return [];
+    }
+
+    const valorParcela = Number((valorTotal / quantidadeParcelas).toFixed(2));
+    const vencimentoBase = new Date(`${formulario.data_vencimento}T12:00:00`);
+
+    return Array.from({ length: quantidadeParcelas }, (_, index) => {
+      const dataVencimento = new Date(vencimentoBase);
+      dataVencimento.setMonth(vencimentoBase.getMonth() + index);
+
+      return {
+        numero: index + 1,
+        total: quantidadeParcelas,
+        valor: valorParcela,
+        vencimento: formatarDataISO(dataVencimento),
+        status: index === 0 ? formulario.status : "Pendente",
+      };
+    });
+  }, [
+    formulario.valor_total,
+    formulario.quantidade_parcelas,
+    formulario.data_vencimento,
+    formulario.status,
+  ]);
+
   function limparFormulario() {
     setFormulario(formularioInicial);
     setEditandoId(null);
+    setMostrarPreviewParcelas(false);
     setErro("");
   }
 
@@ -244,7 +289,49 @@ export default function FinanceiroPage() {
 
     setEditandoId(cobranca.id);
     setCobrancaSelecionada(null);
+    setMostrarPreviewParcelas(false);
     setMostrarFormulario(true);
+  }
+
+  function gerarPreviewParcelas() {
+    setErro("");
+
+    const valorTotal = Number(formulario.valor_total);
+    const quantidadeParcelas = Number(formulario.quantidade_parcelas);
+
+    if (
+      !formulario.mentorado_id ||
+      !formulario.titulo.trim() ||
+      !formulario.data_vencimento ||
+      valorTotal <= 0 ||
+      quantidadeParcelas <= 0
+    ) {
+      setErro(
+        "Preencha mentorado, título, valor total, quantidade de parcelas e vencimento para gerar a prévia."
+      );
+      return;
+    }
+
+    setMostrarPreviewParcelas(true);
+  }
+
+  function atualizarCampoFormulario(
+    campo: keyof FormularioCobranca,
+    valor: string
+  ) {
+    setFormulario((estadoAtual) => ({
+      ...estadoAtual,
+      [campo]: valor,
+    }));
+
+    if (
+      campo === "valor_total" ||
+      campo === "quantidade_parcelas" ||
+      campo === "data_vencimento" ||
+      campo === "status"
+    ) {
+      setMostrarPreviewParcelas(false);
+    }
   }
 
   async function salvarCobranca(e: React.FormEvent) {
@@ -262,8 +349,7 @@ export default function FinanceiroPage() {
       !formulario.data_vencimento ||
       valorTotal <= 0 ||
       quantidadeParcelas <= 0 ||
-      parcelaAtual <= 0 ||
-      valorParcela <= 0
+      parcelaAtual <= 0
     ) {
       setErro("Preencha os campos obrigatórios corretamente.");
       return;
@@ -272,23 +358,29 @@ export default function FinanceiroPage() {
     try {
       setSalvando(true);
 
-      const payload = {
-        mentorado_id: formulario.mentorado_id,
-        titulo: formulario.titulo.trim(),
-        descricao: formulario.descricao.trim(),
-        valor_total: valorTotal,
-        quantidade_parcelas: quantidadeParcelas,
-        parcela_atual: parcelaAtual,
-        valor_parcela: valorParcela,
-        data_vencimento: formulario.data_vencimento,
-        data_pagamento: formulario.data_pagamento || null,
-        forma_pagamento: formulario.forma_pagamento,
-        status: formulario.status,
-        observacao: formulario.observacao.trim(),
-        updated_at: new Date().toISOString(),
-      };
-
       if (editandoId) {
+        if (valorParcela <= 0) {
+          setErro("Informe o valor da parcela.");
+          setSalvando(false);
+          return;
+        }
+
+        const payload = {
+          mentorado_id: formulario.mentorado_id,
+          titulo: formulario.titulo.trim(),
+          descricao: formulario.descricao.trim(),
+          valor_total: valorTotal,
+          quantidade_parcelas: quantidadeParcelas,
+          parcela_atual: parcelaAtual,
+          valor_parcela: valorParcela,
+          data_vencimento: formulario.data_vencimento,
+          data_pagamento: formulario.data_pagamento || null,
+          forma_pagamento: formulario.forma_pagamento,
+          status: formulario.status,
+          observacao: formulario.observacao.trim(),
+          updated_at: new Date().toISOString(),
+        };
+
         const { error } = await supabase
           .from("financeiro_cobrancas")
           .update(payload)
@@ -296,9 +388,42 @@ export default function FinanceiroPage() {
 
         if (error) throw new Error(error.message);
       } else {
+        const valorParcelaCalculado = Number(
+          (valorTotal / quantidadeParcelas).toFixed(2)
+        );
+
+        const vencimentoBase = new Date(`${formulario.data_vencimento}T12:00:00`);
+
+        const parcelas = Array.from(
+          { length: quantidadeParcelas },
+          (_, index) => {
+            const dataVencimento = new Date(vencimentoBase);
+            dataVencimento.setMonth(vencimentoBase.getMonth() + index);
+
+            return {
+              mentorado_id: formulario.mentorado_id,
+              titulo: formulario.titulo.trim(),
+              descricao: formulario.descricao.trim(),
+              valor_total: valorTotal,
+              quantidade_parcelas: quantidadeParcelas,
+              parcela_atual: index + 1,
+              valor_parcela: valorParcelaCalculado,
+              data_vencimento: formatarDataISO(dataVencimento),
+              data_pagamento:
+                formulario.status === "Pago" && index === 0
+                  ? new Date().toISOString().slice(0, 10)
+                  : null,
+              forma_pagamento: formulario.forma_pagamento,
+              status: index === 0 ? formulario.status : "Pendente",
+              observacao: formulario.observacao.trim(),
+              updated_at: new Date().toISOString(),
+            };
+          }
+        );
+
         const { error } = await supabase
           .from("financeiro_cobrancas")
-          .insert(payload);
+          .insert(parcelas);
 
         if (error) throw new Error(error.message);
       }
@@ -490,10 +615,7 @@ export default function FinanceiroPage() {
                 <select
                   value={formulario.mentorado_id}
                   onChange={(e) =>
-                    setFormulario({
-                      ...formulario,
-                      mentorado_id: e.target.value,
-                    })
+                    atualizarCampoFormulario("mentorado_id", e.target.value)
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
                 >
@@ -512,7 +634,7 @@ export default function FinanceiroPage() {
                   placeholder="Título, ex: Mensalidade CEO Club"
                   value={formulario.titulo}
                   onChange={(e) =>
-                    setFormulario({ ...formulario, titulo: e.target.value })
+                    atualizarCampoFormulario("titulo", e.target.value)
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
                 />
@@ -522,10 +644,7 @@ export default function FinanceiroPage() {
                   placeholder="Valor total"
                   value={formulario.valor_total}
                   onChange={(e) =>
-                    setFormulario({
-                      ...formulario,
-                      valor_total: e.target.value,
-                    })
+                    atualizarCampoFormulario("valor_total", e.target.value)
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
                 />
@@ -535,10 +654,7 @@ export default function FinanceiroPage() {
                   placeholder="Valor da parcela"
                   value={formulario.valor_parcela}
                   onChange={(e) =>
-                    setFormulario({
-                      ...formulario,
-                      valor_parcela: e.target.value,
-                    })
+                    atualizarCampoFormulario("valor_parcela", e.target.value)
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
                 />
@@ -548,10 +664,10 @@ export default function FinanceiroPage() {
                   placeholder="Quantidade de parcelas"
                   value={formulario.quantidade_parcelas}
                   onChange={(e) =>
-                    setFormulario({
-                      ...formulario,
-                      quantidade_parcelas: e.target.value,
-                    })
+                    atualizarCampoFormulario(
+                      "quantidade_parcelas",
+                      e.target.value
+                    )
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
                 />
@@ -561,10 +677,7 @@ export default function FinanceiroPage() {
                   placeholder="Parcela atual"
                   value={formulario.parcela_atual}
                   onChange={(e) =>
-                    setFormulario({
-                      ...formulario,
-                      parcela_atual: e.target.value,
-                    })
+                    atualizarCampoFormulario("parcela_atual", e.target.value)
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
                 />
@@ -573,10 +686,7 @@ export default function FinanceiroPage() {
                   type="date"
                   value={formulario.data_vencimento}
                   onChange={(e) =>
-                    setFormulario({
-                      ...formulario,
-                      data_vencimento: e.target.value,
-                    })
+                    atualizarCampoFormulario("data_vencimento", e.target.value)
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
                 />
@@ -585,10 +695,7 @@ export default function FinanceiroPage() {
                   type="date"
                   value={formulario.data_pagamento}
                   onChange={(e) =>
-                    setFormulario({
-                      ...formulario,
-                      data_pagamento: e.target.value,
-                    })
+                    atualizarCampoFormulario("data_pagamento", e.target.value)
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
                 />
@@ -596,10 +703,10 @@ export default function FinanceiroPage() {
                 <select
                   value={formulario.status}
                   onChange={(e) =>
-                    setFormulario({
-                      ...formulario,
-                      status: e.target.value as StatusCobranca,
-                    })
+                    atualizarCampoFormulario(
+                      "status",
+                      e.target.value as StatusCobranca
+                    )
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
                 >
@@ -612,10 +719,7 @@ export default function FinanceiroPage() {
                 <select
                   value={formulario.forma_pagamento}
                   onChange={(e) =>
-                    setFormulario({
-                      ...formulario,
-                      forma_pagamento: e.target.value,
-                    })
+                    atualizarCampoFormulario("forma_pagamento", e.target.value)
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
                 >
@@ -630,10 +734,7 @@ export default function FinanceiroPage() {
                   placeholder="Descrição"
                   value={formulario.descricao}
                   onChange={(e) =>
-                    setFormulario({
-                      ...formulario,
-                      descricao: e.target.value,
-                    })
+                    atualizarCampoFormulario("descricao", e.target.value)
                   }
                   className="min-h-[100px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F] md:col-span-2"
                 />
@@ -642,14 +743,77 @@ export default function FinanceiroPage() {
                   placeholder="Observações internas"
                   value={formulario.observacao}
                   onChange={(e) =>
-                    setFormulario({
-                      ...formulario,
-                      observacao: e.target.value,
-                    })
+                    atualizarCampoFormulario("observacao", e.target.value)
                   }
                   className="min-h-[100px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F] md:col-span-2"
                 />
               </div>
+
+              {!editandoId && (
+                <div className="mt-6 rounded-[26px] border border-slate-200 bg-[#f9fafb] p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
+                        Prévia das parcelas
+                      </p>
+
+                      <h3 className="mt-1 text-xl font-black text-[#08163F]">
+                        Confira os vencimentos antes de salvar
+                      </h3>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={gerarPreviewParcelas}
+                      className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white transition hover:brightness-110"
+                    >
+                      Gerar prévia
+                    </button>
+                  </div>
+
+                  {mostrarPreviewParcelas && previewParcelas.length > 0 && (
+                    <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                      <div className="grid grid-cols-[0.5fr_1fr_1fr_0.8fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-3 text-xs font-black uppercase tracking-[0.12em] text-white">
+                        <span>Parcela</span>
+                        <span>Vencimento</span>
+                        <span>Valor</span>
+                        <span>Status</span>
+                      </div>
+
+                      <div className="max-h-[260px] divide-y divide-slate-100 overflow-y-auto">
+                        {previewParcelas.map((parcela) => (
+                          <div
+                            key={`${parcela.numero}-${parcela.vencimento}`}
+                            className="grid grid-cols-[0.5fr_1fr_1fr_0.8fr] items-center p-3 text-sm"
+                          >
+                            <span className="font-black text-[#08163F]">
+                              {parcela.numero}/{parcela.total}
+                            </span>
+
+                            <span className="font-semibold text-slate-600">
+                              {formatarData(parcela.vencimento)}
+                            </span>
+
+                            <span className="font-black text-[#08163F]">
+                              {formatarMoeda(parcela.valor)}
+                            </span>
+
+                            <span>
+                              <StatusBadge status={parcela.status} />
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {mostrarPreviewParcelas && previewParcelas.length === 0 && (
+                    <p className="mt-4 rounded-2xl bg-yellow-50 p-4 text-sm font-bold text-yellow-700">
+                      Preencha os dados principais para visualizar as parcelas.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="mt-5 flex flex-wrap gap-3">
                 <button
@@ -914,4 +1078,12 @@ function formatarData(data: string) {
 
   const [ano, mes, dia] = data.split("-");
   return `${dia}/${mes}/${ano}`;
+}
+
+function formatarDataISO(data: Date) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+
+  return `${ano}-${mes}-${dia}`;
 }

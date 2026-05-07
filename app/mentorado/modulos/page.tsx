@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
-import { useCeoClubDados } from "@/utils/useCeoClubDados";
+import { useModulosSupabase } from "@/utils/useModulosSupabase";
 
 function converterYoutubeParaEmbed(url: string) {
   if (!url?.trim()) return "";
@@ -52,18 +53,18 @@ export default function MentoradoModulosPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
+  const [mentoradoId, setMentoradoId] = useState("");
+
   const [moduloSelecionadoId, setModuloSelecionadoId] = useState("");
   const [aulaSelecionadaId, setAulaSelecionadaId] = useState("");
   const [modalArquivosAberto, setModalArquivosAberto] = useState(false);
 
-  const {
-    carregando,
-    modulos,
-    aulas,
-    aulasConcluidas,
-    setAulasConcluidas,
-    progressoGeral,
-  } = useCeoClubDados();
+  const [aulasConcluidas, setAulasConcluidas] = useState<string[]>([]);
+  const [carregandoProgresso, setCarregandoProgresso] = useState(true);
+  const [salvandoProgresso, setSalvandoProgresso] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const { carregando, modulos } = useModulosSupabase();
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -82,22 +83,112 @@ export default function MentoradoModulosPage() {
   }, [router]);
 
   useEffect(() => {
-    if (carregando || modulos.length === 0) return;
+    if (!usuario) return;
 
-    const primeiroModulo = modulos[0];
+    async function carregarPerfilEProgresso() {
+      setCarregandoProgresso(true);
+      setErro("");
+
+      const usuarioEmail = (usuario as User & { email?: string })?.email;
+      const usuarioId = (usuario as User & { id?: string })?.id;
+
+      let idPerfil = "";
+
+      if (usuarioEmail) {
+        const { data: perfilPorEmail, error: erroEmail } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", usuarioEmail)
+          .eq("role", "mentorado")
+          .maybeSingle();
+
+        if (erroEmail) {
+          setErro(erroEmail.message);
+          setCarregandoProgresso(false);
+          return;
+        }
+
+        if (perfilPorEmail?.id) {
+          idPerfil = perfilPorEmail.id;
+        }
+      }
+
+      if (!idPerfil && usuarioId) {
+        const { data: perfilPorId, error: erroId } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("id", usuarioId)
+          .eq("role", "mentorado")
+          .maybeSingle();
+
+        if (erroId) {
+          setErro(erroId.message);
+          setCarregandoProgresso(false);
+          return;
+        }
+
+        if (perfilPorId?.id) {
+          idPerfil = perfilPorId.id;
+        }
+      }
+
+      if (!idPerfil) {
+        setErro("Não foi possível identificar o perfil do mentorado.");
+        setCarregandoProgresso(false);
+        return;
+      }
+
+      setMentoradoId(idPerfil);
+
+      const { data, error } = await supabase
+        .from("progresso_aulas")
+        .select("aula_id")
+        .eq("mentorado_id", idPerfil)
+        .eq("concluida", true);
+
+      if (error) {
+        setErro(error.message);
+        setCarregandoProgresso(false);
+        return;
+      }
+
+      setAulasConcluidas((data ?? []).map((item) => item.aula_id));
+      setCarregandoProgresso(false);
+    }
+
+    carregarPerfilEProgresso();
+  }, [usuario]);
+
+  const modulosDisponiveis = useMemo(() => {
+    return modulos
+      .filter((modulo) => modulo.ativo)
+      .map((modulo) => ({
+        ...modulo,
+        aulas: modulo.aulas.filter((aula) => aula.ativo),
+      }));
+  }, [modulos]);
+
+  const aulasDisponiveis = useMemo(() => {
+    return modulosDisponiveis.flatMap((modulo) => modulo.aulas);
+  }, [modulosDisponiveis]);
+
+  useEffect(() => {
+    if (carregando || modulosDisponiveis.length === 0) return;
+
+    const primeiroModulo = modulosDisponiveis[0];
     const primeiraAula = primeiroModulo.aulas[0];
 
     setModuloSelecionadoId((atual) => atual || primeiroModulo.id);
     setAulaSelecionadaId((atual) => atual || primeiraAula?.id || "");
-  }, [carregando, modulos]);
+  }, [carregando, modulosDisponiveis]);
 
   const moduloSelecionado = useMemo(() => {
     return (
-      modulos.find((modulo) => modulo.id === moduloSelecionadoId) ??
-      modulos[0] ??
+      modulosDisponiveis.find((modulo) => modulo.id === moduloSelecionadoId) ??
+      modulosDisponiveis[0] ??
       null
     );
-  }, [modulos, moduloSelecionadoId]);
+  }, [modulosDisponiveis, moduloSelecionadoId]);
 
   const aulaSelecionada = useMemo(() => {
     if (!moduloSelecionado) return null;
@@ -109,12 +200,18 @@ export default function MentoradoModulosPage() {
     );
   }, [moduloSelecionado, aulaSelecionadaId]);
 
-  const totalAulas = aulas.length;
+  const totalAulas = aulasDisponiveis.length;
 
-  const arquivosDaAula = aulaSelecionada?.arquivos ?? [];
+  const progressoGeral = useMemo(() => {
+    if (totalAulas === 0) return 0;
 
-  const embedUrl = aulaSelecionada?.videoUrl
-    ? converterYoutubeParaEmbed(aulaSelecionada.videoUrl)
+    return Math.round((aulasConcluidas.length / totalAulas) * 100);
+  }, [aulasConcluidas.length, totalAulas]);
+
+  const arquivosDaAula = aulaSelecionada?.materiais_aula ?? [];
+
+  const embedUrl = aulaSelecionada?.video_url
+    ? converterYoutubeParaEmbed(aulaSelecionada.video_url)
     : "";
 
   function selecionarAula(moduloId: string, aulaId: string) {
@@ -123,14 +220,55 @@ export default function MentoradoModulosPage() {
     setModalArquivosAberto(false);
   }
 
-  function alternarConclusao(aulaId: string) {
-    setAulasConcluidas((estadoAtual) => {
-      if (estadoAtual.includes(aulaId)) {
-        return estadoAtual.filter((id) => id !== aulaId);
+  async function alternarConclusao(aulaId: string) {
+    if (!mentoradoId) {
+      window.alert("Não foi possível identificar o mentorado logado.");
+      return;
+    }
+
+    if (salvandoProgresso) return;
+
+    const jaConcluida = aulasConcluidas.includes(aulaId);
+
+    try {
+      setSalvandoProgresso(true);
+      setErro("");
+
+      const { error } = await supabase.from("progresso_aulas").upsert(
+        {
+          mentorado_id: mentoradoId,
+          aula_id: aulaId,
+          concluida: !jaConcluida,
+          concluida_em: !jaConcluida ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "mentorado_id,aula_id",
+        }
+      );
+
+      if (error) {
+        throw new Error(error.message);
       }
 
-      return [...estadoAtual, aulaId];
-    });
+      setAulasConcluidas((estadoAtual) => {
+        if (jaConcluida) {
+          return estadoAtual.filter((id) => id !== aulaId);
+        }
+
+        return [...estadoAtual, aulaId];
+      });
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível atualizar o progresso.";
+
+      setErro(mensagem);
+      window.alert(mensagem);
+    } finally {
+      setSalvandoProgresso(false);
+    }
   }
 
   function sair() {
@@ -138,7 +276,7 @@ export default function MentoradoModulosPage() {
     router.replace("/login");
   }
 
-  if (!usuario || carregando) {
+  if (!usuario || carregando || carregandoProgresso) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
         Carregando módulos...
@@ -253,8 +391,16 @@ export default function MentoradoModulosPage() {
             </div>
           </header>
 
-          <div className="grid gap-8 p-6 lg:grid-cols-[1fr_430px] lg:p-9">
-            {modulos.length === 0 ? (
+          <div className="grid gap-8 p-6 lg:grid-cols-[minmax(0,1fr)_430px] lg:p-9">
+            {erro && (
+              <section className="lg:col-span-2">
+                <div className="rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+                  {erro}
+                </div>
+              </section>
+            )}
+
+            {modulosDisponiveis.length === 0 ? (
               <section className="lg:col-span-2">
                 <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white p-10 text-center shadow-xl shadow-slate-200/70">
                   <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-[#f3f5f8] text-3xl">
@@ -337,59 +483,21 @@ export default function MentoradoModulosPage() {
 
                       {aulaSelecionada && (
                         <button
+                          disabled={salvandoProgresso}
                           onClick={() => alternarConclusao(aulaSelecionada.id)}
-                          className={`rounded-full px-7 py-4 font-black shadow-lg transition hover:-translate-y-0.5 ${
+                          className={`rounded-full px-7 py-4 font-black shadow-lg transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${
                             aulasConcluidas.includes(aulaSelecionada.id)
                               ? "bg-emerald-50 text-emerald-700"
                               : "bg-[#08163F] text-white"
                           }`}
                         >
                           {aulasConcluidas.includes(aulaSelecionada.id)
-                            ? "Aula concluída"
-                            : "Marcar concluída"}
+                            ? "Concluída ✓"
+                            : "Concluir aula"}
                         </button>
                       )}
                     </div>
                   </div>
-
-                  <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_0.85fr]">
-                    <div className="rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
-                      <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
-                        Sobre esta aula
-                      </p>
-
-                      <h3 className="mt-1 text-2xl font-black">
-                        Descrição do conteúdo
-                      </h3>
-
-                      <p className="mt-4 text-sm font-semibold leading-7 text-slate-500">
-                        {aulaSelecionada?.descricao ||
-                          "A mentora ainda não adicionou uma descrição para esta aula."}
-                      </p>
-                    </div>
-
-                    <div className="rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
-                      <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
-                        Objetivo
-                      </p>
-
-                      <h3 className="mt-1 text-2xl font-black">
-                        O que você deve absorver
-                      </h3>
-
-                      <p className="mt-4 text-sm font-semibold leading-7 text-slate-500">
-                        {aulaSelecionada?.objetivo ||
-                          "A mentora ainda não adicionou um objetivo específico para esta aula."}
-                      </p>
-
-                      <button
-                        onClick={() => router.push("/mentorado/praticar")}
-                        className="mt-6 rounded-2xl bg-[#08163F] px-6 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
-                      >
-                        Praticar este conteúdo →
-                      </button>
-                    </div>
-                  </section>
                 </section>
 
                 <aside className="min-w-0">
@@ -418,7 +526,7 @@ export default function MentoradoModulosPage() {
                     </div>
 
                     <div className="mt-5 max-h-[calc(100vh-310px)] space-y-5 overflow-y-auto pr-2">
-                      {modulos.map((modulo) => {
+                      {modulosDisponiveis.map((modulo) => {
                         const aulasConcluidasModulo = modulo.aulas.filter(
                           (aula) => aulasConcluidas.includes(aula.id)
                         ).length;
@@ -491,7 +599,7 @@ export default function MentoradoModulosPage() {
                                         <span className="mt-1 block text-xs font-bold text-slate-400">
                                           {aula.duracao
                                             ? `▶ ${aula.duracao}`
-                                            : aula.videoUrl
+                                            : aula.video_url
                                             ? "Vídeo disponível"
                                             : "Sem vídeo"}
                                         </span>
@@ -511,6 +619,34 @@ export default function MentoradoModulosPage() {
                     </div>
                   </section>
                 </aside>
+
+                <section className="grid gap-5 lg:col-span-2">
+                  <InfoAulaCard
+                    eyebrow="Sobre esta aula"
+                    titulo="Descrição do conteúdo"
+                    texto={
+                      aulaSelecionada?.descricao ||
+                      "A mentora ainda não adicionou uma descrição para esta aula."
+                    }
+                  />
+
+                  <InfoAulaCard
+                    eyebrow="Objetivo"
+                    titulo="O que você deve absorver"
+                    texto={
+                      aulaSelecionada?.objetivo ||
+                      "A mentora ainda não adicionou um objetivo específico para esta aula."
+                    }
+                    acao={
+                      <button
+                        onClick={() => router.push("/mentorado/praticar")}
+                        className="inline-flex items-center justify-center whitespace-nowrap rounded-2xl bg-[#08163F] px-7 py-4 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
+                      >
+                        Praticar conteúdo →
+                      </button>
+                    }
+                  />
+                </section>
               </>
             )}
           </div>
@@ -582,6 +718,40 @@ export default function MentoradoModulosPage() {
         </div>
       )}
     </main>
+  );
+}
+
+function InfoAulaCard({
+  eyebrow,
+  titulo,
+  texto,
+  acao,
+}: {
+  eyebrow: string;
+  titulo: string;
+  texto: string;
+  acao?: React.ReactNode;
+}) {
+  return (
+    <article className="w-full rounded-[2rem] bg-white p-8 shadow-xl shadow-slate-200/70">
+      <div className="grid gap-8 xl:grid-cols-[1fr_auto] xl:items-center">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400">
+            {eyebrow}
+          </p>
+
+          <h3 className="mt-4 text-3xl font-black leading-tight text-[#08163F]">
+            {titulo}
+          </h3>
+
+          <p className="mt-4 max-w-none whitespace-pre-line text-base font-semibold leading-8 text-slate-500">
+            {texto}
+          </p>
+        </div>
+
+        {acao && <div className="flex shrink-0 xl:pl-8">{acao}</div>}
+      </div>
+    </article>
   );
 }
 

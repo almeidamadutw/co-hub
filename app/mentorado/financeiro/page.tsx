@@ -2,12 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/utils/supabase";
+import {
+  getUsuarioLogado,
+  usuarioTemPermissao,
+  User,
+} from "@/utils/auth";
 
 type StatusCobranca = "Pago" | "Pendente" | "Atrasado" | "Cancelado";
 
-type PerfilMentorado = {
+type ProfileMentorado = {
   id: string;
   nome: string;
   email: string;
@@ -36,139 +41,120 @@ export default function FinanceiroMentoradoPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [perfil, setPerfil] = useState<PerfilMentorado | null>(null);
+  const [perfil, setPerfil] = useState<ProfileMentorado | null>(null);
   const [cobrancas, setCobrancas] = useState<Cobranca[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
-  const [filtro, setFiltro] = useState<"Todos" | StatusCobranca>("Todos");
+  const [filtroStatus, setFiltroStatus] = useState("Todos");
   const [cobrancaSelecionada, setCobrancaSelecionada] =
     useState<Cobranca | null>(null);
 
   useEffect(() => {
-    const user = getUsuarioLogado();
+    iniciarTela();
+  }, []);
 
-    if (!user) {
-      router.replace("/login");
+  async function iniciarTela() {
+    setCarregando(true);
+    setErro("");
+
+    const usuarioLogado = getUsuarioLogado();
+
+    if (!usuarioLogado) {
+      router.push("/login");
       return;
     }
 
-    if (user.role === "mentor") {
-      router.replace("/dashboard");
+    if (!usuarioTemPermissao(usuarioLogado, ["mentorado"])) {
+      router.push("/dashboard");
       return;
     }
 
-    if (user.role !== "mentorado") {
-      logoutUsuario();
-      router.replace("/login");
-      return;
-    }
+    setUsuario(usuarioLogado);
 
-    setUsuario(user);
-  }, [router]);
+    const emailUsuario = (usuarioLogado as User & { email?: string }).email;
 
-  useEffect(() => {
-    if (!usuario) return;
-
-    const usuarioAtual = usuario;
-
-    async function carregarFinanceiro() {
-      setCarregando(true);
-      setErro("");
-
-      const { data: perfilData, error: perfilError } = await supabase
-        .from("profiles")
-        .select("id, nome, email, codigo_inscricao")
-        .eq("email", usuarioAtual.email)
-        .eq("role", "mentorado")
-        .single();
-
-      if (perfilError || !perfilData) {
-        setErro(
-          perfilError?.message ||
-            "Não foi possível carregar suas informações financeiras."
-        );
-        setCarregando(false);
-        return;
-      }
-
-      setPerfil(perfilData as PerfilMentorado);
-
-      const { data: cobrancasData, error: cobrancasError } = await supabase
-        .from("financeiro_cobrancas")
-        .select(
-          "id, mentorado_id, titulo, descricao, valor_total, quantidade_parcelas, parcela_atual, valor_parcela, data_vencimento, data_pagamento, forma_pagamento, status, observacao, created_at, updated_at"
-        )
-        .eq("mentorado_id", perfilData.id)
-        .order("data_vencimento", { ascending: true });
-
-      if (cobrancasError) {
-        setErro(cobrancasError.message);
-        setCobrancas([]);
-        setCarregando(false);
-        return;
-      }
-
-      setCobrancas((cobrancasData ?? []) as Cobranca[]);
+    if (!emailUsuario) {
+      setErro("Não foi possível identificar o e-mail do usuário logado.");
       setCarregando(false);
+      return;
     }
 
-    carregarFinanceiro();
-  }, [usuario]);
+    const { data: perfilData, error: perfilError } = await supabase
+      .from("profiles")
+      .select("id, nome, email, codigo_inscricao")
+      .eq("email", emailUsuario)
+      .eq("role", "mentorado")
+      .single();
+
+    if (perfilError || !perfilData) {
+      setErro(
+        perfilError?.message ||
+          "Não foi possível encontrar o perfil do mentorado."
+      );
+      setCarregando(false);
+      return;
+    }
+
+    setPerfil(perfilData as ProfileMentorado);
+
+    const { data: cobrancasData, error: cobrancasError } = await supabase
+      .from("financeiro_cobrancas")
+      .select(
+        "id, mentorado_id, titulo, descricao, valor_total, quantidade_parcelas, parcela_atual, valor_parcela, data_vencimento, data_pagamento, forma_pagamento, status, observacao, created_at, updated_at"
+      )
+      .eq("mentorado_id", perfilData.id)
+      .order("data_vencimento", { ascending: true });
+
+    if (cobrancasError) {
+      setErro(cobrancasError.message);
+      setCarregando(false);
+      return;
+    }
+
+    setCobrancas((cobrancasData ?? []) as Cobranca[]);
+    setCarregando(false);
+  }
 
   const cobrancasFiltradas = useMemo(() => {
-    if (filtro === "Todos") return cobrancas;
+    if (filtroStatus === "Todos") return cobrancas;
 
-    return cobrancas.filter((cobranca) => cobranca.status === filtro);
-  }, [cobrancas, filtro]);
+    return cobrancas.filter((item) => item.status === filtroStatus);
+  }, [cobrancas, filtroStatus]);
 
   const resumo = useMemo(() => {
-    const totalPago = cobrancas
-      .filter((cobranca) => cobranca.status === "Pago")
-      .reduce((acc, cobranca) => acc + Number(cobranca.valor_parcela || 0), 0);
+    const total = cobrancas.reduce(
+      (acc, item) => acc + Number(item.valor_parcela || 0),
+      0
+    );
 
-    const totalPendente = cobrancas
-      .filter(
-        (cobranca) =>
-          cobranca.status === "Pendente" || cobranca.status === "Atrasado"
-      )
-      .reduce((acc, cobranca) => acc + Number(cobranca.valor_parcela || 0), 0);
+    const pago = cobrancas
+      .filter((item) => item.status === "Pago")
+      .reduce((acc, item) => acc + Number(item.valor_parcela || 0), 0);
 
-    const pendentes = cobrancas.filter(
-      (cobranca) => cobranca.status === "Pendente"
-    ).length;
+    const pendente = cobrancas
+      .filter((item) => item.status === "Pendente")
+      .reduce((acc, item) => acc + Number(item.valor_parcela || 0), 0);
 
-    const atrasadas = cobrancas.filter(
-      (cobranca) => cobranca.status === "Atrasado"
-    ).length;
+    const atrasado = cobrancas
+      .filter((item) => item.status === "Atrasado")
+      .reduce((acc, item) => acc + Number(item.valor_parcela || 0), 0);
+
+    const proximoVencimento = cobrancas
+      .filter((item) => item.status !== "Pago" && item.status !== "Cancelado")
+      .sort(
+        (a, b) =>
+          new Date(a.data_vencimento).getTime() -
+          new Date(b.data_vencimento).getTime()
+      )[0];
 
     return {
-      totalPago,
-      totalPendente,
-      pendentes,
-      atrasadas,
+      total,
+      pago,
+      pendente,
+      atrasado,
+      proximoVencimento,
     };
   }, [cobrancas]);
-
-  const proximaCobranca = useMemo(() => {
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-
-    return (
-      cobrancas
-        .filter((cobranca) => cobranca.status !== "Pago")
-        .sort((a, b) => {
-          const dataA = new Date(`${a.data_vencimento}T12:00:00`).getTime();
-          const dataB = new Date(`${b.data_vencimento}T12:00:00`).getTime();
-
-          return dataA - dataB;
-        })[0] ?? null
-    );
-  }, [cobrancas]);
-
-  function sair() {
-    logoutUsuario();
-    router.replace("/login");
-  }
 
   if (!usuario || carregando) {
     return (
@@ -180,81 +166,99 @@ export default function FinanceiroMentoradoPage() {
 
   return (
     <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
-      <aside className="hidden min-h-screen w-[310px] flex-col border-r border-black/5 bg-white p-5 shadow-[10px_0_40px_rgba(15,23,42,0.04)] lg:flex">
-        <LogoBox />
+      <Sidebar nome={usuario.nome} role={usuario.role} />
 
-        <nav className="space-y-2">
-          <MenuItem
-            label="Início"
-            onClick={() => router.push("/mentorado/dashboard")}
-          />
-          <MenuItem
-            label="Minha agenda"
-            onClick={() => router.push("/mentorado/agenda")}
-          />
-          <MenuItem
-            label="Meus módulos"
-            onClick={() => router.push("/mentorado/modulos")}
-          />
-          <MenuItem
-            label="Praticar"
-            onClick={() => router.push("/mentorado/praticar")}
-          />
-          <MenuItem
-            label="Meu progresso"
-            onClick={() => router.push("/mentorado/progresso")}
-          />
-          <MenuItem
-            ativo
-            label="Financeiro"
-            onClick={() => router.push("/mentorado/financeiro")}
-          />
-          <MenuItem
-            label="Minha conta"
-            onClick={() => router.push("/mentorado/conta")}
-          />
-        </nav>
+      <section className="relative flex-1 overflow-hidden p-6 md:p-8">
+        <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#12317C]/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-slate-300/30 blur-3xl" />
 
-        <UserBox nome={perfil?.nome || usuario.nome} onSair={sair} />
-      </aside>
-
-      <section className="flex-1 overflow-hidden">
-        <Header
-          titulo="Financeiro"
-          subtitulo="Área do mentorado"
-          onVoltar={() => router.push("/mentorado/dashboard")}
-          onSuporte={() => router.push("/mentorado/suporte")}
-          onSair={sair}
-        />
-
-        <div className="h-[calc(100vh-82px)] overflow-y-auto px-6 py-10 md:px-8">
-          <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-xl">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="relative z-10">
+          <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-[0_24px_60px_rgba(8,22,63,0.18)]">
+            <div className="flex flex-wrap items-start justify-between gap-6">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
-                  Financeiro CEO Club
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.32em] text-[#C9CED6]">
+                  Financeiro
                 </p>
 
-                <h1 className="mt-3 text-4xl font-black">
-                  Seus pagamentos e mensalidades
+                <h1 className="max-w-4xl text-4xl font-black leading-tight">
+                  Minha área financeira
                 </h1>
 
                 <p className="mt-3 max-w-2xl text-[#D9DEE7]">
-                  Acompanhe vencimentos, parcelas e histórico financeiro da sua
-                  jornada.
+                  Acompanhe suas parcelas, vencimentos e histórico de pagamentos.
                 </p>
+
+                {perfil && (
+                  <p className="mt-4 text-sm font-bold text-blue-100">
+                    {perfil.codigo_inscricao || "Sem inscrição"} · {perfil.nome}
+                  </p>
+                )}
               </div>
 
-              {perfil?.codigo_inscricao && (
-                <div className="rounded-[24px] bg-white/10 px-5 py-4 backdrop-blur-sm">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">
-                    Inscrição
-                  </p>
-                  <p className="mt-1 text-2xl font-black">
-                    {perfil.codigo_inscricao}
-                  </p>
-                </div>
-              )}
+              <div className="rounded-[26px] border border-white/15 bg-white/10 p-5 backdrop-blur-md">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-100">
+                  Próximo vencimento
+                </p>
+
+                <p className="mt-2 text-2xl font-black">
+                  {resumo.proximoVencimento
+                    ? formatarData(resumo.proximoVencimento.data_vencimento)
+                    : "—"}
+                </p>
+
+                <p className="mt-1 text-sm font-semibold text-blue-100">
+                  {resumo.proximoVencimento
+                    ? formatarMoeda(Number(resumo.proximoVencimento.valor_parcela))
+                    : "Nenhuma parcela em aberto"}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="mb-6 grid gap-4 md:grid-cols-4">
+            <ResumoCard
+              titulo="Total contratado"
+              valor={formatarMoeda(resumo.total)}
+              destaque
+            />
+
+            <ResumoCard titulo="Pago" valor={formatarMoeda(resumo.pago)} />
+
+            <ResumoCard
+              titulo="Pendente"
+              valor={formatarMoeda(resumo.pendente)}
+            />
+
+            <ResumoCard
+              titulo="Atrasado"
+              valor={formatarMoeda(resumo.atrasado)}
+              alerta={resumo.atrasado > 0}
+            />
+          </section>
+
+          <section className="mb-6 rounded-[28px] border border-white/50 bg-white/85 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
+                  Parcelas
+                </p>
+
+                <h2 className="mt-1 text-2xl font-black text-[#08163F]">
+                  Meus lançamentos
+                </h2>
+              </div>
+
+              <select
+                value={filtroStatus}
+                onChange={(e) => setFiltroStatus(e.target.value)}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#08163F] outline-none focus:border-[#12317C]"
+              >
+                <option>Todos</option>
+                <option>Pago</option>
+                <option>Pendente</option>
+                <option>Atrasado</option>
+                <option>Cancelado</option>
+              </select>
             </div>
           </section>
 
@@ -264,138 +268,79 @@ export default function FinanceiroMentoradoPage() {
             </div>
           )}
 
-          <section className="mb-8 grid gap-5 xl:grid-cols-4">
-            <KPI titulo="Pago" valor={formatarMoeda(resumo.totalPago)} destaque />
-            <KPI titulo="Em aberto" valor={formatarMoeda(resumo.totalPendente)} />
-            <KPI titulo="Pendentes" valor={resumo.pendentes} />
-            <KPI titulo="Atrasadas" valor={resumo.atrasadas} alerta={resumo.atrasadas > 0} />
-          </section>
+          <section className="overflow-hidden rounded-[30px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+            <div className="grid grid-cols-[1fr_0.6fr_0.7fr_0.7fr_0.7fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white">
+              <span>Cobrança</span>
+              <span>Parcela</span>
+              <span>Valor</span>
+              <span>Vencimento</span>
+              <span>Status</span>
+            </div>
 
-          <section className="mb-6 flex flex-wrap gap-3">
-            {["Todos", "Pendente", "Pago", "Atrasado", "Cancelado"].map(
-              (item) => (
-                <button
-                  key={item}
-                  onClick={() => setFiltro(item as "Todos" | StatusCobranca)}
-                  className={`rounded-2xl px-5 py-3 text-sm font-black transition ${
-                    filtro === item
-                      ? "bg-[#08163F] text-white shadow-lg"
-                      : "bg-white text-gray-500 hover:text-[#08163F] hover:shadow-md"
-                  }`}
-                >
-                  {item}
-                </button>
-              )
+            {cobrancasFiltradas.length === 0 ? (
+              <div className="p-10 text-center text-sm font-semibold text-slate-500">
+                Nenhum lançamento encontrado.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {cobrancasFiltradas.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setCobrancaSelecionada(item)}
+                    className="grid w-full grid-cols-[1fr_0.6fr_0.7fr_0.7fr_0.7fr] items-center p-4 text-left text-sm transition hover:bg-slate-50"
+                  >
+                    <span>
+                      <strong className="block text-[#08163F]">
+                        {item.titulo}
+                      </strong>
+
+                      <small className="text-xs text-slate-400">
+                        {item.descricao || "Sem descrição"}
+                      </small>
+                    </span>
+
+                    <span className="font-bold text-slate-600">
+                      {item.parcela_atual}/{item.quantidade_parcelas}
+                    </span>
+
+                    <span className="font-black text-[#08163F]">
+                      {formatarMoeda(Number(item.valor_parcela))}
+                    </span>
+
+                    <span className="font-bold text-slate-600">
+                      {formatarData(item.data_vencimento)}
+                    </span>
+
+                    <span>
+                      <StatusBadge status={item.status} />
+                    </span>
+                  </button>
+                ))}
+              </div>
             )}
-          </section>
-
-          <section className="grid gap-6 xl:grid-cols-[1fr_420px]">
-            <Card titulo="Histórico financeiro">
-              {cobrancasFiltradas.length === 0 ? (
-                <EmptyState
-                  titulo="Nenhuma cobrança encontrada"
-                  texto="Quando houver parcelas ou pagamentos cadastrados, eles aparecerão nesta área."
-                />
-              ) : (
-                <div className="space-y-4">
-                  {cobrancasFiltradas.map((cobranca) => (
-                    <button
-                      key={cobranca.id}
-                      type="button"
-                      onClick={() => setCobrancaSelecionada(cobranca)}
-                      className="flex w-full flex-col gap-4 rounded-2xl bg-[#f9fafb] p-5 text-left transition hover:bg-white hover:shadow-md md:flex-row md:items-center md:justify-between"
-                    >
-                      <div>
-                        <p className="font-black text-[#08163F]">
-                          {cobranca.titulo}
-                        </p>
-
-                        <p className="mt-1 text-sm font-bold text-gray-500">
-                          Vencimento: {formatarData(cobranca.data_vencimento)}
-                        </p>
-
-                        <p className="mt-1 text-xs font-bold text-gray-400">
-                          Parcela {cobranca.parcela_atual}/
-                          {cobranca.quantidade_parcelas}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <p className="font-black text-[#08163F]">
-                          {formatarMoeda(Number(cobranca.valor_parcela))}
-                        </p>
-
-                        <StatusBadge status={cobranca.status} />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <aside className="space-y-6">
-              <Card titulo="Próxima cobrança">
-                {proximaCobranca ? (
-                  <div className="rounded-[26px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-6 text-white">
-                    <p className="text-sm font-bold text-[#C9CED6]">
-                      {proximaCobranca.titulo}
-                    </p>
-
-                    <p className="mt-3 text-4xl font-black">
-                      {formatarMoeda(Number(proximaCobranca.valor_parcela))}
-                    </p>
-
-                    <p className="mt-2 text-sm font-semibold text-[#D9DEE7]">
-                      Vencimento em{" "}
-                      {formatarData(proximaCobranca.data_vencimento)}
-                    </p>
-
-                    <button
-                      onClick={() => setCobrancaSelecionada(proximaCobranca)}
-                      className="mt-6 rounded-2xl bg-white px-5 py-3 font-black text-[#08163F] transition hover:brightness-95"
-                    >
-                      Ver detalhes →
-                    </button>
-                  </div>
-                ) : (
-                  <EmptyState
-                    titulo="Nenhuma cobrança em aberto"
-                    texto="Você não possui cobranças pendentes no momento."
-                  />
-                )}
-              </Card>
-
-              <Card titulo="Orientações">
-                <p className="text-sm font-semibold leading-relaxed text-gray-500">
-                  Em caso de dúvidas sobre vencimentos ou formas de pagamento,
-                  fale com o suporte da mentoria.
-                </p>
-
-                <button
-                  onClick={() => router.push("/mentorado/suporte")}
-                  className="mt-5 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
-                >
-                  Falar com suporte →
-                </button>
-              </Card>
-            </aside>
           </section>
         </div>
       </section>
 
       {cobrancaSelecionada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl overflow-hidden rounded-[34px] bg-white shadow-2xl">
+          <div className="w-full max-w-3xl overflow-hidden rounded-[34px] bg-white shadow-2xl">
             <div className="bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
-                    Detalhes financeiros
+                    Detalhes da parcela
                   </p>
 
                   <h2 className="mt-3 text-3xl font-black">
                     {cobrancaSelecionada.titulo}
                   </h2>
+
+                  <p className="mt-2 text-sm font-bold text-blue-100">
+                    Parcela {cobrancaSelecionada.parcela_atual}/
+                    {cobrancaSelecionada.quantidade_parcelas}
+                  </p>
                 </div>
 
                 <button
@@ -423,11 +368,6 @@ export default function FinanceiroMentoradoPage() {
               />
 
               <InfoBox
-                label="Parcela"
-                value={`${cobrancaSelecionada.parcela_atual}/${cobrancaSelecionada.quantidade_parcelas}`}
-              />
-
-              <InfoBox
                 label="Vencimento"
                 value={formatarData(cobrancaSelecionada.data_vencimento)}
               />
@@ -446,16 +386,30 @@ export default function FinanceiroMentoradoPage() {
                 value={cobrancaSelecionada.forma_pagamento || "—"}
               />
 
+              <InfoBox
+                label="Status"
+                value={<StatusBadge status={cobrancaSelecionada.status} />}
+              />
+
               <div className="rounded-2xl bg-[#f9fafb] p-5 md:col-span-2">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                  Observação
+                  Informações
                 </p>
 
                 <p className="mt-2 text-sm font-semibold leading-7 text-slate-600">
-                  {cobrancaSelecionada.observacao ||
-                    cobrancaSelecionada.descricao ||
-                    "Nenhuma observação adicionada."}
+                  {cobrancaSelecionada.descricao ||
+                    cobrancaSelecionada.observacao ||
+                    "Nenhuma informação adicionada."}
                 </p>
+              </div>
+
+              <div className="md:col-span-2">
+                <button
+                  onClick={() => setCobrancaSelecionada(null)}
+                  className="rounded-2xl bg-[#08163F] px-5 py-4 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                >
+                  Entendi
+                </button>
               </div>
             </div>
           </div>
@@ -465,197 +419,54 @@ export default function FinanceiroMentoradoPage() {
   );
 }
 
-function LogoBox() {
-  return (
-    <div className="mb-8 flex items-center gap-3 rounded-[24px] bg-[#f8fafc] p-3">
-      <div className="h-14 w-14 overflow-hidden rounded-2xl bg-[#08163F] p-1">
-        <img
-          src="/images/logo.jpeg"
-          alt="CEO Club"
-          className="h-full w-full rounded-xl object-cover"
-        />
-      </div>
-
-      <div>
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-gray-400">
-          Curso
-        </p>
-        <h1 className="text-lg font-black text-[#08163F]">CEO Club</h1>
-      </div>
-    </div>
-  );
-}
-
-function Header({
-  titulo,
-  subtitulo,
-  onVoltar,
-  onSuporte,
-  onSair,
-}: {
-  titulo: string;
-  subtitulo: string;
-  onVoltar: () => void;
-  onSuporte: () => void;
-  onSair: () => void;
-}) {
-  return (
-    <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-6 backdrop-blur-xl md:px-8">
-      <div className="flex items-center gap-4">
-        <button
-          onClick={onVoltar}
-          className="rounded-2xl bg-[#f3f5f8] px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
-        >
-          ← Voltar
-        </button>
-
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
-            {subtitulo}
-          </p>
-          <h1 className="text-xl font-black">{titulo}</h1>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onSuporte}
-          className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
-        >
-          Suporte
-        </button>
-
-        <button
-          onClick={onSair}
-          className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110"
-        >
-          Sair
-        </button>
-      </div>
-    </header>
-  );
-}
-
-function UserBox({ nome, onSair }: { nome: string; onSair: () => void }) {
-  return (
-    <div className="mt-auto rounded-[24px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white">
-      <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#C9CED6]">
-        Mentorado
-      </p>
-
-      <p className="mt-2 font-black">{nome}</p>
-
-      <button
-        onClick={onSair}
-        className="mt-5 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#08163F] transition hover:brightness-95"
-      >
-        Sair
-      </button>
-    </div>
-  );
-}
-
-function MenuItem({
-  label,
-  ativo,
-  onClick,
-}: {
-  label: string;
-  ativo?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-black transition ${
-        ativo
-          ? "bg-[#EEF2FF] text-[#08163F]"
-          : "text-gray-500 hover:bg-[#f8fafc] hover:text-[#08163F]"
-      }`}
-    >
-      <span>{label}</span>
-      <span>→</span>
-    </button>
-  );
-}
-
-function KPI({
+function ResumoCard({
   titulo,
   valor,
   destaque,
   alerta,
 }: {
   titulo: string;
-  valor: React.ReactNode;
+  valor: string;
   destaque?: boolean;
   alerta?: boolean;
 }) {
   return (
     <div
-      className={`rounded-[26px] p-6 shadow-lg ${
+      className={`rounded-[24px] border border-white/50 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm ${
         destaque
-          ? "bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-white"
+          ? "bg-[#071A55] text-white"
           : alerta
           ? "bg-red-50 text-red-700"
-          : "bg-white text-[#08163F]"
+          : "bg-white/85 text-[#08163F]"
       }`}
     >
-      <p
-        className={`text-sm font-bold ${
-          destaque ? "text-[#C9CED6]" : alerta ? "text-red-600" : "text-gray-500"
+      <h2
+        className={`text-sm font-black ${
+          destaque ? "text-blue-100" : alerta ? "text-red-600" : "text-slate-500"
         }`}
       >
         {titulo}
-      </p>
-      <p className="mt-4 text-3xl font-black">{valor}</p>
+      </h2>
+
+      <p className="mt-3 text-3xl font-black">{valor}</p>
     </div>
   );
 }
 
-function Card({
-  titulo,
-  children,
-}: {
-  titulo: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="overflow-hidden rounded-[30px] border border-gray-200 bg-white shadow-lg">
-      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-6">
-        <h3 className="text-2xl font-black text-[#050816]">{titulo}</h3>
-      </div>
-
-      <div className="p-6">{children}</div>
-    </div>
-  );
-}
-
-function EmptyState({ titulo, texto }: { titulo: string; texto: string }) {
-  return (
-    <div className="rounded-[26px] bg-[#f9fafb] p-8 text-center">
-      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[24px] bg-white text-4xl shadow-sm">
-        ✦
-      </div>
-
-      <h3 className="mt-5 text-xl font-black text-[#08163F]">{titulo}</h3>
-
-      <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-relaxed text-gray-500">
-        {texto}
-      </p>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: StatusCobranca }) {
-  const classes: Record<StatusCobranca, string> = {
-    Pago: "bg-green-100 text-green-700",
+function StatusBadge({ status }: { status: string }) {
+  const estilos: Record<string, string> = {
+    Pago: "bg-emerald-100 text-emerald-700",
     Pendente: "bg-yellow-100 text-yellow-700",
     Atrasado: "bg-red-100 text-red-700",
     Cancelado: "bg-slate-100 text-slate-600",
   };
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black ${classes[status]}`}>
+    <span
+      className={`inline-block rounded-full px-3 py-1 text-xs font-black ${
+        estilos[status] || "bg-slate-100 text-slate-700"
+      }`}
+    >
       {status}
     </span>
   );

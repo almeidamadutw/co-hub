@@ -2,95 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+
+import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import { useModulosSupabase } from "@/utils/useModulosSupabase";
 
-type StatusModulo = "Concluído" | "Em andamento" | "Bloqueado";
-
-type ModuloMentorado = {
-  nome: string;
-  descricao: string;
-  progresso: number;
-  aulasConcluidas: number;
-  totalAulas: number;
-  status: StatusModulo;
-};
-
-type AtividadeMentorado = {
-  titulo: string;
-  tipo: "Aula" | "Simulado" | "Atividade";
-  modulo: string;
-  status: "Pendente" | "Concluído";
-};
-
-const modulosMock: ModuloMentorado[] = [
-  {
-    nome: "Mentalidade",
-    descricao: "Construção de visão empresarial, postura de CEO e tomada de decisão.",
-    progresso: 100,
-    aulasConcluidas: 6,
-    totalAulas: 6,
-    status: "Concluído",
-  },
-  {
-    nome: "Agendamento",
-    descricao: "Organização da agenda, previsibilidade e controle de horários.",
-    progresso: 72,
-    aulasConcluidas: 5,
-    totalAulas: 7,
-    status: "Em andamento",
-  },
-  {
-    nome: "Posicionamento",
-    descricao: "Autoridade, diferenciação e percepção de valor no mercado.",
-    progresso: 35,
-    aulasConcluidas: 2,
-    totalAulas: 6,
-    status: "Em andamento",
-  },
-  {
-    nome: "Marketing",
-    descricao: "Estratégias para atração, relacionamento e fortalecimento da marca.",
-    progresso: 0,
-    aulasConcluidas: 0,
-    totalAulas: 8,
-    status: "Bloqueado",
-  },
-  {
-    nome: "Vendas",
-    descricao: "Conversão, negociação e fechamento com mais segurança.",
-    progresso: 0,
-    aulasConcluidas: 0,
-    totalAulas: 7,
-    status: "Bloqueado",
-  },
-];
-
-const atividadesMock: AtividadeMentorado[] = [
-  {
-    titulo: "Assistir aula: Agenda como ativo financeiro",
-    tipo: "Aula",
-    modulo: "Agendamento",
-    status: "Pendente",
-  },
-  {
-    titulo: "Responder simulado de posicionamento",
-    tipo: "Simulado",
-    modulo: "Posicionamento",
-    status: "Pendente",
-  },
-  {
-    titulo: "Exercício: diagnóstico da agenda atual",
-    tipo: "Atividade",
-    modulo: "Agendamento",
-    status: "Concluído",
-  },
-];
-
-export default function ProgressoMentoradoPage() {
+export default function MentoradoProgressoPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [filtro, setFiltro] = useState("Todos");
+  const [mentoradoId, setMentoradoId] = useState("");
+  const [aulasConcluidas, setAulasConcluidas] = useState<string[]>([]);
+  const [carregandoProgresso, setCarregandoProgresso] = useState(true);
+  const [erro, setErro] = useState("");
+
+  const { carregando, modulos } = useModulosSupabase();
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -108,360 +34,389 @@ export default function ProgressoMentoradoPage() {
     setUsuario(user);
   }, [router]);
 
+  useEffect(() => {
+    if (!usuario) return;
+
+    async function carregarPerfilEProgresso() {
+      setCarregandoProgresso(true);
+      setErro("");
+
+      const usuarioEmail = (usuario as User & { email?: string })?.email;
+      const usuarioId = (usuario as User & { id?: string })?.id;
+
+      let idPerfil = "";
+
+      if (usuarioEmail) {
+        const { data: perfilPorEmail, error: erroEmail } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", usuarioEmail)
+          .eq("role", "mentorado")
+          .maybeSingle();
+
+        if (erroEmail) {
+          setErro(erroEmail.message);
+          setCarregandoProgresso(false);
+          return;
+        }
+
+        if (perfilPorEmail?.id) {
+          idPerfil = perfilPorEmail.id;
+        }
+      }
+
+      if (!idPerfil && usuarioId) {
+        const { data: perfilPorId, error: erroId } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("id", usuarioId)
+          .eq("role", "mentorado")
+          .maybeSingle();
+
+        if (erroId) {
+          setErro(erroId.message);
+          setCarregandoProgresso(false);
+          return;
+        }
+
+        if (perfilPorId?.id) {
+          idPerfil = perfilPorId.id;
+        }
+      }
+
+      if (!idPerfil) {
+        setErro("Não foi possível identificar o perfil do mentorado.");
+        setCarregandoProgresso(false);
+        return;
+      }
+
+      setMentoradoId(idPerfil);
+
+      const { data, error } = await supabase
+        .from("progresso_aulas")
+        .select("aula_id")
+        .eq("mentorado_id", idPerfil)
+        .eq("concluida", true);
+
+      if (error) {
+        setErro(error.message);
+        setCarregandoProgresso(false);
+        return;
+      }
+
+      setAulasConcluidas((data ?? []).map((item) => item.aula_id));
+      setCarregandoProgresso(false);
+    }
+
+    carregarPerfilEProgresso();
+  }, [usuario]);
+
+  const modulosDisponiveis = useMemo(() => {
+    return modulos
+      .filter((modulo) => modulo.ativo)
+      .map((modulo) => ({
+        ...modulo,
+        aulas: modulo.aulas.filter((aula) => aula.ativo),
+      }));
+  }, [modulos]);
+
+  const aulasDisponiveis = useMemo(() => {
+    return modulosDisponiveis.flatMap((modulo) => modulo.aulas);
+  }, [modulosDisponiveis]);
+
+  const totalAulas = aulasDisponiveis.length;
+  const totalConcluidas = aulasConcluidas.length;
+
   const progressoGeral = useMemo(() => {
-    const total = modulosMock.reduce((soma, modulo) => soma + modulo.progresso, 0);
-    return Math.round(total / modulosMock.length);
-  }, []);
+    if (totalAulas === 0) return 0;
+    return Math.round((totalConcluidas / totalAulas) * 100);
+  }, [totalAulas, totalConcluidas]);
 
-  const aulasConcluidas = modulosMock.reduce(
-    (total, modulo) => total + modulo.aulasConcluidas,
-    0
-  );
+  const modulosComProgresso = useMemo(() => {
+    return modulosDisponiveis.map((modulo) => {
+      const totalAulasModulo = modulo.aulas.length;
 
-  const totalAulas = modulosMock.reduce(
-    (total, modulo) => total + modulo.totalAulas,
-    0
-  );
+      const aulasConcluidasModulo = modulo.aulas.filter((aula) =>
+        aulasConcluidas.includes(aula.id)
+      ).length;
 
-  const modulosConcluidos = modulosMock.filter(
-    (modulo) => modulo.status === "Concluído"
+      const percentual =
+        totalAulasModulo === 0
+          ? 0
+          : Math.round((aulasConcluidasModulo / totalAulasModulo) * 100);
+
+      const status =
+        totalAulasModulo === 0
+          ? "Sem aulas"
+          : percentual === 100
+          ? "Concluído"
+          : percentual > 0
+          ? "Em andamento"
+          : "Não iniciado";
+
+      return {
+        ...modulo,
+        totalAulasModulo,
+        aulasConcluidasModulo,
+        percentual,
+        status,
+      };
+    });
+  }, [modulosDisponiveis, aulasConcluidas]);
+
+  const modulosConcluidos = modulosComProgresso.filter(
+    (modulo) => modulo.percentual === 100 && modulo.totalAulasModulo > 0
   ).length;
 
-  const atividadesPendentes = atividadesMock.filter(
-    (atividade) => atividade.status === "Pendente"
+  const modulosEmAndamento = modulosComProgresso.filter(
+    (modulo) => modulo.percentual > 0 && modulo.percentual < 100
   ).length;
 
-  const modulosFiltrados = modulosMock.filter((modulo) => {
-    if (filtro === "Todos") return true;
-    return modulo.status === filtro;
-  });
+  const modulosNaoIniciados = modulosComProgresso.filter(
+    (modulo) => modulo.percentual === 0 && modulo.totalAulasModulo > 0
+  ).length;
 
-  const proximoModulo = modulosMock.find(
-    (modulo) => modulo.status === "Em andamento"
-  );
+  function sair() {
+    logoutUsuario();
+    router.replace("/login");
+  }
 
-  const statusClasses: Record<StatusModulo, string> = {
-    "Concluído": "bg-emerald-50 text-emerald-700",
-    "Em andamento": "bg-blue-50 text-blue-700",
-    "Bloqueado": "bg-slate-100 text-slate-500",
-  };
-
-  if (!usuario) {
+  if (!usuario || carregando || carregandoProgresso) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        Carregando seu progresso...
+        Carregando progresso...
       </main>
     );
   }
 
   return (
     <main className="min-h-screen bg-[#f3f5f8] text-[#08163F]">
-      <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-8 backdrop-blur-xl">
-        <div className="flex items-center gap-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] to-[#12317C] text-sm font-black text-white shadow-lg">
-            CC
-          </div>
-
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
-              Área do mentorado
-            </p>
-            <h1 className="text-xl font-black">Meu progresso</h1>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/mentorado/dashboard")}
-            className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-[#08163F] shadow-sm transition hover:shadow-md"
-          >
-            Voltar ao painel
-          </button>
-
-          <button
-            onClick={() => {
-              logoutUsuario();
-              router.replace("/login");
-            }}
-            className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110"
-          >
-            Sair
-          </button>
-        </div>
-      </header>
-
-      <div className="px-8 py-10">
-        <section className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[2rem] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-2xl shadow-[#07122F]/20">
-            <p className="text-sm font-bold uppercase tracking-[0.25em] text-blue-200">
-              Jornada CEO Club
-            </p>
-
-            <h2 className="mt-3 max-w-3xl text-4xl font-black leading-tight">
-              {usuario.nome}, sua evolução está em {progressoGeral}%.
-            </h2>
-
-            <p className="mt-4 max-w-3xl text-lg leading-8 text-blue-100">
-              Continue avançando nos módulos, concluindo aulas e praticando os
-              conhecimentos para transformar sua rotina em uma gestão mais
-              estratégica.
-            </p>
-
-            <div className="mt-8">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-black text-blue-100">
-                  Progresso geral
-                </span>
-                <span className="text-sm font-black text-white">
-                  {progressoGeral}%
-                </span>
+      <div className="grid min-h-screen lg:grid-cols-[320px_1fr]">
+        <aside className="hidden border-r border-slate-100 bg-white p-6 lg:block">
+          <div className="rounded-[1.5rem] bg-[#f7f9fc] p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-[#07122F] text-sm font-black text-white">
+                CC
               </div>
 
-              <div className="h-5 overflow-hidden rounded-full bg-white/15">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-white via-blue-200 to-[#57A8FF]"
-                  style={{ width: `${progressoGeral}%` }}
-                />
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
+                  Curso
+                </p>
+                <h1 className="text-xl font-black">CEO Club</h1>
               </div>
             </div>
           </div>
 
-          <div className="rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
-              Próximo passo
+          <nav className="mt-10 space-y-3">
+            <MenuItem
+              label="Início"
+              onClick={() => router.push("/mentorado/dashboard")}
+            />
+
+            <MenuItem
+              label="Assistir aula"
+              onClick={() => router.push("/mentorado/modulos")}
+            />
+
+            <MenuItem
+              label="Praticar"
+              onClick={() => router.push("/mentorado/praticar")}
+            />
+
+            <MenuItem label="Meu progresso" ativo />
+
+            <MenuItem
+              label="Minha agenda"
+              onClick={() => router.push("/mentorado/agenda")}
+            />
+
+            <MenuItem
+              label="Financeiro"
+              onClick={() => router.push("/mentorado/financeiro")}
+            />
+
+            <MenuItem
+              label="Minha conta"
+              onClick={() => router.push("/mentorado/conta")}
+            />
+          </nav>
+
+          <div className="mt-10 rounded-[1.5rem] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white">
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
+              Mentorado
             </p>
 
-            <h3 className="mt-1 text-2xl font-black">
-              Continue de onde parou
-            </h3>
+            <p className="mt-3 text-lg font-black">{usuario.nome}</p>
 
-            {proximoModulo ? (
-              <div className="mt-6 rounded-[1.5rem] bg-[#f9fafb] p-6">
-                <p className="text-sm font-black text-slate-500">
-                  Módulo atual
+            <button
+              onClick={sair}
+              className="mt-5 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#08163F]"
+            >
+              Sair
+            </button>
+          </div>
+        </aside>
+
+        <section className="flex min-w-0 flex-col">
+          <header className="sticky top-0 z-20 flex h-[88px] items-center justify-between border-b border-slate-100 bg-white/85 px-6 backdrop-blur-xl lg:px-9">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push("/mentorado/dashboard")}
+                className="rounded-2xl bg-[#f3f5f8] px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+              >
+                ← Voltar
+              </button>
+
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-slate-400">
+                  Evolução CEO Club
                 </p>
 
-                <h4 className="mt-2 text-3xl font-black">
-                  {proximoModulo.nome}
-                </h4>
-
-                <p className="mt-3 text-sm leading-6 text-slate-500">
-                  {proximoModulo.descricao}
-                </p>
-
-                <div className="mt-5 h-4 overflow-hidden rounded-full bg-white">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#071A55] to-[#1D7BFF]"
-                    style={{ width: `${proximoModulo.progresso}%` }}
-                  />
-                </div>
-
-                <div className="mt-4 flex items-center justify-between text-sm font-black">
-                  <span>{proximoModulo.progresso}% concluído</span>
-                  <span>
-                    {proximoModulo.aulasConcluidas}/{proximoModulo.totalAulas} aulas
-                  </span>
-                </div>
-
-                <button
-                  onClick={() => router.push("/mentorado/modulos")}
-                  className="mt-6 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
-                >
-                  Continuar módulo
-                </button>
+                <h2 className="text-xl font-black md:text-2xl">
+                  Meu progresso
+                </h2>
               </div>
-            ) : (
-              <div className="mt-6 rounded-[1.5rem] bg-emerald-50 p-6">
-                <p className="text-lg font-black text-emerald-700">
-                  Todos os módulos disponíveis foram concluídos.
-                </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push("/mentorado/suporte")}
+                className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-sm"
+              >
+                Suporte
+              </button>
+
+              <button
+                onClick={sair}
+                className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg"
+              >
+                Sair
+              </button>
+            </div>
+          </header>
+
+          <div className="p-6 lg:p-9">
+            {erro && (
+              <div className="mb-6 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+                {erro}
               </div>
             )}
-          </div>
-        </section>
 
-        <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <KPI
-            titulo="Aulas concluídas"
-            valor={`${aulasConcluidas}/${totalAulas}`}
-            texto="Aulas finalizadas até agora."
-            destaque
-          />
+            <section className="overflow-hidden rounded-[2.3rem] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-2xl shadow-[#07122F]/20">
+              <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr] xl:items-center">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.35em] text-blue-200">
+                    Progresso geral
+                  </p>
 
-          <KPI
-            titulo="Módulos concluídos"
-            valor={`${modulosConcluidos}/${modulosMock.length}`}
-            texto="Módulos totalmente finalizados."
-          />
+                  <h1 className="mt-5 text-5xl font-black md:text-6xl">
+                    {progressoGeral}%
+                  </h1>
 
-          <KPI
-            titulo="Atividades pendentes"
-            valor={atividadesPendentes}
-            texto="Tarefas que ainda precisam de atenção."
-            alerta={atividadesPendentes > 0}
-          />
+                  <p className="mt-4 max-w-2xl text-base font-bold leading-7 text-blue-100">
+                    Você concluiu {totalConcluidas} de {totalAulas} aulas
+                    disponíveis na jornada do CEO Club.
+                  </p>
 
-          <KPI
-            titulo="Simulados"
-            valor="3"
-            texto="Simulados realizados na jornada."
-          />
-        </section>
-
-        <section className="mt-8 rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
-                Módulos
-              </p>
-
-              <h3 className="mt-1 text-2xl font-black">
-                Minha evolução por módulo
-              </h3>
-            </div>
-
-            <select
-              value={filtro}
-              onChange={(event) => setFiltro(event.target.value)}
-              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none"
-            >
-              <option>Todos</option>
-              <option>Concluído</option>
-              <option>Em andamento</option>
-              <option>Bloqueado</option>
-            </select>
-          </div>
-
-          <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {modulosFiltrados.map((moduloItem) => (
-              <article
-                key={moduloItem.nome}
-                className="rounded-[1.7rem] border border-slate-100 bg-[#f9fafb] p-6"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h4 className="text-xl font-black">{moduloItem.nome}</h4>
-
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                      {moduloItem.descricao}
-                    </p>
-                  </div>
-
-                  <span
-                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${
-                      statusClasses[moduloItem.status]
-                    }`}
-                  >
-                    {moduloItem.status}
-                  </span>
-                </div>
-
-                <div className="mt-6">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                      Progresso
-                    </span>
-                    <span className="text-sm font-black text-[#071A55]">
-                      {moduloItem.progresso}%
-                    </span>
-                  </div>
-
-                  <div className="h-4 overflow-hidden rounded-full bg-white">
+                  <div className="mt-7 h-4 overflow-hidden rounded-full bg-white/15">
                     <div
-                      className={`h-full rounded-full ${
-                        moduloItem.status === "Bloqueado"
-                          ? "bg-slate-300"
-                          : "bg-gradient-to-r from-[#071A55] to-[#1D7BFF]"
-                      }`}
-                      style={{ width: `${moduloItem.progresso}%` }}
+                      className="h-full rounded-full bg-white transition-all"
+                      style={{ width: `${progressoGeral}%` }}
                     />
                   </div>
                 </div>
 
-                <p className="mt-4 text-sm font-bold text-slate-500">
-                  {moduloItem.aulasConcluidas}/{moduloItem.totalAulas} aulas concluídas
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
+                <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
+                  <HeroMetric
+                    titulo="Concluídos"
+                    valor={String(modulosConcluidos)}
+                  />
 
-        <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-          <div className="rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
-              Atividades
-            </p>
+                  <HeroMetric
+                    titulo="Em andamento"
+                    valor={String(modulosEmAndamento)}
+                  />
 
-            <h3 className="mt-1 text-2xl font-black">
-              Pendências e conclusões
-            </h3>
+                  <HeroMetric
+                    titulo="Não iniciados"
+                    valor={String(modulosNaoIniciados)}
+                  />
+                </div>
+              </div>
+            </section>
 
-            <div className="mt-6 space-y-4">
-              {atividadesMock.map((atividade) => (
-                <div
-                  key={atividade.titulo}
-                  className="flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] bg-[#f9fafb] p-5"
+            <section className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+              <ResumoCard
+                titulo="Aulas concluídas"
+                valor={`${totalConcluidas}/${totalAulas}`}
+                texto="Total de aulas finalizadas."
+                destaque
+              />
+
+              <ResumoCard
+                titulo="Módulos concluídos"
+                valor={String(modulosConcluidos)}
+                texto="Módulos totalmente finalizados."
+              />
+
+              <ResumoCard
+                titulo="Em andamento"
+                valor={String(modulosEmAndamento)}
+                texto="Módulos já iniciados."
+              />
+
+              <ResumoCard
+                titulo="A iniciar"
+                valor={String(modulosNaoIniciados)}
+                texto="Módulos ainda não começados."
+              />
+            </section>
+
+            <section className="mt-8 rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
+              <div className="flex flex-wrap items-start justify-between gap-5">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.28em] text-slate-400">
+                    Jornada por módulos
+                  </p>
+
+                  <h2 className="mt-2 text-3xl font-black text-[#08163F]">
+                    Acompanhe sua evolução
+                  </h2>
+
+                  <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+                    Cada módulo mostra quantas aulas você já concluiu e o que
+                    ainda falta finalizar.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => router.push("/mentorado/modulos")}
+                  className="rounded-2xl bg-[#08163F] px-5 py-4 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
                 >
-                  <div>
-                    <p className="font-black">{atividade.titulo}</p>
-                    <p className="mt-1 text-sm font-bold text-slate-500">
-                      {atividade.tipo} · {atividade.modulo}
+                  Continuar estudando →
+                </button>
+              </div>
+
+              <div className="mt-7 space-y-4">
+                {modulosComProgresso.length === 0 ? (
+                  <div className="rounded-[1.6rem] bg-[#f9fafb] p-8 text-center">
+                    <p className="text-xl font-black text-[#08163F]">
+                      Nenhum módulo disponível ainda
+                    </p>
+
+                    <p className="mt-2 text-sm font-semibold text-slate-500">
+                      Assim que os módulos forem cadastrados, seu progresso
+                      aparecerá aqui.
                     </p>
                   </div>
-
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-black ${
-                      atividade.status === "Concluído"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-amber-50 text-amber-700"
-                    }`}
-                  >
-                    {atividade.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
-              Leitura da mentoria
-            </p>
-
-            <h3 className="mt-1 text-2xl font-black">
-              Como interpretar seu avanço
-            </h3>
-
-            <div className="mt-6 space-y-4">
-              <div className="rounded-2xl bg-blue-50 p-5">
-                <p className="font-black text-blue-700">
-                  Módulos concluídos consolidam base
-                </p>
-                <p className="mt-2 text-sm leading-6 text-blue-600">
-                  Quando um módulo chega a 100%, ele representa uma etapa já
-                  trabalhada dentro da jornada.
-                </p>
+                ) : (
+                  modulosComProgresso.map((modulo) => (
+                    <ModuloProgressoCard key={modulo.id} modulo={modulo} />
+                  ))
+                )}
               </div>
-
-              <div className="rounded-2xl bg-amber-50 p-5">
-                <p className="font-black text-amber-700">
-                  Pendências reduzem ritmo de evolução
-                </p>
-                <p className="mt-2 text-sm leading-6 text-amber-600">
-                  Atividades e simulados ajudam a transformar aula assistida em
-                  prática aplicada.
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-emerald-50 p-5">
-                <p className="font-black text-emerald-700">
-                  Consistência vence velocidade
-                </p>
-                <p className="mt-2 text-sm leading-6 text-emerald-600">
-                  O ideal é manter avanço semanal, mesmo que em pequenos passos.
-                </p>
-              </div>
-            </div>
+            </section>
           </div>
         </section>
       </div>
@@ -469,36 +424,38 @@ export default function ProgressoMentoradoPage() {
   );
 }
 
-function KPI({
+function HeroMetric({ titulo, valor }: { titulo: string; valor: string }) {
+  return (
+    <div className="rounded-[1.5rem] bg-white/10 p-5 backdrop-blur-sm">
+      <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-200">
+        {titulo}
+      </p>
+
+      <p className="mt-3 text-3xl font-black text-white">{valor}</p>
+    </div>
+  );
+}
+
+function ResumoCard({
   titulo,
   valor,
   texto,
   destaque,
-  alerta,
 }: {
   titulo: string;
-  valor: React.ReactNode;
+  valor: string;
   texto: string;
   destaque?: boolean;
-  alerta?: boolean;
 }) {
   return (
     <article
-      className={`rounded-[1.7rem] p-6 shadow-xl ${
-        destaque
-          ? "bg-[#071A55] text-white shadow-[#071A55]/20"
-          : alerta
-          ? "bg-amber-50 text-amber-700 shadow-slate-200/70"
-          : "bg-white text-[#07122F] shadow-slate-200/70"
+      className={`rounded-[1.7rem] p-6 shadow-xl shadow-slate-200/70 ${
+        destaque ? "bg-[#071A55] text-white" : "bg-white text-[#08163F]"
       }`}
     >
       <p
         className={`text-sm font-black ${
-          destaque
-            ? "text-blue-100"
-            : alerta
-            ? "text-amber-700"
-            : "text-slate-500"
+          destaque ? "text-blue-100" : "text-slate-500"
         }`}
       >
         {titulo}
@@ -507,16 +464,136 @@ function KPI({
       <strong className="mt-4 block text-4xl font-black">{valor}</strong>
 
       <p
-        className={`mt-3 text-sm font-medium ${
-          destaque
-            ? "text-blue-100"
-            : alerta
-            ? "text-amber-600"
-            : "text-slate-500"
+        className={`mt-3 text-sm font-semibold leading-6 ${
+          destaque ? "text-blue-100" : "text-slate-500"
         }`}
       >
         {texto}
       </p>
     </article>
+  );
+}
+
+function ModuloProgressoCard({
+  modulo,
+}: {
+  modulo: {
+    id: string;
+    titulo: string;
+    descricao: string | null;
+    ordem: number;
+    aulas: {
+      id: string;
+      titulo: string;
+      ordem: number;
+      duracao: string | null;
+      video_url: string | null;
+    }[];
+    totalAulasModulo: number;
+    aulasConcluidasModulo: number;
+    percentual: number;
+    status: string;
+  };
+}) {
+  const statusClasse =
+    modulo.status === "Concluído"
+      ? "bg-emerald-50 text-emerald-700"
+      : modulo.status === "Em andamento"
+      ? "bg-amber-50 text-amber-700"
+      : modulo.status === "Não iniciado"
+      ? "bg-slate-100 text-slate-600"
+      : "bg-[#EEF2FF] text-[#08163F]";
+
+  return (
+    <article className="rounded-[1.7rem] border border-slate-100 bg-[#f9fafb] p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="rounded-full bg-[#08163F] px-4 py-2 text-xs font-black text-white">
+              Módulo {modulo.ordem}
+            </span>
+
+            <span className={`rounded-full px-4 py-2 text-xs font-black ${statusClasse}`}>
+              {modulo.status}
+            </span>
+          </div>
+
+          <h3 className="mt-4 text-2xl font-black text-[#08163F]">
+            {modulo.titulo}
+          </h3>
+
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
+            {modulo.descricao || "Sem descrição cadastrada."}
+          </p>
+        </div>
+
+        <div className="text-right">
+          <p className="text-3xl font-black text-[#08163F]">
+            {modulo.percentual}%
+          </p>
+
+          <p className="mt-1 text-sm font-black text-slate-400">
+            {modulo.aulasConcluidasModulo}/{modulo.totalAulasModulo} aulas
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-200">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C]"
+          style={{ width: `${modulo.percentual}%` }}
+        />
+      </div>
+
+      {modulo.aulas.length > 0 && (
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          {modulo.aulas.map((aula) => (
+            <div
+              key={aula.id}
+              className="rounded-2xl bg-white p-4 ring-1 ring-slate-100"
+            >
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Aula {aula.ordem}
+              </p>
+
+              <p className="mt-2 font-black text-[#08163F]">{aula.titulo}</p>
+
+              <p className="mt-1 text-xs font-bold text-slate-400">
+                {aula.duracao
+                  ? `▶ ${aula.duracao}`
+                  : aula.video_url
+                  ? "Vídeo disponível"
+                  : "Sem vídeo"}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function MenuItem({
+  label,
+  ativo,
+  onClick,
+}: {
+  label: string;
+  ativo?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center justify-between rounded-2xl px-4 py-4 text-left text-sm font-black transition ${
+        ativo
+          ? "bg-[#EEF2FF] text-[#08163F]"
+          : "text-slate-500 hover:bg-slate-50 hover:text-[#08163F]"
+      }`}
+    >
+      <span>{label}</span>
+      <span>→</span>
+    </button>
   );
 }

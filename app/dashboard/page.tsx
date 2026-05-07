@@ -6,7 +6,12 @@ import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import { supabase } from "@/utils/supabase";
 
-type PerfilUsuario = "mentor" | "mentorado" | "financeiro" | "progresso" | "modulos";
+type PerfilUsuario =
+  | "mentor"
+  | "mentorado"
+  | "financeiro"
+  | "progresso"
+  | "modulos";
 
 type UsuarioSistema = {
   id: string;
@@ -18,11 +23,81 @@ type UsuarioSistema = {
   created_at: string;
 };
 
+type CobrancaFinanceira = {
+  id: string;
+  mentorado_id: string;
+  titulo: string;
+  valor_parcela: number;
+  data_vencimento: string;
+  data_pagamento: string | null;
+  status: "Pago" | "Pendente" | "Atrasado" | "Cancelado";
+};
+
+type EventoAgenda = {
+  id: string;
+  mentorado_id: string;
+  titulo: string | null;
+  tipo: "Mentoria" | "Módulo" | "Reunião";
+  data: string;
+  horario: string;
+  status: "Confirmada" | "Aguardando" | "Concluída" | "Cancelada";
+  observacao: string | null;
+};
+
+type ModuloBanco = {
+  id: string;
+  titulo: string;
+  descricao: string | null;
+  ordem: number | null;
+  ativo: boolean | null;
+};
+
+type AulaBanco = {
+  id: string;
+  modulo_id: string;
+  titulo: string;
+  ordem: number | null;
+  ativo: boolean | null;
+};
+
+type ProgressoAula = {
+  id: string;
+  mentorado_id: string;
+  aula_id: string;
+  concluida: boolean | null;
+};
+
+type Simulado = {
+  id: string;
+  titulo: string;
+  ativo: boolean | null;
+  created_at: string;
+};
+
+type EventoComMentorado = EventoAgenda & {
+  mentoradoNome: string;
+};
+
+type MentoradoResumo = UsuarioSistema & {
+  progresso: number;
+  aulasConcluidas: number;
+  totalAulas: number;
+  financeiroAberto: number;
+  cobrancasAtrasadas: number;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
   const [usuarios, setUsuarios] = useState<UsuarioSistema[]>([]);
+  const [cobrancas, setCobrancas] = useState<CobrancaFinanceira[]>([]);
+  const [eventos, setEventos] = useState<EventoAgenda[]>([]);
+  const [modulos, setModulos] = useState<ModuloBanco[]>([]);
+  const [aulas, setAulas] = useState<AulaBanco[]>([]);
+  const [progressoAulas, setProgressoAulas] = useState<ProgressoAula[]>([]);
+  const [simulados, setSimulados] = useState<Simulado[]>([]);
+
   const [carregandoDados, setCarregandoDados] = useState(true);
   const [erro, setErro] = useState("");
 
@@ -46,7 +121,7 @@ export default function DashboardPage() {
     }
 
     setUsuario(user);
-    carregarUsuarios();
+    carregarDashboard();
   }, [router]);
 
   async function pegarToken() {
@@ -54,56 +129,285 @@ export default function DashboardPage() {
     return data.session?.access_token;
   }
 
-  async function carregarUsuarios() {
-    setCarregandoDados(true);
-    setErro("");
+  async function carregarDashboard() {
+    try {
+      setCarregandoDados(true);
+      setErro("");
 
-    const token = await pegarToken();
+      const token = await pegarToken();
 
-    if (!token) {
-      setErro("Sessão expirada. Entre novamente.");
+      if (!token) {
+        throw new Error("Sessão expirada. Entre novamente.");
+      }
+
+      const resposta = await fetch("/api/admin/usuarios", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const json = await resposta.json();
+
+      if (!resposta.ok) {
+        throw new Error(json.error ?? "Não foi possível carregar usuários.");
+      }
+
+      const usuariosData = (json.usuarios ?? []) as UsuarioSistema[];
+      setUsuarios(usuariosData);
+
+      const mentoradoIds = usuariosData
+        .filter((item) => item.role === "mentorado")
+        .map((item) => item.id);
+
+      const { data: cobrancasData, error: cobrancasError } = await supabase
+        .from("financeiro_cobrancas")
+        .select(
+          "id, mentorado_id, titulo, valor_parcela, data_vencimento, data_pagamento, status"
+        )
+        .order("data_vencimento", { ascending: true });
+
+      if (cobrancasError) {
+        throw new Error(cobrancasError.message);
+      }
+
+      setCobrancas((cobrancasData ?? []) as CobrancaFinanceira[]);
+
+      const { data: eventosData, error: eventosError } = await supabase
+        .from("agenda_eventos")
+        .select("id, mentorado_id, titulo, tipo, data, horario, status, observacao")
+        .order("data", { ascending: true })
+        .order("horario", { ascending: true });
+
+      if (eventosError) {
+        throw new Error(eventosError.message);
+      }
+
+      setEventos((eventosData ?? []) as EventoAgenda[]);
+
+      const { data: modulosData, error: modulosError } = await supabase
+        .from("modulos")
+        .select("id, titulo, descricao, ordem, ativo")
+        .eq("ativo", true)
+        .order("ordem", { ascending: true });
+
+      if (modulosError) {
+        throw new Error(modulosError.message);
+      }
+
+      setModulos((modulosData ?? []) as ModuloBanco[]);
+
+      const { data: aulasData, error: aulasError } = await supabase
+        .from("aulas")
+        .select("id, modulo_id, titulo, ordem, ativo")
+        .eq("ativo", true)
+        .order("ordem", { ascending: true });
+
+      if (aulasError) {
+        throw new Error(aulasError.message);
+      }
+
+      setAulas((aulasData ?? []) as AulaBanco[]);
+
+      if (mentoradoIds.length > 0) {
+        const { data: progressoData, error: progressoError } = await supabase
+          .from("progresso_aulas")
+          .select("id, mentorado_id, aula_id, concluida")
+          .in("mentorado_id", mentoradoIds);
+
+        if (progressoError) {
+          throw new Error(progressoError.message);
+        }
+
+        setProgressoAulas((progressoData ?? []) as ProgressoAula[]);
+      } else {
+        setProgressoAulas([]);
+      }
+
+      const { data: simuladosData } = await supabase
+        .from("simulados")
+        .select("id, titulo, ativo, created_at")
+        .eq("ativo", true)
+        .order("created_at", { ascending: false });
+
+      setSimulados((simuladosData ?? []) as Simulado[]);
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar os dados do painel."
+      );
+    } finally {
       setCarregandoDados(false);
-      return;
     }
-
-    const resposta = await fetch("/api/admin/usuarios", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const json = await resposta.json();
-
-    if (!resposta.ok) {
-      setErro(json.error ?? "Não foi possível carregar os dados do painel.");
-      setCarregandoDados(false);
-      return;
-    }
-
-    setUsuarios(json.usuarios ?? []);
-    setCarregandoDados(false);
   }
 
-  const resumo = useMemo(() => {
-    const mentoradas = usuarios.filter((item) => item.role === "mentorado");
-    const mentoras = usuarios.filter((item) => item.role === "mentor");
+  const mentorados = useMemo(() => {
+    return usuarios.filter((item) => item.role === "mentorado");
+  }, [usuarios]);
 
-    const ativos = usuarios.filter(
-      (item) => (item.status ?? "Ativo") === "Ativo"
+  const mentoras = useMemo(() => {
+    return usuarios.filter((item) => item.role === "mentor");
+  }, [usuarios]);
+
+  const aulasAtivas = useMemo(() => {
+    return aulas.filter((aula) => aula.ativo !== false);
+  }, [aulas]);
+
+  function calcularProgressoMentorado(mentoradoId: string) {
+    const totalAulas = aulasAtivas.length;
+
+    if (totalAulas === 0) {
+      return {
+        progresso: 0,
+        aulasConcluidas: 0,
+        totalAulas: 0,
+      };
+    }
+
+    const aulasConcluidas = progressoAulas.filter(
+      (item) =>
+        item.mentorado_id === mentoradoId &&
+        item.concluida === true &&
+        aulasAtivas.some((aula) => aula.id === item.aula_id)
+    ).length;
+
+    return {
+      progresso: Math.round((aulasConcluidas / totalAulas) * 100),
+      aulasConcluidas,
+      totalAulas,
+    };
+  }
+
+  const mentoradosComResumo = useMemo<MentoradoResumo[]>(() => {
+    return mentorados.map((mentorado) => {
+      const progresso = calcularProgressoMentorado(mentorado.id);
+
+      const cobrancasDoMentorado = cobrancas.filter(
+        (item) => item.mentorado_id === mentorado.id
+      );
+
+      const financeiroAberto = cobrancasDoMentorado
+        .filter(
+          (item) => item.status !== "Pago" && item.status !== "Cancelado"
+        )
+        .reduce((acc, item) => acc + Number(item.valor_parcela || 0), 0);
+
+      const cobrancasAtrasadas = cobrancasDoMentorado.filter(
+        (item) => item.status === "Atrasado"
+      ).length;
+
+      return {
+        ...mentorado,
+        progresso: progresso.progresso,
+        aulasConcluidas: progresso.aulasConcluidas,
+        totalAulas: progresso.totalAulas,
+        financeiroAberto,
+        cobrancasAtrasadas,
+      };
+    });
+  }, [mentorados, cobrancas, progressoAulas, aulasAtivas]);
+
+  const resumoFinanceiro = useMemo(() => {
+    const emAberto = cobrancas.filter(
+      (item) => item.status !== "Pago" && item.status !== "Cancelado"
     );
 
-    const pendentes = usuarios.filter(
-      (item) => (item.status ?? "Ativo") === "Pendente"
+    const atrasadas = cobrancas.filter((item) => item.status === "Atrasado");
+
+    const pagas = cobrancas.filter((item) => item.status === "Pago");
+
+    const totalAberto = emAberto.reduce(
+      (acc, item) => acc + Number(item.valor_parcela || 0),
+      0
+    );
+
+    const totalAtrasado = atrasadas.reduce(
+      (acc, item) => acc + Number(item.valor_parcela || 0),
+      0
+    );
+
+    const totalPago = pagas.reduce(
+      (acc, item) => acc + Number(item.valor_parcela || 0),
+      0
     );
 
     return {
-      totalUsuarios: usuarios.length,
-      mentoradas: mentoradas.length,
-      mentoras: mentoras.length,
-      ativos: ativos.length,
-      pendentes: pendentes.length,
+      totalAberto,
+      totalAtrasado,
+      totalPago,
+      quantidadeAberta: emAberto.length,
+      quantidadeAtrasada: atrasadas.length,
     };
-  }, [usuarios]);
+  }, [cobrancas]);
+
+  const progressoMedio = useMemo(() => {
+    if (mentoradosComResumo.length === 0) return 0;
+
+    return Math.round(
+      mentoradosComResumo.reduce((acc, item) => acc + item.progresso, 0) /
+        mentoradosComResumo.length
+    );
+  }, [mentoradosComResumo]);
+
+  const proximosEventos = useMemo<EventoComMentorado[]>(() => {
+    const agora = new Date();
+
+    return eventos
+      .filter((evento) => {
+        const dataEvento = new Date(
+          `${evento.data}T${limparHorario(evento.horario)}:00`
+        );
+
+        return dataEvento.getTime() >= agora.getTime();
+      })
+      .sort((a, b) => {
+        const dataA = new Date(
+          `${a.data}T${limparHorario(a.horario)}:00`
+        ).getTime();
+
+        const dataB = new Date(
+          `${b.data}T${limparHorario(b.horario)}:00`
+        ).getTime();
+
+        return dataA - dataB;
+      })
+      .slice(0, 5)
+      .map((evento) => ({
+        ...evento,
+        mentoradoNome:
+          usuarios.find((item) => item.id === evento.mentorado_id)?.nome ??
+          "Mentorado",
+      }));
+  }, [eventos, usuarios]);
+
+  const pendencias = useMemo(() => {
+    return {
+      usuariosPendentes: usuarios.filter(
+        (item) => (item.status ?? "Ativo") === "Pendente"
+      ).length,
+      cobrancasAtrasadas: resumoFinanceiro.quantidadeAtrasada,
+      eventosAguardando: eventos.filter(
+        (evento) => evento.status === "Aguardando"
+      ).length,
+    };
+  }, [usuarios, eventos, resumoFinanceiro.quantidadeAtrasada]);
+
+  const totalPendencias =
+    pendencias.usuariosPendentes +
+    pendencias.cobrancasAtrasadas +
+    pendencias.eventosAguardando;
+
+  const mentoradosOrdenados = useMemo(() => {
+    return [...mentoradosComResumo]
+      .sort((a, b) => {
+        if (b.cobrancasAtrasadas !== a.cobrancasAtrasadas) {
+          return b.cobrancasAtrasadas - a.cobrancasAtrasadas;
+        }
+
+        return a.progresso - b.progresso;
+      })
+      .slice(0, 6);
+  }, [mentoradosComResumo]);
 
   async function sair() {
     logoutUsuario();
@@ -147,36 +451,46 @@ export default function DashboardPage() {
         </header>
 
         <div className="h-[calc(100vh-82px)] overflow-y-auto px-8 py-10">
-          <section className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-6">
-              <div className="flex h-28 w-28 items-center justify-center rounded-full border border-gray-200 bg-white shadow-lg">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#D9DEE7] to-[#9CA3AF] text-3xl font-black text-white">
-                  {usuario.nome.charAt(0)}
+          <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-xl">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-center gap-6">
+                <div className="flex h-28 w-28 items-center justify-center rounded-full border border-white/15 bg-white/10 shadow-lg">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#D9DEE7] to-[#9CA3AF] text-3xl font-black uppercase text-white">
+                    {usuario.nome.charAt(0)}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
+                    CEO Club
+                  </p>
+
+                  <h2 className="mt-2 text-4xl font-black">
+                    Bem-vinda de volta, {usuario.nome}
+                  </h2>
+
+                  <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#D9DEE7]">
+                    Acompanhe mentorados, progresso, encontros, financeiro e
+                    conteúdos da mentoria em uma visão única.
+                  </p>
                 </div>
               </div>
 
-              <div>
-                <h2 className="text-4xl font-black tracking-tight text-[#050816]">
-                  Bem-vinda de volta, {usuario.nome}
-                </h2>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => router.push("/usuarios")}
+                  className="rounded-2xl bg-white px-6 py-4 font-black text-[#08163F] shadow-lg transition hover:-translate-y-0.5 hover:brightness-95"
+                >
+                  + Cadastrar mentorado
+                </button>
 
+                <button
+                  onClick={() => router.push("/mentorados")}
+                  className="rounded-2xl border border-white/20 bg-white/10 px-6 py-4 font-black text-white transition hover:bg-white/15"
+                >
+                  Gerenciar mentorados →
+                </button>
               </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => router.push("/usuarios")}
-                className="rounded-2xl bg-[#08163F] px-6 py-4 font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
-              >
-                + Cadastrar mentorado
-              </button>
-
-              <button
-                onClick={() => router.push("/mentorados")}
-                className="rounded-2xl bg-gradient-to-b from-[#F3F4F6] via-[#D1D5DB] to-[#9CA3AF] px-6 py-4 font-black text-[#08163F] shadow-lg transition hover:-translate-y-0.5 hover:brightness-105"
-              >
-                Gerenciar mentorados →
-              </button>
             </div>
           </section>
 
@@ -188,141 +502,259 @@ export default function DashboardPage() {
 
           <section className="mb-7 grid gap-5 xl:grid-cols-5">
             <KPI
-              titulo="Mentoradas cadastradas"
-              valor={carregandoDados ? "..." : resumo.mentoradas}
+              titulo="Mentorados"
+              valor={carregandoDados ? "..." : mentorados.length}
               destaque
             />
 
             <KPI
-              titulo="Mentoras"
-              valor={carregandoDados ? "..." : resumo.mentoras}
+              titulo="Progresso médio"
+              valor={carregandoDados ? "..." : `${progressoMedio}%`}
             />
 
             <KPI
-              titulo="Usuários ativos"
-              valor={carregandoDados ? "..." : resumo.ativos}
+              titulo="Em aberto"
+              valor={
+                carregandoDados
+                  ? "..."
+                  : formatarMoeda(resumoFinanceiro.totalAberto)
+              }
             />
 
             <KPI
-              titulo="Acessos cadastrados"
-              valor={carregandoDados ? "..." : resumo.totalUsuarios}
+              titulo="Atrasados"
+              valor={carregandoDados ? "..." : resumoFinanceiro.quantidadeAtrasada}
+              alerta={resumoFinanceiro.quantidadeAtrasada > 0}
             />
 
             <KPI
-              titulo="Pendentes"
-              valor={carregandoDados ? "..." : resumo.pendentes}
-              alerta={resumo.pendentes > 0}
+              titulo="Pendências"
+              valor={carregandoDados ? "..." : totalPendencias}
+              alerta={totalPendencias > 0}
             />
           </section>
 
           <section className="mb-8 rounded-[26px] bg-white p-5 shadow-lg">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-bold text-gray-500">
-                Evolução geral das mentoradas
+                Evolução geral dos mentorados
               </p>
 
-              <p className="text-sm font-black text-[#08163F]">0%</p>
+              <p className="text-sm font-black text-[#08163F]">
+                {progressoMedio}%
+              </p>
             </div>
 
             <div className="h-5 overflow-hidden rounded-full bg-gray-100">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] via-[#12317C] to-[#07122F]"
-                style={{ width: "0%" }}
+                style={{ width: `${progressoMedio}%` }}
               />
             </div>
 
             <p className="mt-4 text-sm font-semibold text-gray-500">
-              Nenhum progresso foi registrado ainda. Quando os módulos e aulas
-              forem conectados ao banco, esta barra passará a refletir a evolução
-              real das mentoradas.
+              Média calculada com base nas aulas concluídas por cada mentorado
+              dentro dos módulos ativos.
             </p>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-2">
-            <Card titulo="Mentoradas cadastradas">
+          <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+            <Card titulo="Mentorados em acompanhamento">
               {carregandoDados ? (
                 <EmptyState
-                  titulo="Carregando mentoradas..."
-                  texto="Buscando os perfis reais cadastrados no Supabase."
+                  titulo="Carregando mentorados..."
+                  texto="Buscando perfis e progresso no Supabase."
                 />
-              ) : usuarios.filter((u) => u.role === "mentorado").length === 0 ? (
+              ) : mentoradosOrdenados.length === 0 ? (
                 <EmptyState
-                  titulo="Nenhuma mentorada cadastrada ainda"
-                  texto="Cadastre a primeira mentorada para liberar o acesso dela ao CEO Club."
+                  titulo="Nenhum mentorado cadastrado ainda"
+                  texto="Cadastre o primeiro mentorado para liberar acesso ao CEO Club."
                   botao="+ Cadastrar mentorado"
                   onClick={() => router.push("/usuarios")}
                 />
               ) : (
                 <div className="space-y-4">
-                  {usuarios
-                    .filter((item) => item.role === "mentorado")
-                    .map((mentorada) => (
-                      <button
-                        key={mentorada.id}
-                        onClick={() => router.push(`/mentorados/${mentorada.id}`)}
-                        className="w-full rounded-2xl border border-gray-100 bg-[#f9fafb] p-4 text-left transition hover:border-[#12317C]/20 hover:bg-white hover:shadow-md"
-                      >
-                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                          <div>
+                  {mentoradosOrdenados.map((mentorado) => (
+                    <button
+                      key={mentorado.id}
+                      onClick={() => router.push(`/mentorados/${mentorado.id}`)}
+                      className="w-full rounded-2xl border border-gray-100 bg-[#f9fafb] p-4 text-left transition hover:border-[#12317C]/20 hover:bg-white hover:shadow-md"
+                    >
+                      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-3">
                             <p className="font-black text-[#08163F]">
-                              {mentorada.nome}
+                              {mentorado.nome}
                             </p>
 
-                            <p className="text-sm font-medium text-gray-500">
-                              {mentorada.email}
-                            </p>
-
-                            {mentorada.telefone && (
-                              <p className="mt-1 text-sm font-medium text-gray-400">
-                                {mentorada.telefone}
-                              </p>
-                            )}
+                            <StatusBadge status={mentorado.status ?? "Ativo"} />
                           </div>
 
-                          <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-xs font-black text-[#08163F]">
-                            {mentorada.status ?? "Ativo"}
-                          </span>
+                          <p className="mt-1 text-sm font-medium text-gray-500">
+                            {mentorado.email}
+                          </p>
+
+                          <p className="mt-2 text-xs font-bold text-gray-400">
+                            {mentorado.aulasConcluidas}/{mentorado.totalAulas} aulas ·{" "}
+                            {mentorado.progresso}% concluído
+                          </p>
+
+                          <div className="mt-3 h-3 overflow-hidden rounded-full bg-white">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] via-[#12317C] to-[#07122F]"
+                              style={{ width: `${mentorado.progresso}%` }}
+                            />
+                          </div>
                         </div>
-                      </button>
-                    ))}
+
+                        <div className="text-left md:text-right">
+                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">
+                            Aberto
+                          </p>
+
+                          <p className="mt-1 font-black text-[#08163F]">
+                            {formatarMoeda(mentorado.financeiroAberto)}
+                          </p>
+
+                          {mentorado.cobrancasAtrasadas > 0 && (
+                            <p className="mt-1 text-xs font-black text-red-600">
+                              {mentorado.cobrancasAtrasadas} atrasada(s)
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
             </Card>
 
-            <Card titulo="Próximos encontros">
-              <EmptyState
-                titulo="Nenhum encontro agendado"
-                texto="Quando a agenda real for conectada ao banco, os próximos encontros aparecerão nesta área."
-                botao="Abrir agenda"
-                onClick={() => router.push("/agenda")}
-              />
-            </Card>
+            <div className="space-y-6">
+              <Card titulo="Financeiro">
+                <div className="rounded-[26px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-6 text-white">
+                  <p className="text-sm font-bold text-[#C9CED6]">
+                    Em aberto
+                  </p>
+
+                  <p className="mt-3 text-3xl font-black">
+                    {formatarMoeda(resumoFinanceiro.totalAberto)}
+                  </p>
+
+                  <p className="mt-2 text-sm font-semibold text-[#D9DEE7]">
+                    {resumoFinanceiro.quantidadeAberta} cobrança(s) em aberto.
+                  </p>
+
+                  {resumoFinanceiro.quantidadeAtrasada > 0 && (
+                    <div className="mt-5 rounded-2xl bg-red-500/15 p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-red-100">
+                        Atenção
+                      </p>
+
+                      <p className="mt-2 font-black">
+                        {resumoFinanceiro.quantidadeAtrasada} cobrança(s)
+                        atrasada(s), totalizando{" "}
+                        {formatarMoeda(resumoFinanceiro.totalAtrasado)}.
+                      </p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => router.push("/financeiro")}
+                    className="mt-6 rounded-2xl bg-white px-5 py-3 font-black text-[#08163F] transition hover:brightness-95"
+                  >
+                    Abrir financeiro →
+                  </button>
+                </div>
+              </Card>
+
+              <Card titulo="Próximos encontros">
+                {proximosEventos.length === 0 ? (
+                  <EmptyState
+                    titulo="Nenhum encontro futuro"
+                    texto="Quando houver eventos futuros, eles aparecerão aqui."
+                    botao="Abrir agenda"
+                    onClick={() => router.push("/agenda")}
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {proximosEventos.map((evento) => (
+                      <button
+                        key={evento.id}
+                        onClick={() => router.push("/agenda")}
+                        className="w-full rounded-2xl bg-[#f9fafb] p-4 text-left transition hover:bg-white hover:shadow-md"
+                      >
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">
+                          {formatarData(evento.data)} ·{" "}
+                          {limparHorario(evento.horario)}
+                        </p>
+
+                        <p className="mt-1 font-black text-[#08163F]">
+                          {evento.titulo || evento.tipo}
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold text-gray-500">
+                          {evento.mentoradoNome} · {evento.status}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
 
             <Card titulo="Módulos e aulas">
-              <EmptyState
-                titulo="Nenhum módulo cadastrado ainda"
-                texto="Os módulos e aulas serão exibidos aqui quando forem criados pela mentora."
-                botao="Gerenciar módulos"
-                onClick={() => router.push("/modulos")}
-              />
-            </Card>
+              <div className="grid gap-4 md:grid-cols-3">
+                <ResumoBox
+                  titulo="Módulos ativos"
+                  valor={String(modulos.length)}
+                />
 
-            <Card titulo="Simulados">
-              <EmptyState
-                titulo="Nenhum simulado publicado"
-                texto="Quando a mentora criar e publicar simulados, eles aparecerão aqui com os resultados reais."
-                botao="Criar simulado"
-                onClick={() => router.push("/simulados")}
-              />
-            </Card>
+                <ResumoBox
+                  titulo="Aulas ativas"
+                  valor={String(aulasAtivas.length)}
+                />
 
-            <Card titulo="Financeiro">
-              <EmptyState
-                titulo="Nenhum lançamento financeiro"
-                texto="O financeiro ainda não possui dados cadastrados. Quando conectado ao banco, esta área mostrará pagamentos e pendências reais."
-                botao="Abrir financeiro"
-                onClick={() => router.push("/financeiro")}
-              />
+                <ResumoBox
+                  titulo="Simulados"
+                  valor={String(simulados.length)}
+                />
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {modulos.slice(0, 4).map((modulo) => {
+                  const aulasDoModulo = aulasAtivas.filter(
+                    (aula) => aula.modulo_id === modulo.id
+                  );
+
+                  return (
+                    <div
+                      key={modulo.id}
+                      className="rounded-2xl bg-[#f9fafb] p-5"
+                    >
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
+                        Módulo {modulo.ordem ?? "—"}
+                      </p>
+
+                      <p className="mt-1 font-black text-[#08163F]">
+                        {modulo.titulo}
+                      </p>
+
+                      <p className="mt-1 text-sm font-semibold text-gray-500">
+                        {aulasDoModulo.length} aula(s) ativa(s)
+                      </p>
+                    </div>
+                  );
+                })}
+
+                {modulos.length === 0 && (
+                  <EmptyState
+                    titulo="Nenhum módulo cadastrado"
+                    texto="Crie módulos e aulas para liberar conteúdo aos mentorados."
+                    botao="Gerenciar módulos"
+                    onClick={() => router.push("/modulos")}
+                  />
+                )}
+              </div>
             </Card>
 
             <Card titulo="Ações rápidas">
@@ -346,6 +778,16 @@ export default function DashboardPage() {
                   label="Ver agenda"
                   onClick={() => router.push("/agenda")}
                 />
+
+                <ActionButton
+                  label="Gerenciar módulos"
+                  onClick={() => router.push("/modulos")}
+                />
+
+                <ActionButton
+                  label="Abrir financeiro"
+                  onClick={() => router.push("/financeiro")}
+                />
               </div>
             </Card>
           </section>
@@ -353,6 +795,24 @@ export default function DashboardPage() {
       </section>
     </main>
   );
+}
+
+function formatarMoeda(valor: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(valor || 0);
+}
+
+function formatarData(data: string) {
+  if (!data) return "—";
+
+  const [ano, mes, dia] = data.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
+function limparHorario(horario: string) {
+  return horario?.slice(0, 5) || "";
 }
 
 function KPI({
@@ -460,5 +920,36 @@ function ActionButton({
     >
       {label} →
     </button>
+  );
+}
+
+function ResumoBox({ titulo, valor }: { titulo: string; valor: string }) {
+  return (
+    <div className="rounded-2xl bg-[#f9fafb] p-5">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
+        {titulo}
+      </p>
+
+      <p className="mt-2 text-2xl font-black text-[#08163F]">{valor}</p>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const statusLower = status.toLowerCase();
+
+  const classe =
+    statusLower === "ativo"
+      ? "bg-emerald-50 text-emerald-700"
+      : statusLower === "pendente"
+      ? "bg-amber-50 text-amber-700"
+      : statusLower === "inativo"
+      ? "bg-slate-100 text-slate-600"
+      : "bg-blue-50 text-blue-700";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-black ${classe}`}>
+      {status}
+    </span>
   );
 }

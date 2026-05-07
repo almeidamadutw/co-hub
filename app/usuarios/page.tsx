@@ -6,7 +6,14 @@ import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 
-type PerfilUsuario = "mentor" | "mentorado" | "financeiro" | "progresso" | "modulos";
+type PerfilUsuario =
+  | "mentor"
+  | "mentorado"
+  | "financeiro"
+  | "progresso"
+  | "modulos";
+
+type StatusUsuario = "Ativo" | "Pendente" | "Inativo";
 
 type UsuarioSistema = {
   id: string;
@@ -14,9 +21,11 @@ type UsuarioSistema = {
   email: string;
   role: PerfilUsuario;
   telefone: string | null;
-  status: "Ativo" | "Pendente" | "Inativo" | null;
+  status: StatusUsuario | null;
   created_at: string;
 };
+
+type ModalAcao = "editar" | "inativar" | "excluir" | null;
 
 export default function UsuariosPage() {
   const router = useRouter();
@@ -24,7 +33,12 @@ export default function UsuariosPage() {
   const [usuario, setUsuario] = useState<User | null>(null);
   const [usuarios, setUsuarios] = useState<UsuarioSistema[]>([]);
   const [busca, setBusca] = useState("");
+
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [modalAcao, setModalAcao] = useState<ModalAcao>(null);
+  const [usuarioSelecionado, setUsuarioSelecionado] =
+    useState<UsuarioSistema | null>(null);
+
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
   const [carregando, setCarregando] = useState(true);
@@ -35,6 +49,12 @@ export default function UsuariosPage() {
   const [telefone, setTelefone] = useState("");
   const [senha, setSenha] = useState("123456");
   const [perfil, setPerfil] = useState<PerfilUsuario>("mentorado");
+
+  const [editNome, setEditNome] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editTelefone, setEditTelefone] = useState("");
+  const [editPerfil, setEditPerfil] = useState<PerfilUsuario>("mentorado");
+  const [editStatus, setEditStatus] = useState<StatusUsuario>("Ativo");
 
   useEffect(() => {
     const usuarioAtual = getUsuarioLogado();
@@ -99,7 +119,9 @@ export default function UsuariosPage() {
   const resumo = useMemo(() => {
     return {
       total: usuarios.length,
-      ativos: usuarios.filter((item) => (item.status ?? "Ativo") === "Ativo").length,
+      ativos: usuarios.filter((item) => (item.status ?? "Ativo") === "Ativo")
+        .length,
+      inativos: usuarios.filter((item) => item.status === "Inativo").length,
       mentorados: usuarios.filter((item) => item.role === "mentorado").length,
       mentores: usuarios.filter((item) => item.role === "mentor").length,
     };
@@ -117,6 +139,42 @@ export default function UsuariosPage() {
     setTelefone("");
     setSenha("123456");
     setPerfil("mentorado");
+  }
+
+  function fecharModal() {
+    setModalAcao(null);
+    setUsuarioSelecionado(null);
+    setEditNome("");
+    setEditEmail("");
+    setEditTelefone("");
+    setEditPerfil("mentorado");
+    setEditStatus("Ativo");
+  }
+
+  function abrirEditar(item: UsuarioSistema) {
+    setUsuarioSelecionado(item);
+    setEditNome(item.nome);
+    setEditEmail(item.email);
+    setEditTelefone(item.telefone ?? "");
+    setEditPerfil(item.role);
+    setEditStatus(item.status ?? "Ativo");
+    setErro("");
+    setSucesso("");
+    setModalAcao("editar");
+  }
+
+  function abrirInativar(item: UsuarioSistema) {
+    setUsuarioSelecionado(item);
+    setErro("");
+    setSucesso("");
+    setModalAcao("inativar");
+  }
+
+  function abrirExcluir(item: UsuarioSistema) {
+    setUsuarioSelecionado(item);
+    setErro("");
+    setSucesso("");
+    setModalAcao("excluir");
   }
 
   async function criarUsuario(e: React.FormEvent<HTMLFormElement>) {
@@ -160,8 +218,148 @@ export default function UsuariosPage() {
     setUsuarios((atual) => [json.usuario, ...atual]);
     limparFormulario();
     setMostrarFormulario(false);
-    setSucesso("Usuário criado no Supabase com sucesso.");
+    setSucesso("Usuário criado com sucesso.");
     setSalvando(false);
+  }
+
+  async function salvarEdicao(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    if (!usuarioSelecionado) return;
+
+    try {
+      setSalvando(true);
+      setErro("");
+      setSucesso("");
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          nome: editNome.trim(),
+          email: editEmail.trim(),
+          telefone: editTelefone.trim() || null,
+          role: editPerfil,
+          status: editStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", usuarioSelecionado.id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setUsuarios((atual) =>
+        atual.map((item) =>
+          item.id === usuarioSelecionado.id
+            ? {
+                ...item,
+                nome: editNome.trim(),
+                email: editEmail.trim(),
+                telefone: editTelefone.trim() || null,
+                role: editPerfil,
+                status: editStatus,
+              }
+            : item
+        )
+      );
+
+      setSucesso("Usuário atualizado com sucesso.");
+      fecharModal();
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível atualizar o usuário."
+      );
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function confirmarInativacao() {
+    if (!usuarioSelecionado) return;
+
+    const novoStatus: StatusUsuario =
+      usuarioSelecionado.status === "Inativo" ? "Ativo" : "Inativo";
+
+    try {
+      setSalvando(true);
+      setErro("");
+      setSucesso("");
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          status: novoStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", usuarioSelecionado.id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setUsuarios((atual) =>
+        atual.map((item) =>
+          item.id === usuarioSelecionado.id
+            ? {
+                ...item,
+                status: novoStatus,
+              }
+            : item
+        )
+      );
+
+      setSucesso(
+        novoStatus === "Inativo"
+          ? "Usuário inativado com sucesso."
+          : "Usuário reativado com sucesso."
+      );
+
+      fecharModal();
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível alterar o status do usuário."
+      );
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function confirmarExclusao() {
+    if (!usuarioSelecionado) return;
+
+    try {
+      setSalvando(true);
+      setErro("");
+      setSucesso("");
+
+      const { error } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", usuarioSelecionado.id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setUsuarios((atual) =>
+        atual.filter((item) => item.id !== usuarioSelecionado.id)
+      );
+
+      setSucesso("Usuário removido da lista com sucesso.");
+      fecharModal();
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível excluir o usuário."
+      );
+    } finally {
+      setSalvando(false);
+    }
   }
 
   if (!usuario) {
@@ -198,16 +396,16 @@ export default function UsuariosPage() {
             <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
-                  Gestão real de acesso
+                  Gestão de acessos
                 </p>
 
                 <h2 className="mt-3 text-4xl font-black">
-                  Usuários conectados ao Supabase
+                  Usuários do CEO Club
                 </h2>
 
                 <p className="mt-3 max-w-2xl text-[#D9DEE7]">
-                  Cadastre mentoras, mentoradas e perfis internos com login real,
-                  senha temporária e registro automático no banco.
+                  Cadastre, edite e acompanhe mentoras, mentoradas e perfis
+                  internos em uma única central.
                 </p>
               </div>
 
@@ -220,9 +418,10 @@ export default function UsuariosPage() {
             </div>
           </section>
 
-          <section className="mb-7 grid gap-5 xl:grid-cols-4">
+          <section className="mb-7 grid gap-5 xl:grid-cols-5">
             <KPI titulo="Total" valor={resumo.total} destaque />
             <KPI titulo="Ativos" valor={resumo.ativos} />
+            <KPI titulo="Inativos" valor={resumo.inativos} />
             <KPI titulo="Mentoradas" valor={resumo.mentorados} />
             <KPI titulo="Mentoras" valor={resumo.mentores} />
           </section>
@@ -246,12 +445,12 @@ export default function UsuariosPage() {
             >
               <div className="mb-6">
                 <h3 className="text-2xl font-black text-[#050816]">
-                  Novo usuário real
+                  Novo usuário
                 </h3>
 
                 <p className="mt-2 text-sm font-semibold text-gray-500">
-                  Este cadastro cria o usuário no Supabase Auth e também na
-                  tabela profiles.
+                  Crie o acesso inicial e defina o perfil da pessoa dentro da
+                  plataforma.
                 </p>
               </div>
 
@@ -294,7 +493,9 @@ export default function UsuariosPage() {
                 <Campo label="Perfil">
                   <select
                     value={perfil}
-                    onChange={(e) => setPerfil(e.target.value as PerfilUsuario)}
+                    onChange={(e) =>
+                      setPerfil(e.target.value as PerfilUsuario)
+                    }
                     className="input-ceo"
                   >
                     <option value="mentorado">Mentorada</option>
@@ -310,8 +511,8 @@ export default function UsuariosPage() {
                 <p className="font-black text-yellow-800">Senha temporária</p>
                 <p className="mt-2 text-sm font-bold leading-relaxed text-yellow-700">
                   Para o MVP, a mentora pode criar uma senha temporária e
-                  repassar para a mentorada. Quando os e-mails profissionais
-                  estiverem ativos, adicionamos o fluxo de recuperação de senha.
+                  repassar para a pessoa cadastrada. Depois adicionamos o fluxo
+                  de recuperação de senha por e-mail.
                 </p>
               </div>
 
@@ -321,7 +522,7 @@ export default function UsuariosPage() {
                   disabled={salvando}
                   className="rounded-2xl bg-[#08163F] px-7 py-4 font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {salvando ? "Criando..." : "Criar usuário real"}
+                  {salvando ? "Criando..." : "Criar usuário"}
                 </button>
 
                 <button
@@ -358,7 +559,11 @@ export default function UsuariosPage() {
             <div className="space-y-5">
               {carregando ? (
                 <div className="rounded-[30px] bg-white p-8 text-center font-black shadow-lg">
-                  Carregando lista real...
+                  Carregando lista...
+                </div>
+              ) : usuariosFiltrados.length === 0 ? (
+                <div className="rounded-[30px] bg-white p-8 text-center font-black shadow-lg">
+                  Nenhum usuário encontrado.
                 </div>
               ) : (
                 usuariosFiltrados.map((item) => (
@@ -389,12 +594,44 @@ export default function UsuariosPage() {
                       </div>
 
                       <div className="grid min-w-[240px] grid-cols-2 gap-3">
-                        <MiniInfo label="Perfil" value={traduzirPerfil(item.role)} />
+                        <MiniInfo
+                          label="Perfil"
+                          value={traduzirPerfil(item.role)}
+                        />
                         <MiniInfo
                           label="Criado em"
-                          value={new Date(item.created_at).toLocaleDateString("pt-BR")}
+                          value={new Date(item.created_at).toLocaleDateString(
+                            "pt-BR"
+                          )}
                         />
                       </div>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap gap-3 border-t border-gray-100 pt-5">
+                      <button
+                        onClick={() => abrirEditar(item)}
+                        className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-md transition hover:brightness-110"
+                      >
+                        Editar
+                      </button>
+
+                      <button
+                        onClick={() => abrirInativar(item)}
+                        className={`rounded-2xl px-5 py-3 text-sm font-black shadow-md transition hover:brightness-105 ${
+                          item.status === "Inativo"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-yellow-50 text-yellow-700"
+                        }`}
+                      >
+                        {item.status === "Inativo" ? "Reativar" : "Inativar"}
+                      </button>
+
+                      <button
+                        onClick={() => abrirExcluir(item)}
+                        className="rounded-2xl bg-red-50 px-5 py-3 text-sm font-black text-red-700 shadow-md transition hover:brightness-105"
+                      >
+                        Excluir
+                      </button>
                     </div>
                   </div>
                 ))
@@ -402,12 +639,12 @@ export default function UsuariosPage() {
             </div>
 
             <aside className="space-y-6">
-              <Card titulo="Como funciona agora">
+              <Card titulo="Central de acesso">
                 <div className="space-y-4">
-                  <Regra numero="1" texto="A mentora cria o usuário nesta tela." />
-                  <Regra numero="2" texto="O sistema cria o login real no Supabase Auth." />
-                  <Regra numero="3" texto="O perfil aparece na tabela profiles." />
-                  <Regra numero="4" texto="A pessoa acessa com e-mail e senha temporária." />
+                  <Regra numero="1" texto="Cadastre o usuário e escolha o perfil." />
+                  <Regra numero="2" texto="Defina uma senha temporária para o primeiro acesso." />
+                  <Regra numero="3" texto="Edite dados, altere status ou remova acessos quando necessário." />
+                  <Regra numero="4" texto="Use perfis diferentes para separar mentoradas, financeiro, módulos e progresso." />
                 </div>
               </Card>
 
@@ -422,6 +659,154 @@ export default function UsuariosPage() {
           </section>
         </div>
       </section>
+
+      {modalAcao === "editar" && usuarioSelecionado && (
+        <Modal titulo="Editar usuário" onClose={fecharModal}>
+          <form onSubmit={salvarEdicao}>
+            <div className="grid gap-5 md:grid-cols-2">
+              <Campo label="Nome">
+                <input
+                  value={editNome}
+                  onChange={(e) => setEditNome(e.target.value)}
+                  className="input-ceo"
+                />
+              </Campo>
+
+              <Campo label="E-mail">
+                <input
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="input-ceo"
+                />
+              </Campo>
+
+              <Campo label="Telefone">
+                <input
+                  value={editTelefone}
+                  onChange={(e) => setEditTelefone(e.target.value)}
+                  className="input-ceo"
+                />
+              </Campo>
+
+              <Campo label="Perfil">
+                <select
+                  value={editPerfil}
+                  onChange={(e) =>
+                    setEditPerfil(e.target.value as PerfilUsuario)
+                  }
+                  className="input-ceo"
+                >
+                  <option value="mentorado">Mentorada</option>
+                  <option value="mentor">Mentora</option>
+                  <option value="modulos">Módulos</option>
+                  <option value="progresso">Progresso</option>
+                  <option value="financeiro">Financeiro</option>
+                </select>
+              </Campo>
+
+              <Campo label="Status">
+                <select
+                  value={editStatus}
+                  onChange={(e) =>
+                    setEditStatus(e.target.value as StatusUsuario)
+                  }
+                  className="input-ceo"
+                >
+                  <option value="Ativo">Ativo</option>
+                  <option value="Pendente">Pendente</option>
+                  <option value="Inativo">Inativo</option>
+                </select>
+              </Campo>
+            </div>
+
+            <div className="mt-7 flex flex-wrap gap-3">
+              <button
+                type="submit"
+                disabled={salvando}
+                className="rounded-2xl bg-[#08163F] px-6 py-4 font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {salvando ? "Salvando..." : "Salvar alterações"}
+              </button>
+
+              <button
+                type="button"
+                onClick={fecharModal}
+                className="rounded-2xl bg-[#f3f5f8] px-6 py-4 font-black text-[#08163F]"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {modalAcao === "inativar" && usuarioSelecionado && (
+        <Modal
+          titulo={
+            usuarioSelecionado.status === "Inativo"
+              ? "Reativar usuário"
+              : "Inativar usuário"
+          }
+          onClose={fecharModal}
+        >
+          <p className="text-sm font-semibold leading-7 text-gray-500">
+            {usuarioSelecionado.status === "Inativo"
+              ? `Deseja reativar o acesso de ${usuarioSelecionado.nome}?`
+              : `Deseja inativar o acesso de ${usuarioSelecionado.nome}? O perfil continuará salvo, mas ficará marcado como inativo.`}
+          </p>
+
+          <div className="mt-7 flex flex-wrap gap-3">
+            <button
+              onClick={confirmarInativacao}
+              disabled={salvando}
+              className="rounded-2xl bg-[#08163F] px-6 py-4 font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {salvando
+                ? "Processando..."
+                : usuarioSelecionado.status === "Inativo"
+                ? "Reativar"
+                : "Inativar"}
+            </button>
+
+            <button
+              onClick={fecharModal}
+              className="rounded-2xl bg-[#f3f5f8] px-6 py-4 font-black text-[#08163F]"
+            >
+              Cancelar
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {modalAcao === "excluir" && usuarioSelecionado && (
+        <Modal titulo="Excluir usuário" onClose={fecharModal}>
+          <div className="rounded-2xl bg-red-50 p-5">
+            <p className="font-black text-red-700">Atenção</p>
+            <p className="mt-2 text-sm font-semibold leading-7 text-red-600">
+              Esta ação remove o perfil de {usuarioSelecionado.nome} da lista.
+              Antes de excluir, confirme se não há dados importantes vinculados
+              a este usuário.
+            </p>
+          </div>
+
+          <div className="mt-7 flex flex-wrap gap-3">
+            <button
+              onClick={confirmarExclusao}
+              disabled={salvando}
+              className="rounded-2xl bg-red-600 px-6 py-4 font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {salvando ? "Excluindo..." : "Excluir usuário"}
+            </button>
+
+            <button
+              onClick={fecharModal}
+              className="rounded-2xl bg-[#f3f5f8] px-6 py-4 font-black text-[#08163F]"
+            >
+              Cancelar
+            </button>
+          </div>
+        </Modal>
+      )}
 
       <style jsx global>{`
         .input-ceo {
@@ -494,7 +879,11 @@ function KPI({
           : "bg-white text-[#08163F]"
       }`}
     >
-      <p className={`text-sm font-bold ${destaque ? "text-[#C9CED6]" : "text-gray-500"}`}>
+      <p
+        className={`text-sm font-bold ${
+          destaque ? "text-[#C9CED6]" : "text-gray-500"
+        }`}
+      >
         {titulo}
       </p>
       <p className="mt-4 text-3xl font-black">{valor}</p>
@@ -553,22 +942,62 @@ function PerfilBadge({ perfil }: { perfil: PerfilUsuario }) {
   };
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black ${classes[perfil]}`}>
+    <span
+      className={`rounded-full px-3 py-1 text-xs font-black ${classes[perfil]}`}
+    >
       {traduzirPerfil(perfil)}
     </span>
   );
 }
 
-function StatusBadge({ status }: { status: UsuarioSistema["status"] }) {
-  const classes = {
+function StatusBadge({ status }: { status: StatusUsuario }) {
+  const classes: Record<StatusUsuario, string> = {
     Ativo: "bg-green-100 text-green-700",
     Pendente: "bg-yellow-100 text-yellow-700",
     Inativo: "bg-red-100 text-red-700",
   };
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black ${classes[status ?? "Ativo"]}`}>
-      {status ?? "Ativo"}
+    <span
+      className={`rounded-full px-3 py-1 text-xs font-black ${classes[status]}`}
+    >
+      {status}
     </span>
+  );
+}
+
+function Modal({
+  titulo,
+  children,
+  onClose,
+}: {
+  titulo: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-3xl overflow-hidden rounded-[34px] bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
+              Usuários
+            </p>
+
+            <h2 className="mt-3 text-3xl font-black">{titulo}</h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-2xl font-black text-white transition hover:bg-white/20"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="max-h-[70vh] overflow-y-auto p-7">{children}</div>
+      </div>
+    </div>
   );
 }

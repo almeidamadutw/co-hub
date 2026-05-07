@@ -57,6 +57,16 @@ type ResultadoSimulado = {
   created_at: string;
 };
 
+type CobrancaFinanceira = {
+  id: string;
+  mentorado_id: string;
+  titulo: string;
+  valor_parcela: number;
+  data_vencimento: string;
+  data_pagamento: string | null;
+  status: "Pago" | "Pendente" | "Atrasado" | "Cancelado";
+};
+
 type ModuloMentorado = {
   id: string;
   titulo: string;
@@ -77,6 +87,7 @@ export default function DashboardMentoradoPage() {
   const [eventos, setEventos] = useState<EventoAgenda[]>([]);
   const [simulados, setSimulados] = useState<Simulado[]>([]);
   const [resultados, setResultados] = useState<ResultadoSimulado[]>([]);
+  const [cobrancas, setCobrancas] = useState<CobrancaFinanceira[]>([]);
 
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
@@ -109,58 +120,72 @@ export default function DashboardMentoradoPage() {
     const usuarioAtual = usuario;
 
     async function carregarDashboard() {
-      setCarregando(true);
-      setErro("");
+      try {
+        setCarregando(true);
+        setErro("");
 
-      const { data: perfilData, error: perfilError } = await supabase
-        .from("profiles")
-        .select("id, nome, email, codigo_inscricao")
-        .eq("email", usuarioAtual.email)
-        .eq("role", "mentorado")
-        .single();
+        const { data: perfilData, error: perfilError } = await supabase
+          .from("profiles")
+          .select("id, nome, email, codigo_inscricao")
+          .eq("email", usuarioAtual.email)
+          .eq("role", "mentorado")
+          .single();
 
-      if (perfilError || !perfilData) {
-        setErro(
-          perfilError?.message ||
-            "Não foi possível encontrar o perfil do mentorado."
-        );
-        setCarregando(false);
-        return;
-      }
+        if (perfilError || !perfilData) {
+          throw new Error(
+            perfilError?.message ||
+              "Não foi possível encontrar o perfil do mentorado."
+          );
+        }
 
-      const perfilEncontrado = perfilData as PerfilMentorado;
-      setPerfil(perfilEncontrado);
+        const perfilEncontrado = perfilData as PerfilMentorado;
+        setPerfil(perfilEncontrado);
 
-      const mentoradoId = perfilEncontrado.id;
+        const mentoradoId = perfilEncontrado.id;
 
-      const { data: agendaData } = await supabase
-        .from("agenda_eventos")
-        .select("id, titulo, tipo, data, horario, status, observacao")
-        .eq("mentorado_id", mentoradoId)
-        .order("data", { ascending: true })
-        .order("horario", { ascending: true });
+        const { data: agendaData, error: agendaError } = await supabase
+          .from("agenda_eventos")
+          .select("id, titulo, tipo, data, horario, status, observacao")
+          .eq("mentorado_id", mentoradoId)
+          .order("data", { ascending: true })
+          .order("horario", { ascending: true });
 
-      setEventos((agendaData ?? []) as EventoAgenda[]);
+        if (agendaError) {
+          throw new Error(agendaError.message);
+        }
 
-      const { data: modulosData, error: modulosError } = await supabase
-        .from("modulos")
-        .select("id, titulo, descricao, ordem, ativo")
-        .eq("ativo", true)
-        .order("ordem", { ascending: true });
+        setEventos((agendaData ?? []) as EventoAgenda[]);
 
-      if (!modulosError) {
+        const { data: modulosData, error: modulosError } = await supabase
+          .from("modulos")
+          .select("id, titulo, descricao, ordem, ativo")
+          .eq("ativo", true)
+          .order("ordem", { ascending: true });
+
+        if (modulosError) {
+          throw new Error(modulosError.message);
+        }
+
         const modulosBanco = (modulosData ?? []) as ModuloBanco[];
 
-        const { data: aulasData } = await supabase
+        const { data: aulasData, error: aulasError } = await supabase
           .from("aulas")
           .select("id, modulo_id, titulo, ordem, ativo")
           .eq("ativo", true)
           .order("ordem", { ascending: true });
 
-        const { data: progressoData } = await supabase
+        if (aulasError) {
+          throw new Error(aulasError.message);
+        }
+
+        const { data: progressoData, error: progressoError } = await supabase
           .from("progresso_aulas")
           .select("id, aula_id, mentorado_id, concluida")
           .eq("mentorado_id", mentoradoId);
+
+        if (progressoError) {
+          throw new Error(progressoError.message);
+        }
 
         const aulasBanco = (aulasData ?? []) as AulaBanco[];
         const progressoBanco = (progressoData ?? []) as ProgressoAula[];
@@ -206,27 +231,53 @@ export default function DashboardMentoradoPage() {
         );
 
         setModulos(modulosTratados);
-      } else {
-        setModulos([]);
+
+        const { data: simuladosData, error: simuladosError } = await supabase
+          .from("simulados")
+          .select("id, titulo, ativo")
+          .eq("ativo", true)
+          .order("created_at", { ascending: false });
+
+        if (simuladosError) {
+          setSimulados([]);
+        } else {
+          setSimulados((simuladosData ?? []) as Simulado[]);
+        }
+
+        const { data: resultadosData, error: resultadosError } = await supabase
+          .from("resultados_simulado")
+          .select("id, percentual, created_at")
+          .eq("mentorado_id", mentoradoId)
+          .order("created_at", { ascending: false });
+
+        if (resultadosError) {
+          setResultados([]);
+        } else {
+          setResultados((resultadosData ?? []) as ResultadoSimulado[]);
+        }
+
+        const { data: cobrancasData, error: cobrancasError } = await supabase
+          .from("financeiro_cobrancas")
+          .select(
+            "id, mentorado_id, titulo, valor_parcela, data_vencimento, data_pagamento, status"
+          )
+          .eq("mentorado_id", mentoradoId)
+          .order("data_vencimento", { ascending: true });
+
+        if (cobrancasError) {
+          setCobrancas([]);
+        } else {
+          setCobrancas((cobrancasData ?? []) as CobrancaFinanceira[]);
+        }
+      } catch (error) {
+        setErro(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível carregar sua jornada."
+        );
+      } finally {
+        setCarregando(false);
       }
-
-      const { data: simuladosData } = await supabase
-        .from("simulados")
-        .select("id, titulo, ativo")
-        .eq("ativo", true)
-        .order("created_at", { ascending: false });
-
-      setSimulados((simuladosData ?? []) as Simulado[]);
-
-      const { data: resultadosData } = await supabase
-        .from("resultados_simulado")
-        .select("id, percentual, created_at")
-        .eq("mentorado_id", mentoradoId)
-        .order("created_at", { ascending: false });
-
-      setResultados((resultadosData ?? []) as ResultadoSimulado[]);
-
-      setCarregando(false);
     }
 
     carregarDashboard();
@@ -255,6 +306,39 @@ export default function DashboardMentoradoPage() {
       simuladosDisponiveis: simulados.length,
     };
   }, [modulos, eventos, simulados]);
+
+  const resumoFinanceiro = useMemo(() => {
+    const emAberto = cobrancas.filter(
+      (cobranca) =>
+        cobranca.status !== "Pago" && cobranca.status !== "Cancelado"
+    );
+
+    const pagos = cobrancas.filter((cobranca) => cobranca.status === "Pago");
+
+    const totalAberto = emAberto.reduce(
+      (acc, cobranca) => acc + Number(cobranca.valor_parcela || 0),
+      0
+    );
+
+    const totalPago = pagos.reduce(
+      (acc, cobranca) => acc + Number(cobranca.valor_parcela || 0),
+      0
+    );
+
+    const proximaCobranca =
+      [...emAberto].sort(
+        (a, b) =>
+          new Date(a.data_vencimento).getTime() -
+          new Date(b.data_vencimento).getTime()
+      )[0] ?? null;
+
+    return {
+      totalAberto,
+      totalPago,
+      quantidadeAberta: emAberto.length,
+      proximaCobranca,
+    };
+  }, [cobrancas]);
 
   const proximoEvento = useMemo(() => {
     const agora = new Date();
@@ -432,7 +516,7 @@ export default function DashboardMentoradoPage() {
 
                   <p className="mt-3 max-w-2xl text-base font-semibold leading-relaxed text-gray-500">
                     Acompanhe sua evolução na mentoria, seus compromissos,
-módulos liberados, atividades e práticas em um só lugar.
+                    módulos liberados, atividades e práticas em um só lugar.
                   </p>
                 </div>
               </div>
@@ -454,7 +538,10 @@ módulos liberados, atividades e práticas em um só lugar.
             />
             <KPI titulo="Módulos liberados" valor={resumo.totalModulos} />
             <KPI titulo="Em andamento" valor={resumo.emAndamento} />
-            <KPI titulo="Compromissos" valor={resumo.compromissos} />
+            <KPI
+              titulo="Financeiro em aberto"
+              valor={formatarMoeda(resumoFinanceiro.totalAberto)}
+            />
           </section>
 
           <section className="mb-8 rounded-[26px] bg-white p-5 shadow-lg">
@@ -557,6 +644,47 @@ módulos liberados, atividades e práticas em um só lugar.
             </div>
 
             <aside className="space-y-6">
+              <Card titulo="Financeiro">
+                <div className="rounded-[26px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-6 text-white">
+                  <p className="text-sm font-bold text-[#C9CED6]">
+                    Situação financeira
+                  </p>
+
+                  <p className="mt-3 text-3xl font-black">
+                    {formatarMoeda(resumoFinanceiro.totalAberto)}
+                  </p>
+
+                  <p className="mt-2 text-sm font-semibold text-[#D9DEE7]">
+                    {resumoFinanceiro.quantidadeAberta} cobrança(s) em aberto.
+                  </p>
+
+                  {resumoFinanceiro.proximaCobranca && (
+                    <div className="mt-5 rounded-2xl bg-white/10 p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">
+                        Próximo vencimento
+                      </p>
+
+                      <p className="mt-2 font-black">
+                        {resumoFinanceiro.proximaCobranca.titulo}
+                      </p>
+
+                      <p className="mt-1 text-sm font-semibold text-blue-100">
+                        {formatarData(
+                          resumoFinanceiro.proximaCobranca.data_vencimento
+                        )}
+                      </p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => router.push("/mentorado/financeiro")}
+                    className="mt-6 rounded-2xl bg-white px-5 py-3 font-black text-[#08163F] transition hover:brightness-95"
+                  >
+                    Ver financeiro →
+                  </button>
+                </div>
+              </Card>
+
               <Card titulo="Plano da semana">
                 {eventos.length === 0 ? (
                   <EmptyState
@@ -641,6 +769,13 @@ function formatarDataCurta(data: string) {
 
   const [, mes, dia] = data.split("-");
   return `${dia}/${mes}`;
+}
+
+function formatarMoeda(valor: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(valor || 0);
 }
 
 function MenuItem({
