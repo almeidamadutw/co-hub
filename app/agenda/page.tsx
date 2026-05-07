@@ -42,6 +42,7 @@ type EventoComMentorado = EventoAgenda & {
   mentoradoNome: string;
   mentoradoEmail: string;
   mentoradoCodigo: string;
+  mentoradoTelefone: string;
 };
 
 type EventoFormulario = {
@@ -73,12 +74,18 @@ export default function AgendaPage() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+  const [sucesso, setSucesso] = useState("");
 
   const [modoVisualizacao, setModoVisualizacao] = useState<
     "mes" | "lista" | "dia"
   >("mes");
 
   const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<StatusAgenda | "Todos">(
+    "Todos"
+  );
+  const [filtroMentorado, setFiltroMentorado] = useState("Todos");
+
   const [diaSelecionado, setDiaSelecionado] = useState(() =>
     formatarDataISO(new Date())
   );
@@ -115,6 +122,7 @@ export default function AgendaPage() {
   async function carregarDados() {
     setCarregando(true);
     setErro("");
+    setSucesso("");
 
     const { data: mentoradosData, error: mentoradosError } = await supabase
       .from("profiles")
@@ -158,6 +166,7 @@ export default function AgendaPage() {
         mentoradoNome: mentorado?.nome ?? "Mentorado não encontrado",
         mentoradoEmail: mentorado?.email ?? "",
         mentoradoCodigo: mentorado?.codigo_inscricao ?? "",
+        mentoradoTelefone: mentorado?.telefone ?? "",
       };
     });
   }, [eventos, mentorados]);
@@ -165,18 +174,26 @@ export default function AgendaPage() {
   const eventosFiltrados = useMemo(() => {
     const termo = busca.toLowerCase().trim();
 
-    if (!termo) return eventosComMentorado;
-
     return eventosComMentorado.filter((evento) => {
-      return (
+      const bateBusca =
+        !termo ||
         evento.mentoradoNome.toLowerCase().includes(termo) ||
         evento.mentoradoEmail.toLowerCase().includes(termo) ||
         evento.mentoradoCodigo.toLowerCase().includes(termo) ||
         evento.tipo.toLowerCase().includes(termo) ||
-        (evento.titulo ?? "").toLowerCase().includes(termo)
-      );
+        evento.status.toLowerCase().includes(termo) ||
+        (evento.titulo ?? "").toLowerCase().includes(termo) ||
+        (evento.observacao ?? "").toLowerCase().includes(termo);
+
+      const bateStatus =
+        filtroStatus === "Todos" || evento.status === filtroStatus;
+
+      const bateMentorado =
+        filtroMentorado === "Todos" || evento.mentorado_id === filtroMentorado;
+
+      return bateBusca && bateStatus && bateMentorado;
     });
-  }, [eventosComMentorado, busca]);
+  }, [eventosComMentorado, busca, filtroStatus, filtroMentorado]);
 
   const eventosDoDia = useMemo(() => {
     return eventosFiltrados
@@ -190,19 +207,57 @@ export default function AgendaPage() {
     return montarDiasDoMes(mesAtual);
   }, [mesAtual]);
 
-  const totalEventos = eventos.length;
+  const resumo = useMemo(() => {
+    const hoje = formatarDataISO(new Date());
 
-  const confirmados = eventos.filter(
-    (evento) => evento.status === "Confirmada"
-  ).length;
+    const futuros = eventos.filter((evento) => {
+      const dataEvento = new Date(
+        `${evento.data}T${limparHorario(evento.horario)}:00`
+      );
 
-  const aguardando = eventos.filter(
-    (evento) => evento.status === "Aguardando"
-  ).length;
+      return dataEvento.getTime() >= new Date().getTime();
+    });
 
-  const concluidos = eventos.filter(
-    (evento) => evento.status === "Concluída"
-  ).length;
+    return {
+      total: eventos.length,
+      hoje: eventos.filter((evento) => evento.data === hoje).length,
+      futuros: futuros.length,
+      confirmados: eventos.filter((evento) => evento.status === "Confirmada")
+        .length,
+      aguardando: eventos.filter((evento) => evento.status === "Aguardando")
+        .length,
+      concluidos: eventos.filter((evento) => evento.status === "Concluída")
+        .length,
+      cancelados: eventos.filter((evento) => evento.status === "Cancelada")
+        .length,
+    };
+  }, [eventos]);
+
+  const proximoEvento = useMemo(() => {
+    const agora = new Date();
+
+    return (
+      eventosComMentorado
+        .filter((evento) => {
+          const dataEvento = new Date(
+            `${evento.data}T${limparHorario(evento.horario)}:00`
+          );
+
+          return dataEvento.getTime() >= agora.getTime();
+        })
+        .sort((a, b) => {
+          const dataA = new Date(
+            `${a.data}T${limparHorario(a.horario)}:00`
+          ).getTime();
+
+          const dataB = new Date(
+            `${b.data}T${limparHorario(b.horario)}:00`
+          ).getTime();
+
+          return dataA - dataB;
+        })[0] ?? null
+    );
+  }, [eventosComMentorado]);
 
   const eventosParaCalendario = useMemo(() => {
     return eventosComMentorado.map((evento) => {
@@ -213,7 +268,7 @@ export default function AgendaPage() {
 
       return {
         id: evento.id,
-        titulo: `${evento.tipo} com ${evento.mentoradoNome}`,
+        titulo: `${evento.titulo || evento.tipo} com ${evento.mentoradoNome}`,
         descricao: evento.observacao || "",
         local: "CEO Club",
         inicio,
@@ -231,6 +286,7 @@ export default function AgendaPage() {
   function abrirNovoEvento() {
     limparFormulario();
     setMostrarFormulario(true);
+    setEventoSelecionado(null);
   }
 
   function fecharFormulario() {
@@ -260,12 +316,19 @@ export default function AgendaPage() {
     });
   }
 
+  function irParaHoje() {
+    const hoje = new Date();
+    setMesAtual(hoje);
+    setDiaSelecionado(formatarDataISO(hoje));
+  }
+
   function existeConflito(evento: EventoFormulario) {
-    return eventos.some((item) => {
+    return eventos.find((item) => {
       return (
         item.id !== editandoId &&
         item.data === evento.data &&
-        limparHorario(item.horario) === limparHorario(evento.horario)
+        limparHorario(item.horario) === limparHorario(evento.horario) &&
+        item.status !== "Cancelada"
       );
     });
   }
@@ -273,6 +336,7 @@ export default function AgendaPage() {
   async function salvarEvento(e: React.FormEvent) {
     e.preventDefault();
     setErro("");
+    setSucesso("");
 
     if (
       !novoEvento.mentorado_id ||
@@ -280,12 +344,22 @@ export default function AgendaPage() {
       !novoEvento.horario ||
       !novoEvento.tipo
     ) {
-      setErro("Preencha mentorado, data, horário e tipo.");
+      setErro("Preencha mentorado, data, horário e tipo do compromisso.");
       return;
     }
 
-    if (existeConflito(novoEvento)) {
-      setErro("Já existe um compromisso nesse mesmo dia e horário.");
+    const conflito = existeConflito(novoEvento);
+
+    if (conflito) {
+      const mentoradoConflito = mentorados.find(
+        (item) => item.id === conflito.mentorado_id
+      );
+
+      setErro(
+        `Já existe um compromisso nesse mesmo dia e horário com ${
+          mentoradoConflito?.nome ?? "outro mentorado"
+        }.`
+      );
       return;
     }
 
@@ -299,27 +373,34 @@ export default function AgendaPage() {
         data: novoEvento.data,
         horario: novoEvento.horario,
         status: novoEvento.status,
-        observacao: novoEvento.observacao.trim(),
+        observacao: novoEvento.observacao.trim() || null,
         updated_at: new Date().toISOString(),
       };
 
       if (editandoId) {
-  const { error: updateError } = await supabase
-    .from("agenda_eventos")
-    .update(payload)
-    .eq("id", editandoId);
+        const { error: updateError } = await supabase
+          .from("agenda_eventos")
+          .update(payload)
+          .eq("id", editandoId);
 
-  if (updateError) throw new Error(updateError.message);
-} else {
-  const usuarioId = (usuario as User & { id?: string })?.id ?? null;
+        if (updateError) throw new Error(updateError.message);
 
-  const { error: insertError } = await supabase.from("agenda_eventos").insert({
-    ...payload,
-    criado_por: usuarioId,
-  });
+        setSucesso("Compromisso atualizado com sucesso.");
+      } else {
+        const usuarioId = (usuario as User & { id?: string })?.id ?? null;
 
-  if (insertError) throw new Error(insertError.message);
-}
+        const { error: insertError } = await supabase
+          .from("agenda_eventos")
+          .insert({
+            ...payload,
+            criado_por: usuarioId,
+          });
+
+        if (insertError) throw new Error(insertError.message);
+
+        setSucesso("Compromisso criado com sucesso.");
+      }
+
       await carregarDados();
 
       limparFormulario();
@@ -352,6 +433,33 @@ export default function AgendaPage() {
     setEventoSelecionado(null);
   }
 
+  async function atualizarStatusEvento(id: string, status: StatusAgenda) {
+    try {
+      setErro("");
+      setSucesso("");
+
+      const { error } = await supabase
+        .from("agenda_eventos")
+        .update({
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      if (error) throw new Error(error.message);
+
+      await carregarDados();
+      setEventoSelecionado(null);
+      setSucesso(`Compromisso marcado como ${status.toLowerCase()}.`);
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível atualizar o compromisso."
+      );
+    }
+  }
+
   async function excluirEvento(id: string) {
     const confirmar = window.confirm(
       "Tem certeza que deseja excluir este compromisso?"
@@ -361,6 +469,7 @@ export default function AgendaPage() {
 
     try {
       setErro("");
+      setSucesso("");
 
       const { error } = await supabase
         .from("agenda_eventos")
@@ -371,6 +480,7 @@ export default function AgendaPage() {
 
       await carregarDados();
       setEventoSelecionado(null);
+      setSucesso("Compromisso excluído com sucesso.");
     } catch (error) {
       setErro(
         error instanceof Error
@@ -402,26 +512,27 @@ export default function AgendaPage() {
 
         <div className="relative z-10">
           <div className="print-title hidden">
-            <h1 className="text-2xl font-bold">Agenda</h1>
+            <h1 className="text-2xl font-bold">Agenda CEO Club</h1>
             <p className="mt-1 text-sm text-slate-600">
               Mês: {formatarMesAno(mesAtual)}
             </p>
           </div>
 
-          <div className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-[0_24px_60px_rgba(8,22,63,0.18)]">
+          <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-[0_24px_60px_rgba(8,22,63,0.18)]">
             <div className="flex flex-wrap items-start justify-between gap-6">
               <div>
                 <p className="mb-3 text-xs font-black uppercase tracking-[0.32em] text-[#C9CED6]">
                   Agenda da mentora
                 </p>
 
-               <h1 className="max-w-4xl text-4xl font-black leading-tight">
-  Gerencie os compromissos dos mentorados.
-</h1>
+                <h1 className="max-w-4xl text-4xl font-black leading-tight">
+                  Organize mentorias, reuniões e compromissos da jornada.
+                </h1>
 
-<p className="mt-3 max-w-2xl text-[#D9DEE7]">
-  Cadastre mentorias, reuniões e módulos com data, horário e detalhes da jornada.
-</p>
+                <p className="mt-3 max-w-2xl text-[#D9DEE7]">
+                  Cadastre encontros, acompanhe status, filtre por mentorado e
+                  mantenha a rotina da mentoria em ordem.
+                </p>
               </div>
 
               <div className="no-print flex flex-wrap gap-3">
@@ -444,66 +555,176 @@ export default function AgendaPage() {
                 </button>
               </div>
             </div>
-          </div>
+
+            {proximoEvento && (
+              <div className="mt-7 rounded-[26px] border border-white/10 bg-white/10 p-5 backdrop-blur-sm">
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-200">
+                  Próximo compromisso
+                </p>
+
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xl font-black">
+                      {proximoEvento.titulo || proximoEvento.tipo}
+                    </p>
+
+                    <p className="mt-1 text-sm font-bold text-blue-100">
+                      {formatarData(proximoEvento.data)} às{" "}
+                      {limparHorario(proximoEvento.horario)} ·{" "}
+                      {proximoEvento.mentoradoNome}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setEventoSelecionado(proximoEvento)}
+                    className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] transition hover:brightness-95"
+                  >
+                    Abrir detalhes →
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
 
           <div className="no-print mb-8">
             <CalendarSyncButtons eventos={eventosParaCalendario} />
           </div>
 
-          <div className="mb-6 grid gap-4 md:grid-cols-4">
+          <section className="mb-6 grid gap-4 md:grid-cols-4">
             <ResumoCard
-              titulo="Total de compromissos"
-              valor={String(totalEventos)}
+              titulo="Total"
+              valor={String(resumo.total)}
+              texto="Compromissos cadastrados."
               destaque
             />
-            <ResumoCard titulo="Confirmados" valor={String(confirmados)} />
-            <ResumoCard titulo="Aguardando" valor={String(aguardando)} />
-            <ResumoCard titulo="Concluídos" valor={String(concluidos)} />
-          </div>
 
-          <div className="no-print mb-6 grid gap-4 rounded-[28px] border border-white/50 bg-white/85 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm lg:grid-cols-[1.4fr_0.8fr]">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                Busca
-              </p>
+            <ResumoCard
+              titulo="Hoje"
+              valor={String(resumo.hoje)}
+              texto="Eventos marcados para hoje."
+            />
 
-              <input
-                type="text"
-                placeholder="Buscar por nome, e-mail, inscrição, tipo ou título"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59] outline-none placeholder:text-slate-400 focus:border-[#12317C]"
-              />
+            <ResumoCard
+              titulo="Aguardando"
+              valor={String(resumo.aguardando)}
+              texto="Compromissos que pedem atenção."
+              alerta={resumo.aguardando > 0}
+            />
+
+            <ResumoCard
+              titulo="Concluídos"
+              valor={String(resumo.concluidos)}
+              texto="Compromissos já finalizados."
+            />
+          </section>
+
+          <section className="no-print mb-6 rounded-[28px] border border-white/50 bg-white/85 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
+            <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr_0.7fr_0.8fr]">
+              <CampoFiltro label="Busca">
+                <input
+                  type="text"
+                  placeholder="Nome, e-mail, inscrição, tipo, título ou observação"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  className="input-agenda"
+                />
+              </CampoFiltro>
+
+              <CampoFiltro label="Mentorado">
+                <select
+                  value={filtroMentorado}
+                  onChange={(e) => setFiltroMentorado(e.target.value)}
+                  className="input-agenda"
+                >
+                  <option value="Todos">Todos os mentorados</option>
+                  {mentorados.map((mentorado) => (
+                    <option key={mentorado.id} value={mentorado.id}>
+                      {mentorado.codigo_inscricao ?? "—"} · {mentorado.nome}
+                    </option>
+                  ))}
+                </select>
+              </CampoFiltro>
+
+              <CampoFiltro label="Status">
+                <select
+                  value={filtroStatus}
+                  onChange={(e) =>
+                    setFiltroStatus(e.target.value as StatusAgenda | "Todos")
+                  }
+                  className="input-agenda"
+                >
+                  <option>Todos</option>
+                  <option>Confirmada</option>
+                  <option>Aguardando</option>
+                  <option>Concluída</option>
+                  <option>Cancelada</option>
+                </select>
+              </CampoFiltro>
+
+              <CampoFiltro label="Visualização">
+                <div className="grid grid-cols-3 gap-2">
+                  <ModoButton
+                    label="Mês"
+                    ativo={modoVisualizacao === "mes"}
+                    onClick={() => setModoVisualizacao("mes")}
+                  />
+                  <ModoButton
+                    label="Lista"
+                    ativo={modoVisualizacao === "lista"}
+                    onClick={() => setModoVisualizacao("lista")}
+                  />
+                  <ModoButton
+                    label="Dia"
+                    ativo={modoVisualizacao === "dia"}
+                    onClick={() => setModoVisualizacao("dia")}
+                  />
+                </div>
+              </CampoFiltro>
             </div>
 
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                Visualização
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-bold text-slate-500">
+                Exibindo {eventosFiltrados.length} de {eventos.length} compromisso(s).
               </p>
 
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                <ModoButton
-                  label="Mês"
-                  ativo={modoVisualizacao === "mes"}
-                  onClick={() => setModoVisualizacao("mes")}
-                />
-                <ModoButton
-                  label="Lista"
-                  ativo={modoVisualizacao === "lista"}
-                  onClick={() => setModoVisualizacao("lista")}
-                />
-                <ModoButton
-                  label="Dia"
-                  ativo={modoVisualizacao === "dia"}
-                  onClick={() => setModoVisualizacao("dia")}
-                />
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => {
+                    setBusca("");
+                    setFiltroStatus("Todos");
+                    setFiltroMentorado("Todos");
+                  }}
+                  className="rounded-2xl bg-[#f3f5f8] px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+                >
+                  Limpar filtros
+                </button>
+
+                <button
+                  onClick={irParaHoje}
+                  className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#08163F] shadow-sm ring-1 ring-slate-100 transition hover:shadow-md"
+                >
+                  Hoje
+                </button>
+
+                <button
+                  onClick={carregarDados}
+                  className="rounded-2xl bg-[#08163F] px-4 py-3 text-sm font-black text-white transition hover:brightness-110"
+                >
+                  Atualizar
+                </button>
               </div>
             </div>
-          </div>
+          </section>
 
           {erro && (
             <div className="mb-6 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
               {erro}
+            </div>
+          )}
+
+          {sucesso && (
+            <div className="mb-6 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
+              {sucesso}
             </div>
           )}
 
@@ -515,7 +736,7 @@ export default function AgendaPage() {
               <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
-                    {editandoId ? "Editar" : "Novo"} compromisso
+                    {editandoId ? "Editar compromisso" : "Novo compromisso"}
                   </p>
 
                   <h2 className="mt-1 text-2xl font-black text-[#08163F]">
@@ -523,6 +744,11 @@ export default function AgendaPage() {
                       ? "Atualizar compromisso"
                       : "Cadastrar compromisso"}
                   </h2>
+
+                  <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+                    Defina o mentorado, data, horário e contexto do encontro.
+                    O compromisso aparecerá também nas telas do mentorado.
+                  </p>
                 </div>
 
                 <button
@@ -534,97 +760,134 @@ export default function AgendaPage() {
                 </button>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <select
-                  value={novoEvento.mentorado_id}
-                  onChange={(e) =>
-                    setNovoEvento({
-                      ...novoEvento,
-                      mentorado_id: e.target.value,
-                    })
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
+              <div className="grid gap-5 md:grid-cols-2">
+                <CampoAgenda
+                  label="Mentorado"
+                  ajuda="Pessoa vinculada ao compromisso. O evento aparecerá na jornada dela."
                 >
-                  <option value="">Selecione o mentorado</option>
+                  <select
+                    value={novoEvento.mentorado_id}
+                    onChange={(e) =>
+                      setNovoEvento({
+                        ...novoEvento,
+                        mentorado_id: e.target.value,
+                      })
+                    }
+                    className="input-agenda"
+                  >
+                    <option value="">Selecione o mentorado</option>
 
-                  {mentorados.map((mentorado) => (
-                    <option key={mentorado.id} value={mentorado.id}>
-                      {mentorado.codigo_inscricao ?? "—"} · {mentorado.nome} ·{" "}
-                      {mentorado.email}
-                    </option>
-                  ))}
-                </select>
+                    {mentorados.map((mentorado) => (
+                      <option key={mentorado.id} value={mentorado.id}>
+                        {mentorado.codigo_inscricao ?? "—"} · {mentorado.nome} ·{" "}
+                        {mentorado.email}
+                      </option>
+                    ))}
+                  </select>
+                </CampoAgenda>
 
-                <input
-                  type="text"
-                  placeholder="Título, ex: Mentoria individual"
-                  value={novoEvento.titulo}
-                  onChange={(e) =>
-                    setNovoEvento({ ...novoEvento, titulo: e.target.value })
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
-                />
-
-                <input
-                  type="date"
-                  value={novoEvento.data}
-                  onChange={(e) =>
-                    setNovoEvento({ ...novoEvento, data: e.target.value })
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
-                />
-
-                <input
-                  type="time"
-                  value={novoEvento.horario}
-                  onChange={(e) =>
-                    setNovoEvento({ ...novoEvento, horario: e.target.value })
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
-                />
-
-                <select
-                  value={novoEvento.tipo}
-                  onChange={(e) =>
-                    setNovoEvento({
-                      ...novoEvento,
-                      tipo: e.target.value as TipoAgenda,
-                    })
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
+                <CampoAgenda
+                  label="Título"
+                  ajuda="Nome do compromisso. Ex: Mentoria individual, Reunião de alinhamento."
                 >
-                  <option>Mentoria</option>
-                  <option>Módulo</option>
-                  <option>Reunião</option>
-                </select>
+                  <input
+                    type="text"
+                    placeholder="Ex: Mentoria individual"
+                    value={novoEvento.titulo}
+                    onChange={(e) =>
+                      setNovoEvento({ ...novoEvento, titulo: e.target.value })
+                    }
+                    className="input-agenda"
+                  />
+                </CampoAgenda>
 
-                <select
-                  value={novoEvento.status}
-                  onChange={(e) =>
-                    setNovoEvento({
-                      ...novoEvento,
-                      status: e.target.value as StatusAgenda,
-                    })
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59]"
+                <CampoAgenda
+                  label="Data"
+                  ajuda="Dia em que o compromisso acontecerá."
                 >
-                  <option>Confirmada</option>
-                  <option>Aguardando</option>
-                  <option>Concluída</option>
-                  <option>Cancelada</option>
-                </select>
+                  <input
+                    type="date"
+                    value={novoEvento.data}
+                    onChange={(e) =>
+                      setNovoEvento({ ...novoEvento, data: e.target.value })
+                    }
+                    className="input-agenda"
+                  />
+                </CampoAgenda>
 
-                <textarea
-                  placeholder="Observação, detalhes, link ou orientação"
-                  value={novoEvento.observacao}
-                  onChange={(e) =>
-                    setNovoEvento({
-                      ...novoEvento,
-                      observacao: e.target.value,
-                    })
-                  }
-                  className="min-h-[120px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#0B1D59] md:col-span-2"
-                />
+                <CampoAgenda
+                  label="Horário"
+                  ajuda="Horário de início do compromisso. O sistema evita conflito no mesmo horário."
+                >
+                  <input
+                    type="time"
+                    value={novoEvento.horario}
+                    onChange={(e) =>
+                      setNovoEvento({ ...novoEvento, horario: e.target.value })
+                    }
+                    className="input-agenda"
+                  />
+                </CampoAgenda>
+
+                <CampoAgenda
+                  label="Tipo"
+                  ajuda="Categoria do compromisso para organizar a agenda."
+                >
+                  <select
+                    value={novoEvento.tipo}
+                    onChange={(e) =>
+                      setNovoEvento({
+                        ...novoEvento,
+                        tipo: e.target.value as TipoAgenda,
+                      })
+                    }
+                    className="input-agenda"
+                  >
+                    <option>Mentoria</option>
+                    <option>Módulo</option>
+                    <option>Reunião</option>
+                  </select>
+                </CampoAgenda>
+
+                <CampoAgenda
+                  label="Status"
+                  ajuda="Situação atual do compromisso."
+                >
+                  <select
+                    value={novoEvento.status}
+                    onChange={(e) =>
+                      setNovoEvento({
+                        ...novoEvento,
+                        status: e.target.value as StatusAgenda,
+                      })
+                    }
+                    className="input-agenda"
+                  >
+                    <option>Confirmada</option>
+                    <option>Aguardando</option>
+                    <option>Concluída</option>
+                    <option>Cancelada</option>
+                  </select>
+                </CampoAgenda>
+
+                <div className="md:col-span-2">
+                  <CampoAgenda
+                    label="Observação"
+                    ajuda="Detalhes do encontro, link, orientação, pauta ou combinados importantes."
+                  >
+                    <textarea
+                      placeholder="Ex: Enviar link do Meet, revisar metas da semana, alinhar plano comercial..."
+                      value={novoEvento.observacao}
+                      onChange={(e) =>
+                        setNovoEvento({
+                          ...novoEvento,
+                          observacao: e.target.value,
+                        })
+                      }
+                      className="input-agenda min-h-[120px]"
+                    />
+                  </CampoAgenda>
+                </div>
               </div>
 
               <div className="mt-5 flex flex-wrap gap-3">
@@ -673,7 +936,7 @@ export default function AgendaPage() {
                   </button>
 
                   <button
-                    onClick={() => setMesAtual(new Date())}
+                    onClick={irParaHoje}
                     className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#08163F] shadow-sm ring-1 ring-slate-100 transition hover:shadow-md"
                   >
                     Hoje
@@ -713,17 +976,22 @@ export default function AgendaPage() {
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDiaSelecionado(dia.dataISO);
+                            setModoVisualizacao("dia");
+                          }}
                           className={`flex h-8 w-8 items-center justify-center rounded-xl text-sm font-black ${
                             ehHoje
                               ? "bg-[#08163F] text-white"
                               : dia.ehMesAtual
-                              ? "text-[#08163F]"
+                              ? "text-[#08163F] hover:bg-[#EEF2FF]"
                               : "text-slate-300"
                           }`}
                         >
                           {dia.numero}
-                        </span>
+                        </button>
 
                         {eventosDia.length > 0 && (
                           <span className="rounded-full bg-[#EEF2FF] px-2 py-1 text-[10px] font-black text-[#08163F]">
@@ -738,7 +1006,9 @@ export default function AgendaPage() {
                             key={evento.id}
                             type="button"
                             onClick={() => setEventoSelecionado(evento)}
-                            className="block w-full rounded-xl bg-[#F3F5FF] px-3 py-2 text-left text-[11px] font-black text-[#08163F] transition hover:bg-[#08163F] hover:text-white"
+                            className={`block w-full rounded-xl px-3 py-2 text-left text-[11px] font-black transition ${classeEventoMini(
+                              evento.status
+                            )}`}
                           >
                             <span className="block truncate">
                               {limparHorario(evento.horario)} ·{" "}
@@ -748,9 +1018,16 @@ export default function AgendaPage() {
                         ))}
 
                         {eventosDia.length > 3 && (
-                          <p className="text-[11px] font-bold text-slate-400">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDiaSelecionado(dia.dataISO);
+                              setModoVisualizacao("dia");
+                            }}
+                            className="text-[11px] font-bold text-slate-400 hover:text-[#08163F]"
+                          >
                             +{eventosDia.length - 3} compromisso(s)
-                          </p>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -761,55 +1038,59 @@ export default function AgendaPage() {
           )}
 
           {modoVisualizacao === "lista" && (
-            <section className="overflow-hidden rounded-[30px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm">
-              <div className="grid grid-cols-[1.2fr_0.7fr_0.5fr_0.6fr_0.7fr_0.6fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white">
-                <span>Mentorado</span>
-                <span>Data</span>
-                <span>Horário</span>
-                <span>Tipo</span>
-                <span>Status</span>
-                <span>Ações</span>
-              </div>
-
-              {eventosFiltrados.length === 0 ? (
-                <div className="p-10 text-center text-sm font-semibold text-slate-500">
-                  Nenhum compromisso encontrado.
+            <section className="overflow-x-auto rounded-[30px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+              <div className="min-w-[980px]">
+                <div className="grid grid-cols-[1.2fr_0.7fr_0.5fr_0.6fr_0.7fr_0.6fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white">
+                  <span>Mentorado</span>
+                  <span>Data</span>
+                  <span>Horário</span>
+                  <span>Tipo</span>
+                  <span>Status</span>
+                  <span>Ações</span>
                 </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {eventosFiltrados.map((evento) => (
-                    <div
-                      key={evento.id}
-                      className="grid grid-cols-[1.2fr_0.7fr_0.5fr_0.6fr_0.7fr_0.6fr] items-center p-4 text-sm"
-                    >
-                      <span>
-                        <strong className="block">{evento.mentoradoNome}</strong>
-                        <small className="text-xs text-slate-400">
-                          {evento.mentoradoCodigo || "—"} ·{" "}
-                          {evento.mentoradoEmail}
-                        </small>
-                      </span>
 
-                      <span>{formatarData(evento.data)}</span>
-                      <span>{limparHorario(evento.horario)}</span>
-                      <span>{evento.tipo}</span>
+                {eventosFiltrados.length === 0 ? (
+                  <div className="p-10 text-center text-sm font-semibold text-slate-500">
+                    Nenhum compromisso encontrado.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {eventosFiltrados.map((evento) => (
+                      <div
+                        key={evento.id}
+                        className="grid grid-cols-[1.2fr_0.7fr_0.5fr_0.6fr_0.7fr_0.6fr] items-center p-4 text-sm"
+                      >
+                        <span>
+                          <strong className="block">
+                            {evento.mentoradoNome}
+                          </strong>
+                          <small className="text-xs text-slate-400">
+                            {evento.mentoradoCodigo || "—"} ·{" "}
+                            {evento.mentoradoEmail}
+                          </small>
+                        </span>
 
-                      <span>
-                        <StatusBadge status={evento.status} />
-                      </span>
+                        <span>{formatarData(evento.data)}</span>
+                        <span>{limparHorario(evento.horario)}</span>
+                        <span>{evento.tipo}</span>
 
-                      <div className="flex gap-4">
-                        <button
-                          onClick={() => setEventoSelecionado(evento)}
-                          className="font-semibold text-[#0B1D59] hover:underline"
-                        >
-                          Abrir
-                        </button>
+                        <span>
+                          <StatusBadge status={evento.status} />
+                        </span>
+
+                        <div className="flex gap-4">
+                          <button
+                            onClick={() => setEventoSelecionado(evento)}
+                            className="font-black text-[#0B1D59] hover:underline"
+                          >
+                            Abrir
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </section>
           )}
 
@@ -822,7 +1103,7 @@ export default function AgendaPage() {
                   </h2>
 
                   <p className="mt-1 text-sm font-semibold text-slate-500">
-                    Visualize os compromissos do dia selecionado.
+                    {formatarData(diaSelecionado)} · {eventosDoDia.length} compromisso(s)
                   </p>
                 </div>
 
@@ -853,11 +1134,12 @@ export default function AgendaPage() {
                         <div>
                           <h3 className="font-black text-[#08163F]">
                             {limparHorario(evento.horario)} ·{" "}
-                            {evento.mentoradoNome}
+                            {evento.titulo || evento.tipo}
                           </h3>
 
                           <p className="mt-1 text-sm font-semibold text-slate-600">
-                            {evento.mentoradoCodigo || "—"} · {evento.tipo}
+                            {evento.mentoradoCodigo || "—"} ·{" "}
+                            {evento.mentoradoNome}
                           </p>
 
                           {evento.observacao && (
@@ -877,6 +1159,27 @@ export default function AgendaPage() {
           )}
 
           <style jsx global>{`
+            .input-agenda {
+              width: 100%;
+              border-radius: 1rem;
+              border: 1px solid #e2e8f0;
+              background: white;
+              padding: 0.85rem 1rem;
+              color: #0b1d59;
+              font-weight: 700;
+              outline: none;
+              transition: 0.2s ease;
+            }
+
+            .input-agenda::placeholder {
+              color: #94a3b8;
+            }
+
+            .input-agenda:focus {
+              border-color: #12317c;
+              box-shadow: 0 0 0 4px rgba(18, 49, 124, 0.1);
+            }
+
             @media print {
               aside,
               button,
@@ -957,7 +1260,10 @@ export default function AgendaPage() {
                 label="Horário"
                 value={limparHorario(eventoSelecionado.horario)}
               />
-              <InfoBox label="Tipo" value={eventoSelecionado.tipo} />
+              <InfoBox
+                label="Telefone"
+                value={eventoSelecionado.mentoradoTelefone || "—"}
+              />
               <InfoBox label="Status" value={eventoSelecionado.status} />
 
               <div className="rounded-2xl bg-[#f9fafb] p-5 md:col-span-2">
@@ -980,10 +1286,28 @@ export default function AgendaPage() {
                 </button>
 
                 <button
+                  onClick={() =>
+                    atualizarStatusEvento(eventoSelecionado.id, "Concluída")
+                  }
+                  className="rounded-2xl bg-blue-50 px-5 py-4 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+                >
+                  Marcar concluída
+                </button>
+
+                <button
+                  onClick={() =>
+                    atualizarStatusEvento(eventoSelecionado.id, "Cancelada")
+                  }
+                  className="rounded-2xl bg-yellow-50 px-5 py-4 text-sm font-black text-yellow-700 transition hover:bg-yellow-100"
+                >
+                  Cancelar
+                </button>
+
+                <button
                   onClick={() => excluirEvento(eventoSelecionado.id)}
                   className="rounded-2xl bg-red-50 px-5 py-4 text-sm font-black text-red-600 transition hover:bg-red-100"
                 >
-                  Excluir compromisso
+                  Excluir
                 </button>
               </div>
             </div>
@@ -994,30 +1318,94 @@ export default function AgendaPage() {
   );
 }
 
+function CampoAgenda({
+  label,
+  ajuda,
+  children,
+}: {
+  label: string;
+  ajuda: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-black text-[#08163F]">{label}</span>
+
+      <p className="mt-1 min-h-[38px] text-xs font-semibold leading-5 text-slate-500">
+        {ajuda}
+      </p>
+
+      <div className="mt-2">{children}</div>
+    </label>
+  );
+}
+
+function CampoFiltro({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </span>
+
+      <div className="mt-2">{children}</div>
+    </label>
+  );
+}
+
 function ResumoCard({
   titulo,
   valor,
+  texto,
   destaque,
+  alerta,
 }: {
   titulo: string;
   valor: string;
+  texto: string;
   destaque?: boolean;
+  alerta?: boolean;
 }) {
   return (
     <div
       className={`rounded-[24px] border border-white/50 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm ${
-        destaque ? "bg-[#071A55] text-white" : "bg-white/85 text-[#08163F]"
+        destaque
+          ? "bg-[#071A55] text-white"
+          : alerta
+          ? "bg-yellow-50 text-yellow-700"
+          : "bg-white/85 text-[#08163F]"
       }`}
     >
       <h2
         className={`text-sm font-black ${
-          destaque ? "text-blue-100" : "text-slate-500"
+          destaque
+            ? "text-blue-100"
+            : alerta
+            ? "text-yellow-700"
+            : "text-slate-500"
         }`}
       >
         {titulo}
       </h2>
 
       <p className="mt-3 text-3xl font-black">{valor}</p>
+
+      <p
+        className={`mt-2 text-sm font-semibold leading-5 ${
+          destaque
+            ? "text-blue-100"
+            : alerta
+            ? "text-yellow-700"
+            : "text-slate-500"
+        }`}
+      >
+        {texto}
+      </p>
     </div>
   );
 }
@@ -1033,6 +1421,7 @@ function ModoButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
         ativo
@@ -1144,4 +1533,15 @@ function estiloCardCalendario(status: string) {
   };
 
   return estilos[status] || "bg-slate-50 border-slate-400";
+}
+
+function classeEventoMini(status: string) {
+  const estilos: Record<string, string> = {
+    Confirmada: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+    Aguardando: "bg-yellow-50 text-yellow-700 hover:bg-yellow-100",
+    Concluída: "bg-blue-50 text-blue-700 hover:bg-blue-100",
+    Cancelada: "bg-red-50 text-red-700 hover:bg-red-100",
+  };
+
+  return estilos[status] || "bg-[#F3F5FF] text-[#08163F] hover:bg-[#08163F] hover:text-white";
 }

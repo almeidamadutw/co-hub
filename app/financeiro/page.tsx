@@ -393,9 +393,12 @@ export default function FinanceiroPage() {
 
         if (error) throw new Error(error.message);
       } else {
-        const valorParcelaCalculado = Number(
-          (valorTotal / quantidadeParcelas).toFixed(2)
-        );
+        const valorParcelaManual = moedaInputParaNumero(formulario.valor_parcela);
+
+const valorParcelaCalculado =
+  valorParcelaManual > 0
+    ? valorParcelaManual
+    : Number((valorTotal / quantidadeParcelas).toFixed(2));
 
         const vencimentoBase = new Date(`${formulario.data_vencimento}T12:00:00`);
 
@@ -676,29 +679,20 @@ export default function FinanceiroPage() {
                 </CampoFinanceiro>
 
                 <CampoFinanceiro
-                  label="Valor da parcela"
-                  ajuda={
-                    editandoId
-                      ? "Valor desta parcela específica. Use para corrigir uma cobrança já criada."
-                      : "Na criação, o sistema calcula automaticamente pelo valor total dividido pelas parcelas."
-                  }
-                >
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="Ex: 1.000,00"
-                    value={formulario.valor_parcela}
-                    onChange={(e) =>
-                      atualizarCampoFormulario("valor_parcela", e.target.value)
-                    }
-                    disabled={!editandoId}
-                    className={`input-financeiro ${
-                      !editandoId
-                        ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                        : ""
-                    }`}
-                  />
-                </CampoFinanceiro>
+  label="Valor da parcela"
+  ajuda="Valor cobrado em cada parcela. Se deixar vazio, o sistema calcula automaticamente pelo valor total dividido pela quantidade de parcelas."
+>
+  <input
+    type="text"
+    inputMode="numeric"
+    placeholder="Ex: 1.000,00"
+    value={formulario.valor_parcela}
+    onChange={(e) =>
+      atualizarCampoFormulario("valor_parcela", e.target.value)
+    }
+    className="input-financeiro"
+  />
+</CampoFinanceiro>
 
                 <CampoFinanceiro
                   label="Quantidade de parcelas"
