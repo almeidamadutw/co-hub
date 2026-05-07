@@ -221,7 +221,7 @@ export default function FinanceiroPage() {
   }, [cobrancas]);
 
   const previewParcelas = useMemo<ParcelaPreview[]>(() => {
-    const valorTotal = Number(formulario.valor_total);
+    const valorTotal = moedaInputParaNumero(formulario.valor_total);
     const quantidadeParcelas = Number(formulario.quantidade_parcelas);
 
     if (
@@ -276,10 +276,10 @@ export default function FinanceiroPage() {
       mentorado_id: cobranca.mentorado_id,
       titulo: cobranca.titulo,
       descricao: cobranca.descricao ?? "",
-      valor_total: String(cobranca.valor_total),
+      valor_total: numeroParaMoedaInput(cobranca.valor_total),
       quantidade_parcelas: String(cobranca.quantidade_parcelas),
       parcela_atual: String(cobranca.parcela_atual),
-      valor_parcela: String(cobranca.valor_parcela),
+      valor_parcela: numeroParaMoedaInput(cobranca.valor_parcela),
       data_vencimento: cobranca.data_vencimento,
       data_pagamento: cobranca.data_pagamento ?? "",
       forma_pagamento: cobranca.forma_pagamento ?? "Pix",
@@ -296,7 +296,7 @@ export default function FinanceiroPage() {
   function gerarPreviewParcelas() {
     setErro("");
 
-    const valorTotal = Number(formulario.valor_total);
+    const valorTotal = moedaInputParaNumero(formulario.valor_total);
     const quantidadeParcelas = Number(formulario.quantidade_parcelas);
 
     if (
@@ -319,9 +319,14 @@ export default function FinanceiroPage() {
     campo: keyof FormularioCobranca,
     valor: string
   ) {
+    const valorFinal =
+      campo === "valor_total" || campo === "valor_parcela"
+        ? formatarMoedaInput(valor)
+        : valor;
+
     setFormulario((estadoAtual) => ({
       ...estadoAtual,
-      [campo]: valor,
+      [campo]: valorFinal,
     }));
 
     if (
@@ -338,10 +343,10 @@ export default function FinanceiroPage() {
     e.preventDefault();
     setErro("");
 
-    const valorTotal = Number(formulario.valor_total);
+    const valorTotal = moedaInputParaNumero(formulario.valor_total);
     const quantidadeParcelas = Number(formulario.quantidade_parcelas);
     const parcelaAtual = Number(formulario.parcela_atual);
-    const valorParcela = Number(formulario.valor_parcela);
+    const valorParcela = moedaInputParaNumero(formulario.valor_parcela);
 
     if (
       !formulario.mentorado_id ||
@@ -640,8 +645,9 @@ export default function FinanceiroPage() {
                 />
 
                 <input
-                  type="number"
-                  placeholder="Valor total"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Valor total, ex: 1.250,00"
                   value={formulario.valor_total}
                   onChange={(e) =>
                     atualizarCampoFormulario("valor_total", e.target.value)
@@ -650,8 +656,9 @@ export default function FinanceiroPage() {
                 />
 
                 <input
-                  type="number"
-                  placeholder="Valor da parcela"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Valor da parcela, ex: 250,00"
                   value={formulario.valor_parcela}
                   onChange={(e) =>
                     atualizarCampoFormulario("valor_parcela", e.target.value)
@@ -1078,6 +1085,38 @@ function formatarData(data: string) {
 
   const [ano, mes, dia] = data.split("-");
   return `${dia}/${mes}/${ano}`;
+}
+
+function formatarMoedaInput(valor: string) {
+  const apenasNumeros = valor.replace(/\D/g, "");
+
+  if (!apenasNumeros) return "";
+
+  const numero = Number(apenasNumeros) / 100;
+
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numero);
+}
+
+function moedaInputParaNumero(valor: string) {
+  if (!valor) return 0;
+
+  const numeroNormalizado = valor.replace(/\./g, "").replace(",", ".");
+
+  return Number(numeroNormalizado) || 0;
+}
+
+function numeroParaMoedaInput(valor: number | string | null | undefined) {
+  const numero = Number(valor || 0);
+
+  if (!numero) return "";
+
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numero);
 }
 
 function formatarDataISO(data: Date) {
