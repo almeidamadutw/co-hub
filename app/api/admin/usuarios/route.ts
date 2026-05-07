@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin
     .from("profiles")
-    .select("id, nome, email, role, telefone, status, created_at")
+    .select("id, nome, email, role, telefone, status, codigo_inscricao, created_at")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
       status: "Ativo",
       updated_at: new Date().toISOString(),
     })
-    .select("id, nome, email, role, telefone, status, created_at")
+    .select("id, nome, email, role, telefone, status, codigo_inscricao, created_at")
     .single();
 
   if (perfilError) {
@@ -255,7 +255,7 @@ export async function PATCH(req: NextRequest) {
       .from("profiles")
       .update(camposAtualizar)
       .eq("id", id)
-      .select("id, nome, email, role, telefone, status, created_at")
+      .select("id, nome, email, role, telefone, status, codigo_inscricao, created_at")
       .single();
 
     if (error) {

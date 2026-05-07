@@ -14,6 +14,7 @@ type PerfilUsuario =
   | "modulos";
 
 type StatusUsuario = "Ativo" | "Pendente" | "Inativo";
+type ModalAcao = "editar" | "inativar" | "excluir" | null;
 
 type UsuarioSistema = {
   id: string;
@@ -22,17 +23,23 @@ type UsuarioSistema = {
   role: PerfilUsuario;
   telefone: string | null;
   status: StatusUsuario | null;
+  codigo_inscricao?: string | null;
   created_at: string;
 };
-
-type ModalAcao = "editar" | "inativar" | "excluir" | null;
 
 export default function UsuariosPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
   const [usuarios, setUsuarios] = useState<UsuarioSistema[]>([]);
+
   const [busca, setBusca] = useState("");
+  const [filtroPerfil, setFiltroPerfil] = useState<PerfilUsuario | "todos">(
+    "todos"
+  );
+  const [filtroStatus, setFiltroStatus] = useState<StatusUsuario | "todos">(
+    "todos"
+  );
 
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [modalAcao, setModalAcao] = useState<ModalAcao>(null);
@@ -109,21 +116,44 @@ export default function UsuariosPage() {
   }
 
   const usuariosFiltrados = useMemo(() => {
-    return usuarios.filter((item) =>
-      `${item.nome} ${item.email} ${item.role} ${item.status ?? ""}`
-        .toLowerCase()
-        .includes(busca.toLowerCase())
-    );
-  }, [usuarios, busca]);
+    const termo = busca.trim().toLowerCase();
+
+    return usuarios.filter((item) => {
+      const statusAtual = item.status ?? "Ativo";
+
+      const bateBusca =
+        !termo ||
+        item.nome.toLowerCase().includes(termo) ||
+        item.email.toLowerCase().includes(termo) ||
+        (item.telefone ?? "").toLowerCase().includes(termo) ||
+        (item.codigo_inscricao ?? "").toLowerCase().includes(termo);
+
+      const batePerfil =
+        filtroPerfil === "todos" ? true : item.role === filtroPerfil;
+
+      const bateStatus =
+        filtroStatus === "todos" ? true : statusAtual === filtroStatus;
+
+      return bateBusca && batePerfil && bateStatus;
+    });
+  }, [usuarios, busca, filtroPerfil, filtroStatus]);
 
   const resumo = useMemo(() => {
+    const mentorados = usuarios.filter((item) => item.role === "mentorado");
+    const mentores = usuarios.filter((item) => item.role === "mentor");
+    const ativos = usuarios.filter(
+      (item) => (item.status ?? "Ativo") === "Ativo"
+    );
+    const inativos = usuarios.filter((item) => item.status === "Inativo");
+    const pendentes = usuarios.filter((item) => item.status === "Pendente");
+
     return {
       total: usuarios.length,
-      ativos: usuarios.filter((item) => (item.status ?? "Ativo") === "Ativo")
-        .length,
-      inativos: usuarios.filter((item) => item.status === "Inativo").length,
-      mentorados: usuarios.filter((item) => item.role === "mentorado").length,
-      mentores: usuarios.filter((item) => item.role === "mentor").length,
+      ativos: ativos.length,
+      inativos: inativos.length,
+      pendentes: pendentes.length,
+      mentorados: mentorados.length,
+      mentores: mentores.length,
     };
   }, [usuarios]);
 
@@ -139,6 +169,12 @@ export default function UsuariosPage() {
     setTelefone("");
     setSenha("123456");
     setPerfil("mentorado");
+  }
+
+  function limparFiltros() {
+    setBusca("");
+    setFiltroPerfil("todos");
+    setFiltroStatus("todos");
   }
 
   function fecharModal() {
@@ -222,159 +258,159 @@ export default function UsuariosPage() {
     setSalvando(false);
   }
 
- async function salvarEdicao(e: React.FormEvent<HTMLFormElement>) {
-  e.preventDefault();
+  async function salvarEdicao(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
 
-  if (!usuarioSelecionado) return;
+    if (!usuarioSelecionado) return;
 
-  try {
-    setSalvando(true);
-    setErro("");
-    setSucesso("");
+    try {
+      setSalvando(true);
+      setErro("");
+      setSucesso("");
 
-    const token = await pegarToken();
+      const token = await pegarToken();
 
-    if (!token) {
-      throw new Error("Sessão expirada. Entre novamente.");
+      if (!token) {
+        throw new Error("Sessão expirada. Entre novamente.");
+      }
+
+      const resposta = await fetch("/api/admin/usuarios", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id: usuarioSelecionado.id,
+          nome: editNome.trim(),
+          email: editEmail.trim(),
+          telefone: editTelefone.trim() || null,
+          role: editPerfil,
+          status: editStatus,
+        }),
+      });
+
+      const json = await resposta.json();
+
+      if (!resposta.ok) {
+        throw new Error(json.error ?? "Não foi possível atualizar o usuário.");
+      }
+
+      await carregarUsuarios();
+
+      setSucesso("Usuário atualizado com sucesso.");
+      fecharModal();
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível atualizar o usuário."
+      );
+    } finally {
+      setSalvando(false);
     }
-
-    const resposta = await fetch("/api/admin/usuarios", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        id: usuarioSelecionado.id,
-        nome: editNome.trim(),
-        email: editEmail.trim(),
-        telefone: editTelefone.trim() || null,
-        role: editPerfil,
-        status: editStatus,
-      }),
-    });
-
-    const json = await resposta.json();
-
-    if (!resposta.ok) {
-      throw new Error(json.error ?? "Não foi possível atualizar o usuário.");
-    }
-
-    await carregarUsuarios();
-
-    setSucesso("Usuário atualizado com sucesso.");
-    fecharModal();
-  } catch (error) {
-    setErro(
-      error instanceof Error
-        ? error.message
-        : "Não foi possível atualizar o usuário."
-    );
-  } finally {
-    setSalvando(false);
   }
-}
 
   async function confirmarInativacao() {
-  if (!usuarioSelecionado) return;
+    if (!usuarioSelecionado) return;
 
-  const novoStatus: StatusUsuario =
-    usuarioSelecionado.status === "Inativo" ? "Ativo" : "Inativo";
+    const novoStatus: StatusUsuario =
+      usuarioSelecionado.status === "Inativo" ? "Ativo" : "Inativo";
 
-  try {
-    setSalvando(true);
-    setErro("");
-    setSucesso("");
+    try {
+      setSalvando(true);
+      setErro("");
+      setSucesso("");
 
-    const token = await pegarToken();
+      const token = await pegarToken();
 
-    if (!token) {
-      throw new Error("Sessão expirada. Entre novamente.");
+      if (!token) {
+        throw new Error("Sessão expirada. Entre novamente.");
+      }
+
+      const resposta = await fetch("/api/admin/usuarios", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id: usuarioSelecionado.id,
+          status: novoStatus,
+        }),
+      });
+
+      const json = await resposta.json();
+
+      if (!resposta.ok) {
+        throw new Error(json.error ?? "Não foi possível alterar o status.");
+      }
+
+      await carregarUsuarios();
+
+      setSucesso(
+        novoStatus === "Inativo"
+          ? "Usuário inativado com sucesso."
+          : "Usuário reativado com sucesso."
+      );
+
+      fecharModal();
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível alterar o status do usuário."
+      );
+    } finally {
+      setSalvando(false);
     }
-
-    const resposta = await fetch("/api/admin/usuarios", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        id: usuarioSelecionado.id,
-        status: novoStatus,
-      }),
-    });
-
-    const json = await resposta.json();
-
-    if (!resposta.ok) {
-      throw new Error(json.error ?? "Não foi possível alterar o status.");
-    }
-
-    await carregarUsuarios();
-
-    setSucesso(
-      novoStatus === "Inativo"
-        ? "Usuário inativado com sucesso."
-        : "Usuário reativado com sucesso."
-    );
-
-    fecharModal();
-  } catch (error) {
-    setErro(
-      error instanceof Error
-        ? error.message
-        : "Não foi possível alterar o status do usuário."
-    );
-  } finally {
-    setSalvando(false);
   }
-}
 
   async function confirmarExclusao() {
-  if (!usuarioSelecionado) return;
+    if (!usuarioSelecionado) return;
 
-  try {
-    setSalvando(true);
-    setErro("");
-    setSucesso("");
+    try {
+      setSalvando(true);
+      setErro("");
+      setSucesso("");
 
-    const token = await pegarToken();
+      const token = await pegarToken();
 
-    if (!token) {
-      throw new Error("Sessão expirada. Entre novamente.");
+      if (!token) {
+        throw new Error("Sessão expirada. Entre novamente.");
+      }
+
+      const resposta = await fetch("/api/admin/usuarios", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id: usuarioSelecionado.id,
+        }),
+      });
+
+      const json = await resposta.json();
+
+      if (!resposta.ok) {
+        throw new Error(json.error ?? "Não foi possível excluir o usuário.");
+      }
+
+      await carregarUsuarios();
+
+      setSucesso("Usuário removido com sucesso.");
+      fecharModal();
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível excluir o usuário."
+      );
+    } finally {
+      setSalvando(false);
     }
-
-    const resposta = await fetch("/api/admin/usuarios", {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        id: usuarioSelecionado.id,
-      }),
-    });
-
-    const json = await resposta.json();
-
-    if (!resposta.ok) {
-      throw new Error(json.error ?? "Não foi possível excluir o usuário.");
-    }
-
-    await carregarUsuarios();
-
-    setSucesso("Usuário removido com sucesso.");
-    fecharModal();
-  } catch (error) {
-    setErro(
-      error instanceof Error
-        ? error.message
-        : "Não foi possível excluir o usuário."
-    );
-  } finally {
-    setSalvando(false);
   }
-}
 
   if (!usuario) {
     return (
@@ -420,8 +456,8 @@ export default function UsuariosPage() {
                 </h2>
 
                 <p className="mt-3 max-w-2xl text-[#D9DEE7]">
-                  Cadastre, edite e acompanhe mentoras, mentoradas e perfis
-                  internos em uma única central.
+                  Controle os acessos da mentoria, acompanhe status e mantenha
+                  cada perfil organizado por função.
                 </p>
               </div>
 
@@ -434,9 +470,10 @@ export default function UsuariosPage() {
             </div>
           </section>
 
-          <section className="mb-7 grid gap-5 xl:grid-cols-5">
+          <section className="mb-7 grid gap-5 xl:grid-cols-6">
             <KPI titulo="Total" valor={resumo.total} destaque />
             <KPI titulo="Ativos" valor={resumo.ativos} />
+            <KPI titulo="Pendentes" valor={resumo.pendentes} />
             <KPI titulo="Inativos" valor={resumo.inativos} />
             <KPI titulo="Mentoradas" valor={resumo.mentorados} />
             <KPI titulo="Mentoras" valor={resumo.mentores} />
@@ -459,15 +496,21 @@ export default function UsuariosPage() {
               onSubmit={criarUsuario}
               className="mb-8 rounded-[32px] bg-white p-7 shadow-lg"
             >
-              <div className="mb-6">
-                <h3 className="text-2xl font-black text-[#050816]">
-                  Novo usuário
-                </h3>
+              <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h3 className="text-2xl font-black text-[#050816]">
+                    Novo usuário
+                  </h3>
 
-                <p className="mt-2 text-sm font-semibold text-gray-500">
-                  Crie o acesso inicial e defina o perfil da pessoa dentro da
-                  plataforma.
-                </p>
+                  <p className="mt-2 max-w-2xl text-sm font-semibold text-gray-500">
+                    Crie um acesso inicial, defina o perfil e entregue a senha
+                    temporária para o primeiro login.
+                  </p>
+                </div>
+
+                <span className="w-fit rounded-full bg-[#EEF2FF] px-4 py-2 text-xs font-black text-[#08163F]">
+                  Senha padrão: 123456
+                </span>
               </div>
 
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -523,15 +566,6 @@ export default function UsuariosPage() {
                 </Campo>
               </div>
 
-              <div className="mt-6 rounded-2xl bg-yellow-50 p-5">
-                <p className="font-black text-yellow-800">Senha temporária</p>
-                <p className="mt-2 text-sm font-bold leading-relaxed text-yellow-700">
-                  Para o MVP, a mentora pode criar uma senha temporária e
-                  repassar para a pessoa cadastrada. Depois adicionamos o fluxo
-                  de recuperação de senha por e-mail.
-                </p>
-              </div>
-
               <div className="mt-6 flex flex-wrap gap-4">
                 <button
                   type="submit"
@@ -555,31 +589,80 @@ export default function UsuariosPage() {
             </form>
           )}
 
-          <div className="mb-6 flex gap-3 rounded-[26px] bg-white p-4 shadow-lg">
-            <input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar por nome, e-mail, perfil ou status..."
-              className="w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-5 py-4 font-bold text-[#08163F] outline-none transition focus:border-[#12317C] focus:ring-4 focus:ring-[#12317C]/10"
-            />
+          <section className="mb-6 rounded-[26px] bg-white p-5 shadow-lg">
+            <div className="grid gap-4 xl:grid-cols-[1fr_220px_220px_auto]">
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar por nome, e-mail, telefone ou código..."
+                className="w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-5 py-4 font-bold text-[#08163F] outline-none transition focus:border-[#12317C] focus:ring-4 focus:ring-[#12317C]/10"
+              />
 
-            <button
-              onClick={carregarUsuarios}
-              className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
-            >
-              Atualizar
-            </button>
-          </div>
+              <select
+                value={filtroPerfil}
+                onChange={(e) =>
+                  setFiltroPerfil(e.target.value as PerfilUsuario | "todos")
+                }
+                className="input-ceo"
+              >
+                <option value="todos">Todos os perfis</option>
+                <option value="mentorado">Mentoradas</option>
+                <option value="mentor">Mentoras</option>
+                <option value="financeiro">Financeiro</option>
+                <option value="modulos">Módulos</option>
+                <option value="progresso">Progresso</option>
+              </select>
 
-          <section className="grid gap-6 xl:grid-cols-[1fr_390px]">
+              <select
+                value={filtroStatus}
+                onChange={(e) =>
+                  setFiltroStatus(e.target.value as StatusUsuario | "todos")
+                }
+                className="input-ceo"
+              >
+                <option value="todos">Todos os status</option>
+                <option value="Ativo">Ativos</option>
+                <option value="Pendente">Pendentes</option>
+                <option value="Inativo">Inativos</option>
+              </select>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={carregarUsuarios}
+                  className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                >
+                  Atualizar
+                </button>
+
+                <button
+                  onClick={limparFiltros}
+                  className="rounded-2xl bg-[#f3f5f8] px-5 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+                >
+                  Limpar
+                </button>
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm font-bold text-gray-500">
+              Exibindo {usuariosFiltrados.length} de {usuarios.length} usuário(s).
+            </p>
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
             <div className="space-y-5">
               {carregando ? (
                 <div className="rounded-[30px] bg-white p-8 text-center font-black shadow-lg">
                   Carregando lista...
                 </div>
               ) : usuariosFiltrados.length === 0 ? (
-                <div className="rounded-[30px] bg-white p-8 text-center font-black shadow-lg">
-                  Nenhum usuário encontrado.
+                <div className="rounded-[30px] bg-white p-8 text-center shadow-lg">
+                  <p className="text-xl font-black text-[#08163F]">
+                    Nenhum usuário encontrado
+                  </p>
+
+                  <p className="mt-2 text-sm font-semibold text-gray-500">
+                    Ajuste os filtros ou cadastre um novo acesso.
+                  </p>
                 </div>
               ) : (
                 usuariosFiltrados.map((item) => (
@@ -592,6 +675,11 @@ export default function UsuariosPage() {
                         <div className="mb-4 flex flex-wrap items-center gap-3">
                           <PerfilBadge perfil={item.role} />
                           <StatusBadge status={item.status ?? "Ativo"} />
+                          {item.codigo_inscricao && (
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                              Código {item.codigo_inscricao}
+                            </span>
+                          )}
                         </div>
 
                         <h3 className="text-2xl font-black text-[#050816]">
@@ -614,6 +702,7 @@ export default function UsuariosPage() {
                           label="Perfil"
                           value={traduzirPerfil(item.role)}
                         />
+
                         <MiniInfo
                           label="Criado em"
                           value={new Date(item.created_at).toLocaleDateString(
@@ -655,21 +744,33 @@ export default function UsuariosPage() {
             </div>
 
             <aside className="space-y-6">
-              <Card titulo="Central de acesso">
-                <div className="space-y-4">
-                  <Regra numero="1" texto="Cadastre o usuário e escolha o perfil." />
-                  <Regra numero="2" texto="Defina uma senha temporária para o primeiro acesso." />
-                  <Regra numero="3" texto="Edite dados, altere status ou remova acessos quando necessário." />
-                  <Regra numero="4" texto="Use perfis diferentes para separar mentoradas, financeiro, módulos e progresso." />
+              <Card titulo="Resumo de acessos">
+                <div className="space-y-3">
+                  <ResumoLinha label="Usuários ativos" value={resumo.ativos} />
+                  <ResumoLinha
+                    label="Usuários pendentes"
+                    value={resumo.pendentes}
+                  />
+                  <ResumoLinha label="Usuários inativos" value={resumo.inativos} />
+                  <ResumoLinha label="Perfis internos" value={resumo.total - resumo.mentorados - resumo.mentores} />
                 </div>
               </Card>
 
-              <Card titulo="Próxima melhoria">
-                <p className="text-sm font-semibold leading-relaxed text-gray-500">
-                  Depois do domínio e dos e-mails profissionais, adicionamos o
-                  fluxo de “Esqueci minha senha” com envio de link oficial para
-                  o e-mail personalizado.
-                </p>
+              <Card titulo="Boas práticas">
+                <div className="space-y-4">
+                  <Regra
+                    numero="1"
+                    texto="Use Inativar para suspender acesso sem perder histórico."
+                  />
+                  <Regra
+                    numero="2"
+                    texto="Exclua apenas perfis sem dados importantes vinculados."
+                  />
+                  <Regra
+                    numero="3"
+                    texto="Mantenha e-mail e telefone atualizados para suporte."
+                  />
+                </div>
               </Card>
             </aside>
           </section>
@@ -679,6 +780,21 @@ export default function UsuariosPage() {
       {modalAcao === "editar" && usuarioSelecionado && (
         <Modal titulo="Editar usuário" onClose={fecharModal}>
           <form onSubmit={salvarEdicao}>
+            <div className="mb-6 rounded-2xl bg-[#f9fafb] p-5">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-gray-400">
+                Código de inscrição
+              </p>
+
+              <p className="mt-2 text-2xl font-black text-[#08163F]">
+                {usuarioSelecionado.codigo_inscricao || "Sem código cadastrado"}
+              </p>
+
+              <p className="mt-2 text-sm font-semibold text-gray-500">
+                Este código é gerado no cadastro e não pode ser alterado por
+                esta edição.
+              </p>
+            </div>
+
             <div className="grid gap-5 md:grid-cols-2">
               <Campo label="Nome">
                 <input
@@ -799,9 +915,8 @@ export default function UsuariosPage() {
           <div className="rounded-2xl bg-red-50 p-5">
             <p className="font-black text-red-700">Atenção</p>
             <p className="mt-2 text-sm font-semibold leading-7 text-red-600">
-              Esta ação remove o perfil de {usuarioSelecionado.nome} da lista.
-              Antes de excluir, confirme se não há dados importantes vinculados
-              a este usuário.
+              Esta ação remove o acesso de {usuarioSelecionado.nome}. Use esta
+              opção apenas quando não houver histórico importante vinculado.
             </p>
           </div>
 
@@ -902,6 +1017,7 @@ function KPI({
       >
         {titulo}
       </p>
+
       <p className="mt-4 text-3xl font-black">{valor}</p>
     </div>
   );
@@ -913,6 +1029,7 @@ function MiniInfo({ label, value }: { label: string; value: React.ReactNode }) {
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">
         {label}
       </p>
+
       <p className="mt-1 font-black text-[#08163F]">{value}</p>
     </div>
   );
@@ -982,6 +1099,21 @@ function StatusBadge({ status }: { status: StatusUsuario }) {
   );
 }
 
+function ResumoLinha({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl bg-[#f9fafb] p-4">
+      <p className="text-sm font-bold text-gray-500">{label}</p>
+      <p className="text-lg font-black text-[#08163F]">{value}</p>
+    </div>
+  );
+}
+
 function Modal({
   titulo,
   children,
@@ -997,7 +1129,7 @@ function Modal({
         <div className="flex items-start justify-between gap-4 bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
-              Usuários
+              Gestão de acessos
             </p>
 
             <h2 className="mt-3 text-3xl font-black">{titulo}</h2>
