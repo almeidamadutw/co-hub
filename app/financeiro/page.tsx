@@ -605,6 +605,11 @@ export default function FinanceiroPage() {
                   <h2 className="mt-1 text-2xl font-black text-[#08163F]">
                     Dados da cobrança
                   </h2>
+
+                  <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+                    Preencha os dados abaixo para registrar uma cobrança única
+                    ou gerar parcelas automaticamente.
+                  </p>
                 </div>
 
                 <button
@@ -616,144 +621,234 @@ export default function FinanceiroPage() {
                 </button>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <select
-                  value={formulario.mentorado_id}
-                  onChange={(e) =>
-                    atualizarCampoFormulario("mentorado_id", e.target.value)
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
+              <div className="grid gap-5 md:grid-cols-2">
+                <CampoFinanceiro
+                  label="Mentorado"
+                  ajuda="Pessoa que receberá esta cobrança. O lançamento ficará vinculado ao perfil selecionado."
                 >
-                  <option value="">Selecione o mentorado</option>
+                  <select
+                    value={formulario.mentorado_id}
+                    onChange={(e) =>
+                      atualizarCampoFormulario("mentorado_id", e.target.value)
+                    }
+                    className="input-financeiro"
+                  >
+                    <option value="">Selecione o mentorado</option>
 
-                  {mentorados.map((mentorado) => (
-                    <option key={mentorado.id} value={mentorado.id}>
-                      {mentorado.codigo_inscricao ?? "—"} · {mentorado.nome} ·{" "}
-                      {mentorado.email}
-                    </option>
-                  ))}
-                </select>
+                    {mentorados.map((mentorado) => (
+                      <option key={mentorado.id} value={mentorado.id}>
+                        {mentorado.codigo_inscricao ?? "—"} · {mentorado.nome} ·{" "}
+                        {mentorado.email}
+                      </option>
+                    ))}
+                  </select>
+                </CampoFinanceiro>
 
-                <input
-                  type="text"
-                  placeholder="Título, ex: Mensalidade CEO Club"
-                  value={formulario.titulo}
-                  onChange={(e) =>
-                    atualizarCampoFormulario("titulo", e.target.value)
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
-                />
-
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Valor total, ex: 1.250,00"
-                  value={formulario.valor_total}
-                  onChange={(e) =>
-                    atualizarCampoFormulario("valor_total", e.target.value)
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
-                />
-
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Valor da parcela, ex: 250,00"
-                  value={formulario.valor_parcela}
-                  onChange={(e) =>
-                    atualizarCampoFormulario("valor_parcela", e.target.value)
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
-                />
-
-                <input
-                  type="number"
-                  placeholder="Quantidade de parcelas"
-                  value={formulario.quantidade_parcelas}
-                  onChange={(e) =>
-                    atualizarCampoFormulario(
-                      "quantidade_parcelas",
-                      e.target.value
-                    )
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
-                />
-
-                <input
-                  type="number"
-                  placeholder="Parcela atual"
-                  value={formulario.parcela_atual}
-                  onChange={(e) =>
-                    atualizarCampoFormulario("parcela_atual", e.target.value)
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
-                />
-
-                <input
-                  type="date"
-                  value={formulario.data_vencimento}
-                  onChange={(e) =>
-                    atualizarCampoFormulario("data_vencimento", e.target.value)
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
-                />
-
-                <input
-                  type="date"
-                  value={formulario.data_pagamento}
-                  onChange={(e) =>
-                    atualizarCampoFormulario("data_pagamento", e.target.value)
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
-                />
-
-                <select
-                  value={formulario.status}
-                  onChange={(e) =>
-                    atualizarCampoFormulario(
-                      "status",
-                      e.target.value as StatusCobranca
-                    )
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
+                <CampoFinanceiro
+                  label="Título da cobrança"
+                  ajuda="Nome do lançamento. Ex: Mensalidade, Mentoria anual, Parcela CEO Club."
                 >
-                  <option>Pago</option>
-                  <option>Pendente</option>
-                  <option>Atrasado</option>
-                  <option>Cancelado</option>
-                </select>
+                  <input
+                    type="text"
+                    placeholder="Ex: Mensalidade CEO Club"
+                    value={formulario.titulo}
+                    onChange={(e) =>
+                      atualizarCampoFormulario("titulo", e.target.value)
+                    }
+                    className="input-financeiro"
+                  />
+                </CampoFinanceiro>
 
-                <select
-                  value={formulario.forma_pagamento}
-                  onChange={(e) =>
-                    atualizarCampoFormulario("forma_pagamento", e.target.value)
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F]"
+                <CampoFinanceiro
+                  label="Valor total"
+                  ajuda="Valor completo contratado. Se for parcelado, este valor será dividido pela quantidade de parcelas."
                 >
-                  <option>Pix</option>
-                  <option>Cartão</option>
-                  <option>Boleto</option>
-                  <option>Dinheiro</option>
-                  <option>Transferência</option>
-                </select>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Ex: 12.000,00"
+                    value={formulario.valor_total}
+                    onChange={(e) =>
+                      atualizarCampoFormulario("valor_total", e.target.value)
+                    }
+                    className="input-financeiro"
+                  />
+                </CampoFinanceiro>
 
-                <textarea
-                  placeholder="Descrição"
-                  value={formulario.descricao}
-                  onChange={(e) =>
-                    atualizarCampoFormulario("descricao", e.target.value)
+                <CampoFinanceiro
+                  label="Valor da parcela"
+                  ajuda={
+                    editandoId
+                      ? "Valor desta parcela específica. Use para corrigir uma cobrança já criada."
+                      : "Na criação, o sistema calcula automaticamente pelo valor total dividido pelas parcelas."
                   }
-                  className="min-h-[100px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F] md:col-span-2"
-                />
+                >
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Ex: 1.000,00"
+                    value={formulario.valor_parcela}
+                    onChange={(e) =>
+                      atualizarCampoFormulario("valor_parcela", e.target.value)
+                    }
+                    disabled={!editandoId}
+                    className={`input-financeiro ${
+                      !editandoId
+                        ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                        : ""
+                    }`}
+                  />
+                </CampoFinanceiro>
 
-                <textarea
-                  placeholder="Observações internas"
-                  value={formulario.observacao}
-                  onChange={(e) =>
-                    atualizarCampoFormulario("observacao", e.target.value)
-                  }
-                  className="min-h-[100px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F] md:col-span-2"
-                />
+                <CampoFinanceiro
+                  label="Quantidade de parcelas"
+                  ajuda="Total de parcelas que serão criadas. Ex: 12 parcelas para uma mentoria anual."
+                >
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Ex: 12"
+                    value={formulario.quantidade_parcelas}
+                    onChange={(e) =>
+                      atualizarCampoFormulario(
+                        "quantidade_parcelas",
+                        e.target.value
+                      )
+                    }
+                    disabled={Boolean(editandoId)}
+                    className={`input-financeiro ${
+                      editandoId
+                        ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                        : ""
+                    }`}
+                  />
+                </CampoFinanceiro>
+
+                <CampoFinanceiro
+                  label="Parcela atual"
+                  ajuda="Número da parcela deste lançamento. Na criação, o sistema gera isso sozinho."
+                >
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Ex: 1"
+                    value={formulario.parcela_atual}
+                    onChange={(e) =>
+                      atualizarCampoFormulario("parcela_atual", e.target.value)
+                    }
+                    disabled={!editandoId}
+                    className={`input-financeiro ${
+                      !editandoId
+                        ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                        : ""
+                    }`}
+                  />
+                </CampoFinanceiro>
+
+                <CampoFinanceiro
+                  label="Data de vencimento"
+                  ajuda="Dia em que a cobrança vence. Em parcelas, os próximos vencimentos serão gerados mês a mês."
+                >
+                  <input
+                    type="date"
+                    value={formulario.data_vencimento}
+                    onChange={(e) =>
+                      atualizarCampoFormulario(
+                        "data_vencimento",
+                        e.target.value
+                      )
+                    }
+                    className="input-financeiro"
+                  />
+                </CampoFinanceiro>
+
+                <CampoFinanceiro
+                  label="Data de pagamento"
+                  ajuda="Preencha apenas se a cobrança já foi paga ou quando for registrar baixa manual."
+                >
+                  <input
+                    type="date"
+                    value={formulario.data_pagamento}
+                    onChange={(e) =>
+                      atualizarCampoFormulario(
+                        "data_pagamento",
+                        e.target.value
+                      )
+                    }
+                    className="input-financeiro"
+                  />
+                </CampoFinanceiro>
+
+                <CampoFinanceiro
+                  label="Status"
+                  ajuda="Situação atual da cobrança: pendente, paga, atrasada ou cancelada."
+                >
+                  <select
+                    value={formulario.status}
+                    onChange={(e) =>
+                      atualizarCampoFormulario(
+                        "status",
+                        e.target.value as StatusCobranca
+                      )
+                    }
+                    className="input-financeiro"
+                  >
+                    <option>Pago</option>
+                    <option>Pendente</option>
+                    <option>Atrasado</option>
+                    <option>Cancelado</option>
+                  </select>
+                </CampoFinanceiro>
+
+                <CampoFinanceiro
+                  label="Forma de pagamento"
+                  ajuda="Método combinado ou usado para pagamento desta cobrança."
+                >
+                  <select
+                    value={formulario.forma_pagamento}
+                    onChange={(e) =>
+                      atualizarCampoFormulario(
+                        "forma_pagamento",
+                        e.target.value
+                      )
+                    }
+                    className="input-financeiro"
+                  >
+                    <option>Pix</option>
+                    <option>Cartão</option>
+                    <option>Boleto</option>
+                    <option>Dinheiro</option>
+                    <option>Transferência</option>
+                  </select>
+                </CampoFinanceiro>
+
+                <CampoFinanceiro
+                  label="Descrição"
+                  ajuda="Explique o que está sendo cobrado. Ex: mensalidade, pacote anual, módulo extra ou taxa."
+                >
+                  <textarea
+                    placeholder="Ex: Parcela referente à mentoria anual CEO Club."
+                    value={formulario.descricao}
+                    onChange={(e) =>
+                      atualizarCampoFormulario("descricao", e.target.value)
+                    }
+                    className="input-financeiro min-h-[110px]"
+                  />
+                </CampoFinanceiro>
+
+                <CampoFinanceiro
+                  label="Observações internas"
+                  ajuda="Anotações para a equipe. Ex: desconto, negociação, comprovante ou mudança de vencimento."
+                >
+                  <textarea
+                    placeholder="Ex: Negociado desconto, aguardando comprovante..."
+                    value={formulario.observacao}
+                    onChange={(e) =>
+                      atualizarCampoFormulario("observacao", e.target.value)
+                    }
+                    className="input-financeiro min-h-[110px]"
+                  />
+                </CampoFinanceiro>
               </div>
 
               {!editandoId && (
@@ -767,6 +862,11 @@ export default function FinanceiroPage() {
                       <h3 className="mt-1 text-xl font-black text-[#08163F]">
                         Confira os vencimentos antes de salvar
                       </h3>
+
+                      <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+                        A prévia mostra quantas cobranças serão criadas, o valor
+                        de cada parcela e os vencimentos mensais.
+                      </p>
                     </div>
 
                     <button
@@ -1004,7 +1104,52 @@ export default function FinanceiroPage() {
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        .input-financeiro {
+          width: 100%;
+          border-radius: 1rem;
+          border: 1px solid #e2e8f0;
+          background: white;
+          padding: 0.85rem 1rem;
+          color: #08163f;
+          font-weight: 700;
+          outline: none;
+          transition: 0.2s ease;
+        }
+
+        .input-financeiro::placeholder {
+          color: #94a3b8;
+        }
+
+        .input-financeiro:focus {
+          border-color: #12317c;
+          box-shadow: 0 0 0 4px rgba(18, 49, 124, 0.1);
+        }
+      `}</style>
     </main>
+  );
+}
+
+function CampoFinanceiro({
+  label,
+  ajuda,
+  children,
+}: {
+  label: string;
+  ajuda: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-black text-[#08163F]">{label}</span>
+
+      <p className="mt-1 min-h-[38px] text-xs font-semibold leading-5 text-slate-500">
+        {ajuda}
+      </p>
+
+      <div className="mt-2">{children}</div>
+    </label>
   );
 }
 
