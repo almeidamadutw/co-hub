@@ -222,145 +222,159 @@ export default function UsuariosPage() {
     setSalvando(false);
   }
 
-  async function salvarEdicao(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+ async function salvarEdicao(e: React.FormEvent<HTMLFormElement>) {
+  e.preventDefault();
 
-    if (!usuarioSelecionado) return;
+  if (!usuarioSelecionado) return;
 
-    try {
-      setSalvando(true);
-      setErro("");
-      setSucesso("");
+  try {
+    setSalvando(true);
+    setErro("");
+    setSucesso("");
 
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          nome: editNome.trim(),
-          email: editEmail.trim(),
-          telefone: editTelefone.trim() || null,
-          role: editPerfil,
-          status: editStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", usuarioSelecionado.id);
+    const token = await pegarToken();
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      setUsuarios((atual) =>
-        atual.map((item) =>
-          item.id === usuarioSelecionado.id
-            ? {
-                ...item,
-                nome: editNome.trim(),
-                email: editEmail.trim(),
-                telefone: editTelefone.trim() || null,
-                role: editPerfil,
-                status: editStatus,
-              }
-            : item
-        )
-      );
-
-      setSucesso("Usuário atualizado com sucesso.");
-      fecharModal();
-    } catch (error) {
-      setErro(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível atualizar o usuário."
-      );
-    } finally {
-      setSalvando(false);
+    if (!token) {
+      throw new Error("Sessão expirada. Entre novamente.");
     }
+
+    const resposta = await fetch("/api/admin/usuarios", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        id: usuarioSelecionado.id,
+        nome: editNome.trim(),
+        email: editEmail.trim(),
+        telefone: editTelefone.trim() || null,
+        role: editPerfil,
+        status: editStatus,
+      }),
+    });
+
+    const json = await resposta.json();
+
+    if (!resposta.ok) {
+      throw new Error(json.error ?? "Não foi possível atualizar o usuário.");
+    }
+
+    await carregarUsuarios();
+
+    setSucesso("Usuário atualizado com sucesso.");
+    fecharModal();
+  } catch (error) {
+    setErro(
+      error instanceof Error
+        ? error.message
+        : "Não foi possível atualizar o usuário."
+    );
+  } finally {
+    setSalvando(false);
   }
+}
 
   async function confirmarInativacao() {
-    if (!usuarioSelecionado) return;
+  if (!usuarioSelecionado) return;
 
-    const novoStatus: StatusUsuario =
-      usuarioSelecionado.status === "Inativo" ? "Ativo" : "Inativo";
+  const novoStatus: StatusUsuario =
+    usuarioSelecionado.status === "Inativo" ? "Ativo" : "Inativo";
 
-    try {
-      setSalvando(true);
-      setErro("");
-      setSucesso("");
+  try {
+    setSalvando(true);
+    setErro("");
+    setSucesso("");
 
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          status: novoStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", usuarioSelecionado.id);
+    const token = await pegarToken();
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      setUsuarios((atual) =>
-        atual.map((item) =>
-          item.id === usuarioSelecionado.id
-            ? {
-                ...item,
-                status: novoStatus,
-              }
-            : item
-        )
-      );
-
-      setSucesso(
-        novoStatus === "Inativo"
-          ? "Usuário inativado com sucesso."
-          : "Usuário reativado com sucesso."
-      );
-
-      fecharModal();
-    } catch (error) {
-      setErro(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível alterar o status do usuário."
-      );
-    } finally {
-      setSalvando(false);
+    if (!token) {
+      throw new Error("Sessão expirada. Entre novamente.");
     }
+
+    const resposta = await fetch("/api/admin/usuarios", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        id: usuarioSelecionado.id,
+        status: novoStatus,
+      }),
+    });
+
+    const json = await resposta.json();
+
+    if (!resposta.ok) {
+      throw new Error(json.error ?? "Não foi possível alterar o status.");
+    }
+
+    await carregarUsuarios();
+
+    setSucesso(
+      novoStatus === "Inativo"
+        ? "Usuário inativado com sucesso."
+        : "Usuário reativado com sucesso."
+    );
+
+    fecharModal();
+  } catch (error) {
+    setErro(
+      error instanceof Error
+        ? error.message
+        : "Não foi possível alterar o status do usuário."
+    );
+  } finally {
+    setSalvando(false);
   }
+}
 
   async function confirmarExclusao() {
-    if (!usuarioSelecionado) return;
+  if (!usuarioSelecionado) return;
 
-    try {
-      setSalvando(true);
-      setErro("");
-      setSucesso("");
+  try {
+    setSalvando(true);
+    setErro("");
+    setSucesso("");
 
-      const { error } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("id", usuarioSelecionado.id);
+    const token = await pegarToken();
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      setUsuarios((atual) =>
-        atual.filter((item) => item.id !== usuarioSelecionado.id)
-      );
-
-      setSucesso("Usuário removido da lista com sucesso.");
-      fecharModal();
-    } catch (error) {
-      setErro(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível excluir o usuário."
-      );
-    } finally {
-      setSalvando(false);
+    if (!token) {
+      throw new Error("Sessão expirada. Entre novamente.");
     }
+
+    const resposta = await fetch("/api/admin/usuarios", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        id: usuarioSelecionado.id,
+      }),
+    });
+
+    const json = await resposta.json();
+
+    if (!resposta.ok) {
+      throw new Error(json.error ?? "Não foi possível excluir o usuário.");
+    }
+
+    await carregarUsuarios();
+
+    setSucesso("Usuário removido com sucesso.");
+    fecharModal();
+  } catch (error) {
+    setErro(
+      error instanceof Error
+        ? error.message
+        : "Não foi possível excluir o usuário."
+    );
+  } finally {
+    setSalvando(false);
   }
+}
 
   if (!usuario) {
     return (
@@ -370,9 +384,11 @@ export default function UsuariosPage() {
     );
   }
 
+  const usuarioLogado = usuario;
+
   return (
     <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
-      <Sidebar nome={usuario.nome} role={usuario.role} />
+      <Sidebar nome={usuarioLogado.nome} role={usuarioLogado.role} />
 
       <section className="flex-1 overflow-hidden">
         <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-8 backdrop-blur-xl">
