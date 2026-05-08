@@ -62,6 +62,7 @@ export default function ModulosPage() {
   const [usuario, setUsuario] = useState<User | null>(null);
   const [busca, setBusca] = useState("");
   const [filtroAtivo, setFiltroAtivo] = useState("Todos");
+  const [filtroConteudo, setFiltroConteudo] = useState("Todos");
 
   const [mostrarModuloForm, setMostrarModuloForm] = useState(false);
   const [mostrarAulaForm, setMostrarAulaForm] = useState(false);
@@ -127,9 +128,20 @@ export default function ModulosPage() {
         (filtroAtivo === "Ativos" && modulo.ativo) ||
         (filtroAtivo === "Inativos" && !modulo.ativo);
 
-      return bateBusca && bateStatus;
+      const bateConteudo =
+        filtroConteudo === "Todos" ||
+        (filtroConteudo === "Com aulas" && modulo.aulas.length > 0) ||
+        (filtroConteudo === "Sem aulas" && modulo.aulas.length === 0) ||
+        (filtroConteudo === "Com vídeo" &&
+          modulo.aulas.some((aula) => Boolean(aula.video_url))) ||
+        (filtroConteudo === "Com material" &&
+          modulo.aulas.some(
+            (aula) => aula.materiais_aula && aula.materiais_aula.length > 0
+          ));
+
+      return bateBusca && bateStatus && bateConteudo;
     });
-  }, [modulos, busca, filtroAtivo]);
+  }, [modulos, busca, filtroAtivo, filtroConteudo]);
 
   const resumo = useMemo(() => {
     return {
@@ -138,6 +150,9 @@ export default function ModulosPage() {
       aulas: totalAulas,
       videos: aulasComVideo,
       materiais: totalMateriais,
+      semAulas: modulos.filter((modulo) => modulo.aulas.length === 0).length,
+      taxaVideo:
+        totalAulas === 0 ? 0 : Math.round((aulasComVideo / totalAulas) * 100),
     };
   }, [modulos, totalAulas, aulasComVideo, totalMateriais]);
 
@@ -177,38 +192,41 @@ export default function ModulosPage() {
     setErro("");
   }
 
+  function limparFiltros() {
+    setBusca("");
+    setFiltroAtivo("Todos");
+    setFiltroConteudo("Todos");
+  }
+
   async function salvarModulo(e: React.FormEvent) {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!formModulo.titulo.trim()) {
-    setErro("Informe o título do módulo.");
-    window.alert("Informe o título do módulo.");
-    return;
+    if (!formModulo.titulo.trim()) {
+      setErro("Informe o título do módulo.");
+      return;
+    }
+
+    try {
+      setSalvando(true);
+      setErro("");
+
+      await criarModulo({
+        titulo: formModulo.titulo.trim(),
+        descricao: formModulo.descricao.trim(),
+        criadoPor: null,
+      });
+
+      fecharFormularios();
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível criar o módulo."
+      );
+    } finally {
+      setSalvando(false);
+    }
   }
-
-  try {
-    setSalvando(true);
-    setErro("");
-
-    await criarModulo({
-      titulo: formModulo.titulo.trim(),
-      descricao: formModulo.descricao.trim(),
-      criadoPor: null,
-    });
-
-    fecharFormularios();
-  } catch (error) {
-    const mensagem =
-      error instanceof Error
-        ? error.message
-        : "Não foi possível criar o módulo.";
-
-    setErro(mensagem);
-    window.alert(mensagem);
-  } finally {
-    setSalvando(false);
-  }
-}
 
   async function salvarAula(e: React.FormEvent) {
     e.preventDefault();
@@ -415,6 +433,12 @@ export default function ModulosPage() {
                 </button>
               </div>
             </div>
+
+            <div className="mt-8 grid gap-3 md:grid-cols-3">
+              <MiniInfo titulo="Aulas com vídeo" valor={`${resumo.taxaVideo}%`} />
+              <MiniInfo titulo="Módulos sem aulas" valor={String(resumo.semAulas)} />
+              <MiniInfo titulo="Materiais" valor={String(resumo.materiais)} />
+            </div>
           </section>
 
           <section className="mb-6 grid gap-4 md:grid-cols-5">
@@ -430,7 +454,7 @@ export default function ModulosPage() {
           </section>
 
           <section className="mb-6 rounded-[28px] border border-white/50 bg-white/85 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-            <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+            <div className="grid gap-4 xl:grid-cols-[1.2fr_0.6fr_0.7fr_0.45fr]">
               <input
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
@@ -447,7 +471,31 @@ export default function ModulosPage() {
                 <option>Ativos</option>
                 <option>Inativos</option>
               </select>
+
+              <select
+                value={filtroConteudo}
+                onChange={(e) => setFiltroConteudo(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-[#08163F] outline-none focus:border-[#12317C]"
+              >
+                <option>Todos</option>
+                <option>Com aulas</option>
+                <option>Sem aulas</option>
+                <option>Com vídeo</option>
+                <option>Com material</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={limparFiltros}
+                className="rounded-2xl bg-[#08163F] px-4 py-3 text-sm font-black text-white transition hover:brightness-110"
+              >
+                Limpar
+              </button>
             </div>
+
+            <p className="mt-4 text-sm font-bold text-slate-500">
+              Exibindo {modulosFiltrados.length} de {modulos.length} módulo(s).
+            </p>
           </section>
 
           {erro && (
@@ -623,9 +671,15 @@ export default function ModulosPage() {
       )}
 
       {moduloSelecionado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-5xl overflow-hidden rounded-[34px] bg-white shadow-2xl">
-            <div className="bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
+          onClick={() => setModuloSelecionado(null)}
+        >
+          <div
+            className="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[34px] bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
@@ -655,7 +709,7 @@ export default function ModulosPage() {
               </div>
             </div>
 
-            <div className="max-h-[72vh] overflow-y-auto p-7">
+            <div className="overflow-y-auto p-7">
               <div className="rounded-2xl bg-[#f9fafb] p-5">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
                   Descrição
@@ -712,6 +766,24 @@ export default function ModulosPage() {
                 </div>
               </div>
             </div>
+
+            <div className="sticky bottom-0 z-10 border-t border-slate-100 bg-white p-5">
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => abrirNovaAula(moduloSelecionado.id)}
+                  className="rounded-2xl bg-[#08163F] px-5 py-4 text-sm font-black text-white"
+                >
+                  Nova aula
+                </button>
+
+                <button
+                  onClick={() => setModuloSelecionado(null)}
+                  className="ml-auto rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-[#08163F] transition hover:bg-slate-50"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -752,9 +824,22 @@ function ModuloCard({
                 {modulo.descricao || "Sem descrição."}
               </p>
 
-              <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-                {modulo.aulas.length} aula(s)
-              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <SmallMetric label="Aulas" value={String(modulo.aulas.length)} />
+                <SmallMetric
+                  label="Vídeos"
+                  value={String(modulo.aulas.filter((aula) => Boolean(aula.video_url)).length)}
+                />
+                <SmallMetric
+                  label="Materiais"
+                  value={String(
+                    modulo.aulas.reduce(
+                      (acc, aula) => acc + (aula.materiais_aula?.length ?? 0),
+                      0
+                    )
+                  )}
+                />
+              </div>
             </div>
           </div>
 
@@ -762,6 +847,17 @@ function ModuloCard({
         </div>
       </button>
     </article>
+  );
+}
+
+function SmallMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-[#f9fafb] px-4 py-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-black text-[#08163F]">{value}</p>
+    </div>
   );
 }
 
@@ -911,8 +1007,14 @@ function ModalFormulario({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-3xl overflow-hidden rounded-[34px] bg-white shadow-2xl">
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl overflow-hidden rounded-[34px] bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between gap-4 bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
@@ -953,6 +1055,17 @@ function FormularioActions({
       >
         {salvando ? "Salvando..." : label}
       </button>
+    </div>
+  );
+}
+
+function MiniInfo({ titulo, valor }: { titulo: string; valor: string }) {
+  return (
+    <div className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">
+        {titulo}
+      </p>
+      <p className="mt-2 text-2xl font-black text-white">{valor}</p>
     </div>
   );
 }
