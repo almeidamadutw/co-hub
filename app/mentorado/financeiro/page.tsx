@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/utils/supabase";
-import {
-  getUsuarioLogado,
-  usuarioTemPermissao,
-  User,
-} from "@/utils/auth";
+import { getUsuarioLogado, usuarioTemPermissao, User } from "@/utils/auth";
 
 type StatusCobranca = "Pago" | "Pendente" | "Atrasado" | "Cancelado";
 
@@ -37,20 +33,34 @@ type Cobranca = {
   updated_at: string;
 };
 
+type FiltroStatus = "Todos" | StatusCobranca;
+
+const statusOptions: FiltroStatus[] = [
+  "Todos",
+  "Pago",
+  "Pendente",
+  "Atrasado",
+  "Cancelado",
+];
+
 export default function FinanceiroMentoradoPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
   const [perfil, setPerfil] = useState<ProfileMentorado | null>(null);
   const [cobrancas, setCobrancas] = useState<Cobranca[]>([]);
+
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
-  const [filtroStatus, setFiltroStatus] = useState("Todos");
+
+  const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("Todos");
   const [cobrancaSelecionada, setCobrancaSelecionada] =
     useState<Cobranca | null>(null);
 
   useEffect(() => {
     iniciarTela();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function iniciarTela() {
@@ -71,10 +81,10 @@ export default function FinanceiroMentoradoPage() {
 
     setUsuario(usuarioLogado);
 
-    const emailUsuario = (usuarioLogado as User & { email?: string }).email;
+    const { data: authData, error: authError } = await supabase.auth.getUser();
 
-    if (!emailUsuario) {
-      setErro("Não foi possível identificar o e-mail do usuário logado.");
+    if (authError || !authData.user) {
+      setErro("Sessão não encontrada. Faça login novamente.");
       setCarregando(false);
       return;
     }
@@ -82,14 +92,14 @@ export default function FinanceiroMentoradoPage() {
     const { data: perfilData, error: perfilError } = await supabase
       .from("profiles")
       .select("id, nome, email, codigo_inscricao")
-      .eq("email", emailUsuario)
+      .eq("id", authData.user.id)
       .eq("role", "mentorado")
       .single();
 
     if (perfilError || !perfilData) {
       setErro(
         perfilError?.message ||
-          "Não foi possível encontrar o perfil do mentorado."
+          "Não foi possível encontrar o perfil financeiro do mentorado."
       );
       setCarregando(false);
       return;
@@ -116,13 +126,33 @@ export default function FinanceiroMentoradoPage() {
   }
 
   const cobrancasFiltradas = useMemo(() => {
-    if (filtroStatus === "Todos") return cobrancas;
+    const termo = normalizarTexto(busca);
 
-    return cobrancas.filter((item) => item.status === filtroStatus);
-  }, [cobrancas, filtroStatus]);
+    return cobrancas.filter((item) => {
+      const bateStatus =
+        filtroStatus === "Todos" || item.status === filtroStatus;
+
+      const textoBusca = normalizarTexto(
+        [
+          item.titulo,
+          item.descricao,
+          item.observacao,
+          item.status,
+          item.forma_pagamento,
+          `${item.parcela_atual}/${item.quantidade_parcelas}`,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      );
+
+      const bateBusca = !termo || textoBusca.includes(termo);
+
+      return bateStatus && bateBusca;
+    });
+  }, [cobrancas, filtroStatus, busca]);
 
   const resumo = useMemo(() => {
-    const total = cobrancas.reduce(
+    const totalContratado = cobrancas.reduce(
       (acc, item) => acc + Number(item.valor_parcela || 0),
       0
     );
@@ -139,27 +169,58 @@ export default function FinanceiroMentoradoPage() {
       .filter((item) => item.status === "Atrasado")
       .reduce((acc, item) => acc + Number(item.valor_parcela || 0), 0);
 
+    const emAberto = pendente + atrasado;
+
+    const hojeISO = formatarDataISO(new Date());
+
+    const vencendoHoje = cobrancas.filter(
+      (item) => item.status === "Pendente" && item.data_vencimento === hojeISO
+    ).length;
+
     const proximoVencimento = cobrancas
       .filter((item) => item.status !== "Pago" && item.status !== "Cancelado")
       .sort(
         (a, b) =>
-          new Date(a.data_vencimento).getTime() -
-          new Date(b.data_vencimento).getTime()
+          criarDataLocal(a.data_vencimento).getTime() -
+          criarDataLocal(b.data_vencimento).getTime()
       )[0];
 
     return {
-      total,
+      totalContratado,
       pago,
       pendente,
       atrasado,
+      emAberto,
+      vencendoHoje,
       proximoVencimento,
+      quantidadeTotal: cobrancas.length,
+      quantidadePagas: cobrancas.filter((item) => item.status === "Pago").length,
+      quantidadeAbertas: cobrancas.filter(
+        (item) => item.status === "Pendente" || item.status === "Atrasado"
+      ).length,
     };
   }, [cobrancas]);
+
+  const progressoPagamento = useMemo(() => {
+    if (resumo.totalContratado <= 0) return 0;
+
+    return Math.min(
+      100,
+      Math.round((resumo.pago / resumo.totalContratado) * 100)
+    );
+  }, [resumo.totalContratado, resumo.pago]);
 
   if (!usuario || carregando) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        Carregando financeiro...
+        <div className="rounded-[28px] bg-white px-8 py-6 text-center shadow-xl shadow-slate-200">
+          <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">
+            CEO Club
+          </p>
+          <p className="mt-2 text-xl font-black text-[#08163F]">
+            Carregando financeiro...
+          </p>
+        </div>
       </main>
     );
   }
@@ -185,22 +246,29 @@ export default function FinanceiroMentoradoPage() {
                 </h1>
 
                 <p className="mt-3 max-w-2xl text-[#D9DEE7]">
-                  Acompanhe suas parcelas, vencimentos e histórico de pagamentos.
+                  Acompanhe suas parcelas, vencimentos e histórico de pagamentos
+                  da mentoria.
                 </p>
 
                 {perfil && (
-                  <p className="mt-4 text-sm font-bold text-blue-100">
-                    {perfil.codigo_inscricao || "Sem inscrição"} · {perfil.nome}
-                  </p>
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-black text-blue-100">
+                      {perfil.codigo_inscricao || "Sem código"}
+                    </span>
+
+                    <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-black text-blue-100">
+                      {perfil.nome}
+                    </span>
+                  </div>
                 )}
               </div>
 
-              <div className="rounded-[26px] border border-white/15 bg-white/10 p-5 backdrop-blur-md">
+              <div className="w-full max-w-sm rounded-[26px] border border-white/15 bg-white/10 p-5 backdrop-blur-md">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-100">
                   Próximo vencimento
                 </p>
 
-                <p className="mt-2 text-2xl font-black">
+                <p className="mt-2 text-3xl font-black">
                   {resumo.proximoVencimento
                     ? formatarData(resumo.proximoVencimento.data_vencimento)
                     : "—"}
@@ -208,17 +276,59 @@ export default function FinanceiroMentoradoPage() {
 
                 <p className="mt-1 text-sm font-semibold text-blue-100">
                   {resumo.proximoVencimento
-                    ? formatarMoeda(Number(resumo.proximoVencimento.valor_parcela))
+                    ? `${resumo.proximoVencimento.titulo} · ${formatarMoeda(
+                        Number(resumo.proximoVencimento.valor_parcela)
+                      )}`
                     : "Nenhuma parcela em aberto"}
                 </p>
+
+                <div className="mt-5">
+                  <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.16em] text-blue-100">
+                    <span>Progresso pago</span>
+                    <span>{progressoPagamento}%</span>
+                  </div>
+
+                  <div className="mt-2 h-3 overflow-hidden rounded-full bg-white/15">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-white via-slate-200 to-slate-400 transition-all"
+                      style={{ width: `${progressoPagamento}%` }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
+
+            <div className="mt-8 grid gap-3 md:grid-cols-3">
+              <MiniInfo
+                titulo="Parcelas"
+                valor={`${resumo.quantidadePagas}/${resumo.quantidadeTotal}`}
+                texto="pagas no histórico"
+              />
+
+              <MiniInfo
+                titulo="Em aberto"
+                valor={String(resumo.quantidadeAbertas)}
+                texto={formatarMoeda(resumo.emAberto)}
+              />
+
+              <MiniInfo
+                titulo="Vencendo hoje"
+                valor={String(resumo.vencendoHoje)}
+                texto="acompanhe o prazo"
+              />
+            </div>
           </section>
+
+          {erro && (
+            <div className="mb-6 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+              {erro}
+            </div>
+          )}
 
           <section className="mb-6 grid gap-4 md:grid-cols-4">
             <ResumoCard
               titulo="Total contratado"
-              valor={formatarMoeda(resumo.total)}
+              valor={formatarMoeda(resumo.totalContratado)}
               destaque
             />
 
@@ -237,7 +347,7 @@ export default function FinanceiroMentoradoPage() {
           </section>
 
           <section className="mb-6 rounded-[28px] border border-white/50 bg-white/85 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="grid gap-4 xl:grid-cols-[1fr_0.6fr]">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
                   Parcelas
@@ -246,87 +356,132 @@ export default function FinanceiroMentoradoPage() {
                 <h2 className="mt-1 text-2xl font-black text-[#08163F]">
                   Meus lançamentos
                 </h2>
+
+                <p className="mt-2 text-sm font-semibold text-slate-500">
+                  Consulte vencimentos, valores e comprovantes registrados pela
+                  equipe.
+                </p>
               </div>
 
-              <select
-                value={filtroStatus}
-                onChange={(e) => setFiltroStatus(e.target.value)}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#08163F] outline-none focus:border-[#12317C]"
-              >
-                <option>Todos</option>
-                <option>Pago</option>
-                <option>Pendente</option>
-                <option>Atrasado</option>
-                <option>Cancelado</option>
-              </select>
+              <div className="grid gap-3 md:grid-cols-[1fr_0.6fr]">
+                <input
+                  type="text"
+                  placeholder="Buscar por cobrança, status ou forma de pagamento"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-[#08163F] outline-none placeholder:text-slate-400 focus:border-[#12317C]"
+                />
+
+                <select
+                  value={filtroStatus}
+                  onChange={(e) => setFiltroStatus(e.target.value as FiltroStatus)}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#08163F] outline-none focus:border-[#12317C]"
+                >
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {status === "Todos" ? "Todos os status" : status}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </section>
 
-          {erro && (
-            <div className="mb-6 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
-              {erro}
-            </div>
-          )}
-
-          <section className="overflow-hidden rounded-[30px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm">
-            <div className="grid grid-cols-[1fr_0.6fr_0.7fr_0.7fr_0.7fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white">
-              <span>Cobrança</span>
-              <span>Parcela</span>
-              <span>Valor</span>
-              <span>Vencimento</span>
-              <span>Status</span>
-            </div>
-
-            {cobrancasFiltradas.length === 0 ? (
-              <div className="p-10 text-center text-sm font-semibold text-slate-500">
-                Nenhum lançamento encontrado.
+          <section className="mb-6 grid gap-5 xl:grid-cols-[1fr_0.45fr]">
+            <section className="overflow-hidden rounded-[30px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+              <div className="hidden grid-cols-[1fr_0.6fr_0.7fr_0.7fr_0.7fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white md:grid">
+                <span>Cobrança</span>
+                <span>Parcela</span>
+                <span>Valor</span>
+                <span>Vencimento</span>
+                <span>Status</span>
               </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {cobrancasFiltradas.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setCobrancaSelecionada(item)}
-                    className="grid w-full grid-cols-[1fr_0.6fr_0.7fr_0.7fr_0.7fr] items-center p-4 text-left text-sm transition hover:bg-slate-50"
-                  >
-                    <span>
-                      <strong className="block text-[#08163F]">
-                        {item.titulo}
-                      </strong>
 
-                      <small className="text-xs text-slate-400">
-                        {item.descricao || "Sem descrição"}
-                      </small>
-                    </span>
+              {cobrancasFiltradas.length === 0 ? (
+                <div className="p-10 text-center text-sm font-semibold text-slate-500">
+                  Nenhum lançamento encontrado.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {cobrancasFiltradas.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setCobrancaSelecionada(item)}
+                      className="grid w-full gap-3 p-4 text-left text-sm transition hover:bg-slate-50 md:grid-cols-[1fr_0.6fr_0.7fr_0.7fr_0.7fr] md:items-center"
+                    >
+                      <span>
+                        <strong className="block text-[#08163F]">
+                          {item.titulo}
+                        </strong>
 
-                    <span className="font-bold text-slate-600">
-                      {item.parcela_atual}/{item.quantidade_parcelas}
-                    </span>
+                        <small className="text-xs text-slate-400">
+                          {item.descricao || "Sem descrição"}
+                        </small>
+                      </span>
 
-                    <span className="font-black text-[#08163F]">
-                      {formatarMoeda(Number(item.valor_parcela))}
-                    </span>
+                      <span className="font-bold text-slate-600">
+                        Parcela {item.parcela_atual}/{item.quantidade_parcelas}
+                      </span>
 
-                    <span className="font-bold text-slate-600">
-                      {formatarData(item.data_vencimento)}
-                    </span>
+                      <span className="font-black text-[#08163F]">
+                        {formatarMoeda(Number(item.valor_parcela))}
+                      </span>
 
-                    <span>
-                      <StatusBadge status={item.status} />
-                    </span>
-                  </button>
-                ))}
+                      <span className="font-bold text-slate-600">
+                        {formatarData(item.data_vencimento)}
+                      </span>
+
+                      <span>
+                        <StatusBadge status={item.status} />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <aside className="rounded-[30px] border border-white/50 bg-white/85 p-6 shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
+                Pagamento
+              </p>
+
+              <h3 className="mt-2 text-2xl font-black text-[#08163F]">
+                Orientações
+              </h3>
+
+              <div className="mt-5 space-y-4 text-sm font-semibold leading-6 text-slate-600">
+                <p>
+                  Os pagamentos e baixas são acompanhados pela equipe da
+                  mentoria. Caso já tenha pago uma parcela, envie o comprovante
+                  pelo canal oficial de suporte.
+                </p>
+
+                <div className="rounded-2xl bg-[#f9fafb] p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                    Dica
+                  </p>
+                  <p className="mt-2">
+                    Use os filtros para conferir rapidamente o que está pago,
+                    pendente ou em atraso.
+                  </p>
+                </div>
               </div>
-            )}
+            </aside>
           </section>
         </div>
       </section>
 
       {cobrancaSelecionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-3xl overflow-hidden rounded-[34px] bg-white shadow-2xl">
-            <div className="bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
+          onClick={() => setCobrancaSelecionada(null)}
+        >
+          <div
+            className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-[34px] bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
@@ -344,8 +499,10 @@ export default function FinanceiroMentoradoPage() {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => setCobrancaSelecionada(null)}
-                  className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-2xl font-black text-white transition hover:bg-white/20"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-2xl font-black text-white transition hover:bg-white/20"
+                  aria-label="Fechar detalhes da parcela"
                 >
                   ×
                 </button>
@@ -356,59 +513,72 @@ export default function FinanceiroMentoradoPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 p-7 md:grid-cols-2">
-              <InfoBox
-                label="Valor da parcela"
-                value={formatarMoeda(Number(cobrancaSelecionada.valor_parcela))}
-              />
+            <div className="overflow-y-auto p-7">
+              <div className="grid gap-4 md:grid-cols-2">
+                <InfoBox
+                  label="Valor da parcela"
+                  value={formatarMoeda(Number(cobrancaSelecionada.valor_parcela))}
+                />
 
-              <InfoBox
-                label="Valor total"
-                value={formatarMoeda(Number(cobrancaSelecionada.valor_total))}
-              />
+                <InfoBox
+                  label="Valor total"
+                  value={formatarMoeda(Number(cobrancaSelecionada.valor_total))}
+                />
 
-              <InfoBox
-                label="Vencimento"
-                value={formatarData(cobrancaSelecionada.data_vencimento)}
-              />
+                <InfoBox
+                  label="Vencimento"
+                  value={formatarData(cobrancaSelecionada.data_vencimento)}
+                />
 
-              <InfoBox
-                label="Pagamento"
-                value={
-                  cobrancaSelecionada.data_pagamento
-                    ? formatarData(cobrancaSelecionada.data_pagamento)
-                    : "—"
-                }
-              />
+                <InfoBox
+                  label="Pagamento"
+                  value={
+                    cobrancaSelecionada.data_pagamento
+                      ? formatarData(cobrancaSelecionada.data_pagamento)
+                      : "—"
+                  }
+                />
 
-              <InfoBox
-                label="Forma de pagamento"
-                value={cobrancaSelecionada.forma_pagamento || "—"}
-              />
+                <InfoBox
+                  label="Forma de pagamento"
+                  value={cobrancaSelecionada.forma_pagamento || "—"}
+                />
 
-              <InfoBox
-                label="Status"
-                value={<StatusBadge status={cobrancaSelecionada.status} />}
-              />
+                <InfoBox
+                  label="Status"
+                  value={<StatusBadge status={cobrancaSelecionada.status} />}
+                />
 
-              <div className="rounded-2xl bg-[#f9fafb] p-5 md:col-span-2">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                  Informações
-                </p>
+                <div className="rounded-2xl bg-[#f9fafb] p-5 md:col-span-2">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                    Informações
+                  </p>
 
-                <p className="mt-2 text-sm font-semibold leading-7 text-slate-600">
-                  {cobrancaSelecionada.descricao ||
-                    cobrancaSelecionada.observacao ||
-                    "Nenhuma informação adicionada."}
-                </p>
+                  <p className="mt-2 text-sm font-semibold leading-7 text-slate-600">
+                    {cobrancaSelecionada.descricao ||
+                      cobrancaSelecionada.observacao ||
+                      "Nenhuma informação adicional adicionada."}
+                  </p>
+                </div>
               </div>
+            </div>
 
-              <div className="md:col-span-2">
+            <div className="sticky bottom-0 z-10 border-t border-slate-100 bg-white p-5">
+              <div className="flex flex-wrap gap-3">
                 <button
+                  type="button"
                   onClick={() => setCobrancaSelecionada(null)}
                   className="rounded-2xl bg-[#08163F] px-5 py-4 text-sm font-black text-white shadow-lg transition hover:brightness-110"
                 >
                   Entendi
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCobrancaSelecionada(null)}
+                  className="ml-auto rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-[#08163F] transition hover:bg-slate-50"
+                >
+                  Fechar
                 </button>
               </div>
             </div>
@@ -453,6 +623,26 @@ function ResumoCard({
   );
 }
 
+function MiniInfo({
+  titulo,
+  valor,
+  texto,
+}: {
+  titulo: string;
+  valor: string;
+  texto: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">
+        {titulo}
+      </p>
+      <p className="mt-2 text-2xl font-black text-white">{valor}</p>
+      <p className="mt-1 text-xs font-bold text-blue-100">{texto}</p>
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
   const estilos: Record<string, string> = {
     Pago: "bg-emerald-100 text-emerald-700",
@@ -472,14 +662,16 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function InfoBox({ label, value }: { label: string; value: React.ReactNode }) {
+function InfoBox({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-2xl bg-[#f9fafb] p-5">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
         {label}
       </p>
 
-      <p className="mt-2 text-lg font-black text-[#08163F]">{value}</p>
+      <p className="mt-2 break-words text-lg font-black text-[#08163F]">
+        {value}
+      </p>
     </div>
   );
 }
@@ -495,5 +687,28 @@ function formatarData(data: string) {
   if (!data) return "—";
 
   const [ano, mes, dia] = data.split("-");
+
+  if (!ano || !mes || !dia) return "—";
+
   return `${dia}/${mes}/${ano}`;
+}
+
+function formatarDataISO(data: Date) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+
+  return `${ano}-${mes}-${dia}`;
+}
+
+function criarDataLocal(dataISO: string) {
+  return new Date(`${dataISO}T12:00:00`);
+}
+
+function normalizarTexto(texto: string) {
+  return texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
 }
