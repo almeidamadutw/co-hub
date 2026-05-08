@@ -84,6 +84,7 @@ export default function AgendaPage() {
   const [filtroStatus, setFiltroStatus] = useState<StatusAgenda | "Todos">(
     "Todos"
   );
+  const [filtroTipo, setFiltroTipo] = useState<TipoAgenda | "Todos">("Todos");
   const [filtroMentorado, setFiltroMentorado] = useState("Todos");
 
   const [diaSelecionado, setDiaSelecionado] = useState(() =>
@@ -116,8 +117,10 @@ export default function AgendaPage() {
   }, [router]);
 
   useEffect(() => {
+    if (!usuario) return;
+
     carregarDados();
-  }, []);
+  }, [usuario]);
 
   async function carregarDados() {
     setCarregando(true);
@@ -188,12 +191,14 @@ export default function AgendaPage() {
       const bateStatus =
         filtroStatus === "Todos" || evento.status === filtroStatus;
 
+      const bateTipo = filtroTipo === "Todos" || evento.tipo === filtroTipo;
+
       const bateMentorado =
         filtroMentorado === "Todos" || evento.mentorado_id === filtroMentorado;
 
-      return bateBusca && bateStatus && bateMentorado;
+      return bateBusca && bateStatus && bateTipo && bateMentorado;
     });
-  }, [eventosComMentorado, busca, filtroStatus, filtroMentorado]);
+  }, [eventosComMentorado, busca, filtroStatus, filtroTipo, filtroMentorado]);
 
   const eventosDoDia = useMemo(() => {
     return eventosFiltrados
@@ -218,6 +223,10 @@ export default function AgendaPage() {
       return dataEvento.getTime() >= new Date().getTime();
     });
 
+    const concluidos = eventos.filter((evento) => evento.status === "Concluída").length;
+    const taxaConclusao =
+      eventos.length === 0 ? 0 : Math.round((concluidos / eventos.length) * 100);
+
     return {
       total: eventos.length,
       hoje: eventos.filter((evento) => evento.data === hoje).length,
@@ -226,10 +235,10 @@ export default function AgendaPage() {
         .length,
       aguardando: eventos.filter((evento) => evento.status === "Aguardando")
         .length,
-      concluidos: eventos.filter((evento) => evento.status === "Concluída")
-        .length,
+      concluidos,
       cancelados: eventos.filter((evento) => evento.status === "Cancelada")
         .length,
+      taxaConclusao,
     };
   }, [eventos]);
 
@@ -590,7 +599,7 @@ export default function AgendaPage() {
             <CalendarSyncButtons eventos={eventosParaCalendario} />
           </div>
 
-          <section className="mb-6 grid gap-4 md:grid-cols-4">
+          <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <ResumoCard
               titulo="Total"
               valor={String(resumo.total)}
@@ -616,10 +625,16 @@ export default function AgendaPage() {
               valor={String(resumo.concluidos)}
               texto="Compromissos já finalizados."
             />
+
+            <ResumoCard
+              titulo="Conclusão"
+              valor={`${resumo.taxaConclusao}%`}
+              texto="Taxa de compromissos concluídos."
+            />
           </section>
 
           <section className="no-print mb-6 rounded-[28px] border border-white/50 bg-white/85 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-            <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr_0.7fr_0.8fr]">
+            <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr_0.6fr_0.6fr_0.8fr]">
               <CampoFiltro label="Busca">
                 <input
                   type="text"
@@ -642,6 +657,21 @@ export default function AgendaPage() {
                       {mentorado.codigo_inscricao ?? "—"} · {mentorado.nome}
                     </option>
                   ))}
+                </select>
+              </CampoFiltro>
+
+              <CampoFiltro label="Tipo">
+                <select
+                  value={filtroTipo}
+                  onChange={(e) =>
+                    setFiltroTipo(e.target.value as TipoAgenda | "Todos")
+                  }
+                  className="input-agenda"
+                >
+                  <option>Todos</option>
+                  <option>Mentoria</option>
+                  <option>Módulo</option>
+                  <option>Reunião</option>
                 </select>
               </CampoFiltro>
 
@@ -692,6 +722,7 @@ export default function AgendaPage() {
                   onClick={() => {
                     setBusca("");
                     setFiltroStatus("Todos");
+                    setFiltroTipo("Todos");
                     setFiltroMentorado("Todos");
                   }}
                   className="rounded-2xl bg-[#f3f5f8] px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
@@ -1213,9 +1244,15 @@ export default function AgendaPage() {
       </section>
 
       {eventoSelecionado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-3xl overflow-hidden rounded-[34px] bg-white shadow-2xl">
-            <div className="bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
+          onClick={() => setEventoSelecionado(null)}
+        >
+          <div
+            className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-[34px] bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
@@ -1249,7 +1286,8 @@ export default function AgendaPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 p-7 md:grid-cols-2">
+            <div className="overflow-y-auto p-7">
+              <div className="grid gap-4 md:grid-cols-2">
               <InfoBox label="Mentorado" value={eventoSelecionado.mentoradoNome} />
               <InfoBox
                 label="Inscrição"
@@ -1277,7 +1315,11 @@ export default function AgendaPage() {
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-3 md:col-span-2">
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 z-10 border-t border-slate-100 bg-white p-5">
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => editarEvento(eventoSelecionado)}
                   className="rounded-2xl bg-[#08163F] px-5 py-4 text-sm font-black text-white shadow-lg transition hover:brightness-110"
@@ -1308,6 +1350,13 @@ export default function AgendaPage() {
                   className="rounded-2xl bg-red-50 px-5 py-4 text-sm font-black text-red-600 transition hover:bg-red-100"
                 >
                   Excluir
+                </button>
+
+                <button
+                  onClick={() => setEventoSelecionado(null)}
+                  className="ml-auto rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-[#08163F] transition hover:bg-slate-50"
+                >
+                  Fechar
                 </button>
               </div>
             </div>
