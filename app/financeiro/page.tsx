@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/utils/supabase";
-import {
-  getUsuarioLogado,
-  usuarioTemPermissao,
-  User,
-} from "@/utils/auth";
+import { getUsuarioLogado, usuarioTemPermissao, User } from "@/utils/auth";
 
 type StatusCobranca = "Pago" | "Pendente" | "Atrasado" | "Cancelado";
 
@@ -81,6 +77,21 @@ const formularioInicial: FormularioCobranca = {
   observacao: "",
 };
 
+const statusOptions: StatusCobranca[] = [
+  "Pago",
+  "Pendente",
+  "Atrasado",
+  "Cancelado",
+];
+
+const formasPagamento = [
+  "Pix",
+  "Cartão",
+  "Boleto",
+  "Dinheiro",
+  "Transferência",
+];
+
 export default function FinanceiroPage() {
   const router = useRouter();
 
@@ -91,9 +102,13 @@ export default function FinanceiroPage() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+  const [sucesso, setSucesso] = useState("");
 
   const [busca, setBusca] = useState("");
-  const [filtroStatus, setFiltroStatus] = useState("Todos");
+  const [filtroStatus, setFiltroStatus] = useState<"Todos" | StatusCobranca>(
+    "Todos"
+  );
+
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [formulario, setFormulario] =
@@ -103,6 +118,8 @@ export default function FinanceiroPage() {
 
   const [cobrancaSelecionada, setCobrancaSelecionada] =
     useState<CobrancaComMentorado | null>(null);
+
+  const [parcelasSelecionadas, setParcelasSelecionadas] = useState<string[]>([]);
 
   useEffect(() => {
     const usuarioLogado = getUsuarioLogado();
@@ -121,12 +138,15 @@ export default function FinanceiroPage() {
   }, [router]);
 
   useEffect(() => {
+    if (!usuario) return;
+
     carregarDados();
-  }, []);
+  }, [usuario]);
 
   async function carregarDados() {
     setCarregando(true);
     setErro("");
+    setSucesso("");
 
     const { data: mentoradosData, error: mentoradosError } = await supabase
       .from("profiles")
@@ -158,6 +178,10 @@ export default function FinanceiroPage() {
     setCarregando(false);
   }
 
+  const mentoradoSelecionado = useMemo(() => {
+    return mentorados.find((item) => item.id === formulario.mentorado_id) ?? null;
+  }, [mentorados, formulario.mentorado_id]);
+
   const cobrancasComMentorado = useMemo<CobrancaComMentorado[]>(() => {
     return cobrancas.map((cobranca) => {
       const mentorado = mentorados.find(
@@ -174,23 +198,49 @@ export default function FinanceiroPage() {
   }, [cobrancas, mentorados]);
 
   const cobrancasFiltradas = useMemo(() => {
-    const termo = busca.toLowerCase().trim();
+    const termo = normalizarTexto(busca);
 
     return cobrancasComMentorado.filter((cobranca) => {
-      const bateBusca =
-        !termo ||
-        cobranca.mentoradoNome.toLowerCase().includes(termo) ||
-        cobranca.mentoradoEmail.toLowerCase().includes(termo) ||
-        cobranca.mentoradoCodigo.toLowerCase().includes(termo) ||
-        cobranca.titulo.toLowerCase().includes(termo) ||
-        cobranca.status.toLowerCase().includes(termo);
+      const textoBusca = normalizarTexto(
+        [
+          cobranca.mentoradoNome,
+          cobranca.mentoradoEmail,
+          cobranca.mentoradoCodigo,
+          cobranca.titulo,
+          cobranca.status,
+          cobranca.forma_pagamento,
+        ].join(" ")
+      );
 
+      const bateBusca = !termo || textoBusca.includes(termo);
       const bateStatus =
         filtroStatus === "Todos" || cobranca.status === filtroStatus;
 
       return bateBusca && bateStatus;
     });
   }, [cobrancasComMentorado, busca, filtroStatus]);
+
+  const todasFiltradasSelecionadas = useMemo(() => {
+    if (cobrancasFiltradas.length === 0) return false;
+
+    return cobrancasFiltradas.every((item) =>
+      parcelasSelecionadas.includes(item.id)
+    );
+  }, [cobrancasFiltradas, parcelasSelecionadas]);
+
+  const resumoSelecionado = useMemo(() => {
+    const selecionadas = cobrancasComMentorado.filter((item) =>
+      parcelasSelecionadas.includes(item.id)
+    );
+
+    return {
+      quantidade: selecionadas.length,
+      valor: selecionadas.reduce(
+        (acc, item) => acc + Number(item.valor_parcela || 0),
+        0
+      ),
+    };
+  }, [cobrancasComMentorado, parcelasSelecionadas]);
 
   const resumo = useMemo(() => {
     const totalPrevisto = cobrancas.reduce(
@@ -210,19 +260,27 @@ export default function FinanceiroPage() {
       .filter((item) => item.status === "Atrasado")
       .reduce((acc, item) => acc + Number(item.valor_parcela || 0), 0);
 
+    const vencendoHoje = cobrancas.filter((item) => {
+      const hoje = formatarDataISO(new Date());
+      return item.data_vencimento === hoje && item.status === "Pendente";
+    }).length;
+
     return {
       totalPrevisto,
       recebido,
       aberto,
       atrasado,
+      vencendoHoje,
       quantidadeAtrasada: cobrancas.filter((item) => item.status === "Atrasado")
         .length,
+      quantidadeTotal: cobrancas.length,
     };
   }, [cobrancas]);
 
   const previewParcelas = useMemo<ParcelaPreview[]>(() => {
     const valorTotal = moedaInputParaNumero(formulario.valor_total);
     const quantidadeParcelas = Number(formulario.quantidade_parcelas);
+    const valorParcelaManual = moedaInputParaNumero(formulario.valor_parcela);
 
     if (
       !formulario.data_vencimento ||
@@ -232,7 +290,11 @@ export default function FinanceiroPage() {
       return [];
     }
 
-    const valorParcela = Number((valorTotal / quantidadeParcelas).toFixed(2));
+    const valorParcela =
+      valorParcelaManual > 0
+        ? valorParcelaManual
+        : Number((valorTotal / quantidadeParcelas).toFixed(2));
+
     const vencimentoBase = new Date(`${formulario.data_vencimento}T12:00:00`);
 
     return Array.from({ length: quantidadeParcelas }, (_, index) => {
@@ -249,6 +311,7 @@ export default function FinanceiroPage() {
     });
   }, [
     formulario.valor_total,
+    formulario.valor_parcela,
     formulario.quantidade_parcelas,
     formulario.data_vencimento,
     formulario.status,
@@ -259,6 +322,7 @@ export default function FinanceiroPage() {
     setEditandoId(null);
     setMostrarPreviewParcelas(false);
     setErro("");
+    setSucesso("");
   }
 
   function abrirNovoLancamento() {
@@ -291,10 +355,13 @@ export default function FinanceiroPage() {
     setCobrancaSelecionada(null);
     setMostrarPreviewParcelas(false);
     setMostrarFormulario(true);
+    setErro("");
+    setSucesso("");
   }
 
   function gerarPreviewParcelas() {
     setErro("");
+    setSucesso("");
 
     const valorTotal = moedaInputParaNumero(formulario.valor_total);
     const quantidadeParcelas = Number(formulario.quantidade_parcelas);
@@ -307,7 +374,7 @@ export default function FinanceiroPage() {
       quantidadeParcelas <= 0
     ) {
       setErro(
-        "Preencha mentorado, título, valor total, quantidade de parcelas e vencimento para gerar a prévia."
+        "Preencha mentorado, título, valor total, quantidade de parcelas e vencimento para visualizar as parcelas."
       );
       return;
     }
@@ -331,22 +398,28 @@ export default function FinanceiroPage() {
 
     if (
       campo === "valor_total" ||
+      campo === "valor_parcela" ||
       campo === "quantidade_parcelas" ||
       campo === "data_vencimento" ||
       campo === "status"
     ) {
       setMostrarPreviewParcelas(false);
     }
+
+    setErro("");
+    setSucesso("");
   }
 
-  async function salvarCobranca(e: React.FormEvent) {
+  async function salvarCobranca(e: FormEvent) {
     e.preventDefault();
+
     setErro("");
+    setSucesso("");
 
     const valorTotal = moedaInputParaNumero(formulario.valor_total);
     const quantidadeParcelas = Number(formulario.quantidade_parcelas);
     const parcelaAtual = Number(formulario.parcela_atual);
-    const valorParcela = moedaInputParaNumero(formulario.valor_parcela);
+    const valorParcelaManual = moedaInputParaNumero(formulario.valor_parcela);
 
     if (
       !formulario.mentorado_id ||
@@ -356,7 +429,14 @@ export default function FinanceiroPage() {
       quantidadeParcelas <= 0 ||
       parcelaAtual <= 0
     ) {
-      setErro("Preencha os campos obrigatórios corretamente.");
+      setErro(
+        "Preencha mentorado, título, valor total, quantidade de parcelas e vencimento."
+      );
+      return;
+    }
+
+    if (parcelaAtual > quantidadeParcelas) {
+      setErro("A parcela atual não pode ser maior que o total de parcelas.");
       return;
     }
 
@@ -364,7 +444,7 @@ export default function FinanceiroPage() {
       setSalvando(true);
 
       if (editandoId) {
-        if (valorParcela <= 0) {
+        if (valorParcelaManual <= 0) {
           setErro("Informe o valor da parcela.");
           setSalvando(false);
           return;
@@ -373,16 +453,19 @@ export default function FinanceiroPage() {
         const payload = {
           mentorado_id: formulario.mentorado_id,
           titulo: formulario.titulo.trim(),
-          descricao: formulario.descricao.trim(),
+          descricao: textoOuVazio(formulario.descricao),
           valor_total: valorTotal,
           quantidade_parcelas: quantidadeParcelas,
           parcela_atual: parcelaAtual,
-          valor_parcela: valorParcela,
+          valor_parcela: valorParcelaManual,
           data_vencimento: formulario.data_vencimento,
-          data_pagamento: formulario.data_pagamento || null,
-          forma_pagamento: formulario.forma_pagamento,
+          data_pagamento:
+            formulario.status === "Pago"
+              ? formulario.data_pagamento || formatarDataISO(new Date())
+              : formulario.data_pagamento || null,
+          forma_pagamento: formulario.forma_pagamento || null,
           status: formulario.status,
-          observacao: formulario.observacao.trim(),
+          observacao: textoOuNull(formulario.observacao),
           updated_at: new Date().toISOString(),
         };
 
@@ -391,16 +474,20 @@ export default function FinanceiroPage() {
           .update(payload)
           .eq("id", editandoId);
 
-        if (error) throw new Error(error.message);
+        if (error) {
+          throw new Error(formatarErroSupabase(error));
+        }
+
+        setSucesso("Lançamento atualizado com sucesso.");
       } else {
-        const valorParcelaManual = moedaInputParaNumero(formulario.valor_parcela);
+        const valorParcela =
+          valorParcelaManual > 0
+            ? valorParcelaManual
+            : Number((valorTotal / quantidadeParcelas).toFixed(2));
 
-const valorParcelaCalculado =
-  valorParcelaManual > 0
-    ? valorParcelaManual
-    : Number((valorTotal / quantidadeParcelas).toFixed(2));
-
-        const vencimentoBase = new Date(`${formulario.data_vencimento}T12:00:00`);
+        const vencimentoBase = new Date(
+          `${formulario.data_vencimento}T12:00:00`
+        );
 
         const parcelas = Array.from(
           { length: quantidadeParcelas },
@@ -408,22 +495,23 @@ const valorParcelaCalculado =
             const dataVencimento = new Date(vencimentoBase);
             dataVencimento.setMonth(vencimentoBase.getMonth() + index);
 
+            const statusParcela: StatusCobranca =
+              index === 0 ? formulario.status : "Pendente";
+
             return {
               mentorado_id: formulario.mentorado_id,
               titulo: formulario.titulo.trim(),
-              descricao: formulario.descricao.trim(),
+              descricao: textoOuVazio(formulario.descricao),
               valor_total: valorTotal,
               quantidade_parcelas: quantidadeParcelas,
               parcela_atual: index + 1,
-              valor_parcela: valorParcelaCalculado,
+              valor_parcela: valorParcela,
               data_vencimento: formatarDataISO(dataVencimento),
               data_pagamento:
-                formulario.status === "Pago" && index === 0
-                  ? new Date().toISOString().slice(0, 10)
-                  : null,
-              forma_pagamento: formulario.forma_pagamento,
-              status: index === 0 ? formulario.status : "Pendente",
-              observacao: formulario.observacao.trim(),
+                statusParcela === "Pago" ? formatarDataISO(new Date()) : null,
+              forma_pagamento: formulario.forma_pagamento || null,
+              status: statusParcela,
+              observacao: textoOuNull(formulario.observacao),
               updated_at: new Date().toISOString(),
             };
           }
@@ -433,7 +521,15 @@ const valorParcelaCalculado =
           .from("financeiro_cobrancas")
           .insert(parcelas);
 
-        if (error) throw new Error(error.message);
+        if (error) {
+          throw new Error(formatarErroSupabase(error));
+        }
+
+        setSucesso(
+          quantidadeParcelas > 1
+            ? "Parcelas criadas com sucesso."
+            : "Lançamento criado com sucesso."
+        );
       }
 
       await carregarDados();
@@ -452,26 +548,93 @@ const valorParcelaCalculado =
   async function atualizarStatus(id: string, status: StatusCobranca) {
     try {
       setErro("");
+      setSucesso("");
+
+      const payload = {
+        status,
+        data_pagamento: status === "Pago" ? formatarDataISO(new Date()) : null,
+        updated_at: new Date().toISOString(),
+      };
 
       const { error } = await supabase
         .from("financeiro_cobrancas")
-        .update({
-          status,
-          data_pagamento:
-            status === "Pago" ? new Date().toISOString().slice(0, 10) : null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(payload)
         .eq("id", id);
 
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(formatarErroSupabase(error));
 
       await carregarDados();
       setCobrancaSelecionada(null);
+      setSucesso(`Lançamento marcado como ${status.toLowerCase()}.`);
     } catch (error) {
       setErro(
         error instanceof Error
           ? error.message
           : "Não foi possível atualizar o status."
+      );
+    }
+  }
+
+  function alternarSelecaoParcela(id: string) {
+    setParcelasSelecionadas((selecionadasAtuais) =>
+      selecionadasAtuais.includes(id)
+        ? selecionadasAtuais.filter((item) => item !== id)
+        : [...selecionadasAtuais, id]
+    );
+  }
+
+  function alternarSelecaoTodasFiltradas() {
+    if (todasFiltradasSelecionadas) {
+      setParcelasSelecionadas((selecionadasAtuais) =>
+        selecionadasAtuais.filter(
+          (id) => !cobrancasFiltradas.some((item) => item.id === id)
+        )
+      );
+      return;
+    }
+
+    setParcelasSelecionadas((selecionadasAtuais) => {
+      const idsFiltrados = cobrancasFiltradas.map((item) => item.id);
+      return Array.from(new Set([...selecionadasAtuais, ...idsFiltrados]));
+    });
+  }
+
+  function limparSelecaoParcelas() {
+    setParcelasSelecionadas([]);
+  }
+
+  async function excluirParcelasSelecionadas() {
+    if (parcelasSelecionadas.length === 0) {
+      setErro("Selecione pelo menos uma parcela para excluir.");
+      return;
+    }
+
+    const confirmar = window.confirm(
+      `Deseja excluir ${parcelasSelecionadas.length} parcela(s) selecionada(s)?`
+    );
+
+    if (!confirmar) return;
+
+    try {
+      setErro("");
+      setSucesso("");
+
+      const { error } = await supabase
+        .from("financeiro_cobrancas")
+        .delete()
+        .in("id", parcelasSelecionadas);
+
+      if (error) throw new Error(formatarErroSupabase(error));
+
+      setParcelasSelecionadas([]);
+      setCobrancaSelecionada(null);
+      await carregarDados();
+      setSucesso("Parcelas selecionadas excluídas com sucesso.");
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível excluir as parcelas selecionadas."
       );
     }
   }
@@ -483,16 +646,21 @@ const valorParcelaCalculado =
 
     try {
       setErro("");
+      setSucesso("");
 
       const { error } = await supabase
         .from("financeiro_cobrancas")
         .delete()
         .eq("id", id);
 
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(formatarErroSupabase(error));
 
+      setParcelasSelecionadas((selecionadasAtuais) =>
+        selecionadasAtuais.filter((item) => item !== id)
+      );
       await carregarDados();
       setCobrancaSelecionada(null);
+      setSucesso("Lançamento excluído com sucesso.");
     } catch (error) {
       setErro(
         error instanceof Error
@@ -505,7 +673,14 @@ const valorParcelaCalculado =
   if (!usuario || carregando) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        Carregando financeiro...
+        <div className="rounded-[28px] bg-white px-8 py-6 text-center shadow-xl shadow-slate-200">
+          <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">
+            CEO Club
+          </p>
+          <p className="mt-2 text-xl font-black text-[#08163F]">
+            Carregando financeiro...
+          </p>
+        </div>
       </main>
     );
   }
@@ -515,6 +690,9 @@ const valorParcelaCalculado =
       <Sidebar nome={usuario.nome} role={usuario.role} />
 
       <section className="relative flex-1 overflow-hidden p-6 md:p-8">
+        <div className="pointer-events-none absolute right-[-120px] top-[-120px] h-[360px] w-[360px] rounded-full bg-[#12317C]/10 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-[-140px] left-[18%] h-[320px] w-[320px] rounded-full bg-[#07122F]/10 blur-3xl" />
+
         <div className="relative z-10">
           <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-[0_24px_60px_rgba(8,22,63,0.18)]">
             <div className="flex flex-wrap items-start justify-between gap-6">
@@ -528,8 +706,8 @@ const valorParcelaCalculado =
                 </h1>
 
                 <p className="mt-3 max-w-2xl text-[#D9DEE7]">
-                  Organize cobranças, parcelas, vencimentos e pagamentos dos
-                  mentorados.
+                  Cadastre cobranças, acompanhe parcelas e organize os
+                  vencimentos de cada mentorado em um só painel.
                 </p>
               </div>
 
@@ -544,6 +722,21 @@ const valorParcelaCalculado =
                 Novo lançamento
               </button>
             </div>
+
+            <div className="mt-8 grid gap-3 md:grid-cols-3">
+              <MiniInfo
+                titulo="Lançamentos"
+                valor={String(resumo.quantidadeTotal)}
+              />
+              <MiniInfo
+                titulo="Vencendo hoje"
+                valor={String(resumo.vencendoHoje)}
+              />
+              <MiniInfo
+                titulo="Com atraso"
+                valor={String(resumo.quantidadeAtrasada)}
+              />
+            </div>
           </section>
 
           <section className="mb-6 grid gap-4 md:grid-cols-4">
@@ -553,7 +746,10 @@ const valorParcelaCalculado =
               destaque
             />
 
-            <ResumoCard titulo="Recebido" valor={formatarMoeda(resumo.recebido)} />
+            <ResumoCard
+              titulo="Recebido"
+              valor={formatarMoeda(resumo.recebido)}
+            />
 
             <ResumoCard titulo="Em aberto" valor={formatarMoeda(resumo.aberto)} />
 
@@ -568,7 +764,7 @@ const valorParcelaCalculado =
             <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
               <input
                 type="text"
-                placeholder="Buscar por mentorado, e-mail, inscrição, título ou status"
+                placeholder="Buscar por mentorado, e-mail, inscrição, cobrança ou status"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F] outline-none placeholder:text-slate-400 focus:border-[#12317C]"
@@ -576,14 +772,17 @@ const valorParcelaCalculado =
 
               <select
                 value={filtroStatus}
-                onChange={(e) => setFiltroStatus(e.target.value)}
+                onChange={(e) =>
+                  setFiltroStatus(e.target.value as "Todos" | StatusCobranca)
+                }
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F] outline-none focus:border-[#12317C]"
               >
-                <option>Todos</option>
-                <option>Pago</option>
-                <option>Pendente</option>
-                <option>Atrasado</option>
-                <option>Cancelado</option>
+                <option value="Todos">Todos os status</option>
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
               </select>
             </div>
           </section>
@@ -591,6 +790,12 @@ const valorParcelaCalculado =
           {erro && (
             <div className="mb-6 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
               {erro}
+            </div>
+          )}
+
+          {sucesso && (
+            <div className="mb-6 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
+              {sucesso}
             </div>
           )}
 
@@ -610,8 +815,9 @@ const valorParcelaCalculado =
                   </h2>
 
                   <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-                    Preencha os dados abaixo para registrar uma cobrança única
-                    ou gerar parcelas automaticamente.
+                    Informe o mentorado, valor, vencimento e forma de pagamento.
+                    Para cobranças parceladas, o sistema cria uma linha para
+                    cada parcela.
                   </p>
                 </div>
 
@@ -624,10 +830,33 @@ const valorParcelaCalculado =
                 </button>
               </div>
 
+              {mentoradoSelecionado && (
+                <div className="mb-5 rounded-[24px] border border-slate-200 bg-[#f9fafb] p-5">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                    Mentorado selecionado
+                  </p>
+
+                  <div className="mt-3 grid gap-3 md:grid-cols-3">
+                    <InfoInline
+                      label="Nome"
+                      value={mentoradoSelecionado.nome}
+                    />
+                    <InfoInline
+                      label="Código"
+                      value={mentoradoSelecionado.codigo_inscricao || "—"}
+                    />
+                    <InfoInline
+                      label="E-mail"
+                      value={mentoradoSelecionado.email}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="grid gap-5 md:grid-cols-2">
                 <CampoFinanceiro
                   label="Mentorado"
-                  ajuda="Pessoa que receberá esta cobrança. O lançamento ficará vinculado ao perfil selecionado."
+                  ajuda="Escolha o perfil que receberá esta cobrança."
                 >
                   <select
                     value={formulario.mentorado_id}
@@ -649,7 +878,7 @@ const valorParcelaCalculado =
 
                 <CampoFinanceiro
                   label="Título da cobrança"
-                  ajuda="Nome do lançamento. Ex: Mensalidade, Mentoria anual, Parcela CEO Club."
+                  ajuda="Nome do lançamento, como mensalidade, parcela ou pacote."
                 >
                   <input
                     type="text"
@@ -664,7 +893,7 @@ const valorParcelaCalculado =
 
                 <CampoFinanceiro
                   label="Valor total"
-                  ajuda="Valor completo contratado. Se for parcelado, este valor será dividido pela quantidade de parcelas."
+                  ajuda="Valor completo do acordo. Em parcelas, pode ser dividido automaticamente."
                 >
                   <input
                     type="text"
@@ -679,24 +908,28 @@ const valorParcelaCalculado =
                 </CampoFinanceiro>
 
                 <CampoFinanceiro
-  label="Valor da parcela"
-  ajuda="Valor cobrado em cada parcela. Se deixar vazio, o sistema calcula automaticamente pelo valor total dividido pela quantidade de parcelas."
->
-  <input
-    type="text"
-    inputMode="numeric"
-    placeholder="Ex: 1.000,00"
-    value={formulario.valor_parcela}
-    onChange={(e) =>
-      atualizarCampoFormulario("valor_parcela", e.target.value)
-    }
-    className="input-financeiro"
-  />
-</CampoFinanceiro>
+                  label="Valor da parcela"
+                  ajuda="Pode preencher manualmente. Se deixar vazio, será calculado pelo total dividido pelas parcelas."
+                >
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Ex: 1.000,00"
+                    value={formulario.valor_parcela}
+                    onChange={(e) =>
+                      atualizarCampoFormulario("valor_parcela", e.target.value)
+                    }
+                    className="input-financeiro"
+                  />
+                </CampoFinanceiro>
 
                 <CampoFinanceiro
                   label="Quantidade de parcelas"
-                  ajuda="Total de parcelas que serão criadas. Ex: 12 parcelas para uma mentoria anual."
+                  ajuda={
+                    editandoId
+                      ? "Na edição, mantenha o total original para evitar desalinhamento."
+                      : "Total de parcelas que serão geradas."
+                  }
                 >
                   <input
                     type="number"
@@ -720,7 +953,7 @@ const valorParcelaCalculado =
 
                 <CampoFinanceiro
                   label="Parcela atual"
-                  ajuda="Número da parcela deste lançamento. Na criação, o sistema gera isso sozinho."
+                  ajuda="Número da parcela deste lançamento."
                 >
                   <input
                     type="number"
@@ -741,7 +974,7 @@ const valorParcelaCalculado =
 
                 <CampoFinanceiro
                   label="Data de vencimento"
-                  ajuda="Dia em que a cobrança vence. Em parcelas, os próximos vencimentos serão gerados mês a mês."
+                  ajuda="Dia limite para pagamento."
                 >
                   <input
                     type="date"
@@ -758,7 +991,7 @@ const valorParcelaCalculado =
 
                 <CampoFinanceiro
                   label="Data de pagamento"
-                  ajuda="Preencha apenas se a cobrança já foi paga ou quando for registrar baixa manual."
+                  ajuda="Use somente quando o pagamento já tiver sido realizado."
                 >
                   <input
                     type="date"
@@ -775,7 +1008,7 @@ const valorParcelaCalculado =
 
                 <CampoFinanceiro
                   label="Status"
-                  ajuda="Situação atual da cobrança: pendente, paga, atrasada ou cancelada."
+                  ajuda="Situação atual da cobrança."
                 >
                   <select
                     value={formulario.status}
@@ -787,16 +1020,17 @@ const valorParcelaCalculado =
                     }
                     className="input-financeiro"
                   >
-                    <option>Pago</option>
-                    <option>Pendente</option>
-                    <option>Atrasado</option>
-                    <option>Cancelado</option>
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
                   </select>
                 </CampoFinanceiro>
 
                 <CampoFinanceiro
                   label="Forma de pagamento"
-                  ajuda="Método combinado ou usado para pagamento desta cobrança."
+                  ajuda="Método combinado para o pagamento."
                 >
                   <select
                     value={formulario.forma_pagamento}
@@ -808,17 +1042,17 @@ const valorParcelaCalculado =
                     }
                     className="input-financeiro"
                   >
-                    <option>Pix</option>
-                    <option>Cartão</option>
-                    <option>Boleto</option>
-                    <option>Dinheiro</option>
-                    <option>Transferência</option>
+                    {formasPagamento.map((forma) => (
+                      <option key={forma} value={forma}>
+                        {forma}
+                      </option>
+                    ))}
                   </select>
                 </CampoFinanceiro>
 
                 <CampoFinanceiro
-                  label="Descrição"
-                  ajuda="Explique o que está sendo cobrado. Ex: mensalidade, pacote anual, módulo extra ou taxa."
+                  label="Descrição opcional"
+                  ajuda="Pode deixar em branco. Use só se quiser detalhar a cobrança."
                 >
                   <textarea
                     placeholder="Ex: Parcela referente à mentoria anual CEO Club."
@@ -832,10 +1066,10 @@ const valorParcelaCalculado =
 
                 <CampoFinanceiro
                   label="Observações internas"
-                  ajuda="Anotações para a equipe. Ex: desconto, negociação, comprovante ou mudança de vencimento."
+                  ajuda="Use para acordos, descontos, comprovantes ou ajustes."
                 >
                   <textarea
-                    placeholder="Ex: Negociado desconto, aguardando comprovante..."
+                    placeholder="Ex: Desconto combinado, aguardando comprovante..."
                     value={formulario.observacao}
                     onChange={(e) =>
                       atualizarCampoFormulario("observacao", e.target.value)
@@ -854,12 +1088,11 @@ const valorParcelaCalculado =
                       </p>
 
                       <h3 className="mt-1 text-xl font-black text-[#08163F]">
-                        Confira os vencimentos antes de salvar
+                        Confira antes de salvar
                       </h3>
 
                       <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-                        A prévia mostra quantas cobranças serão criadas, o valor
-                        de cada parcela e os vencimentos mensais.
+                        A prévia mostra cada parcela, valor e vencimento.
                       </p>
                     </div>
 
@@ -907,12 +1140,6 @@ const valorParcelaCalculado =
                       </div>
                     </div>
                   )}
-
-                  {mostrarPreviewParcelas && previewParcelas.length === 0 && (
-                    <p className="mt-4 rounded-2xl bg-yellow-50 p-4 text-sm font-bold text-yellow-700">
-                      Preencha os dados principais para visualizar as parcelas.
-                    </p>
-                  )}
                 </div>
               )}
 
@@ -937,13 +1164,68 @@ const valorParcelaCalculado =
           )}
 
           <section className="overflow-hidden rounded-[30px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm">
-            <div className="grid grid-cols-[1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 bg-white/90 p-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                  Seleção de parcelas
+                </p>
+                <p className="mt-1 text-sm font-bold text-slate-600">
+                  {resumoSelecionado.quantidade > 0
+                    ? `${resumoSelecionado.quantidade} parcela(s) selecionada(s) · ${formatarMoeda(resumoSelecionado.valor)}`
+                    : "Marque uma ou mais parcelas para excluir em lote."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={alternarSelecaoTodasFiltradas}
+                  disabled={cobrancasFiltradas.length === 0}
+                  className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {todasFiltradasSelecionadas
+                    ? "Desmarcar filtradas"
+                    : "Selecionar filtradas"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={limparSelecaoParcelas}
+                  disabled={parcelasSelecionadas.length === 0}
+                  className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Limpar seleção
+                </button>
+
+                <button
+                  type="button"
+                  onClick={excluirParcelasSelecionadas}
+                  disabled={parcelasSelecionadas.length === 0}
+                  className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Excluir selecionadas
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-[0.35fr_1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr_0.7fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white">
+              <span className="flex items-center justify-center">
+                <input
+                  type="checkbox"
+                  checked={todasFiltradasSelecionadas}
+                  onChange={alternarSelecaoTodasFiltradas}
+                  disabled={cobrancasFiltradas.length === 0}
+                  className="h-4 w-4 cursor-pointer accent-[#D1D5DB] disabled:cursor-not-allowed"
+                  aria-label="Selecionar todas as parcelas filtradas"
+                />
+              </span>
               <span>Mentorado</span>
               <span>Cobrança</span>
               <span>Parcela</span>
               <span>Valor</span>
               <span>Vencimento</span>
               <span>Status</span>
+              <span>Ações</span>
             </div>
 
             {cobrancasFiltradas.length === 0 ? (
@@ -953,29 +1235,78 @@ const valorParcelaCalculado =
             ) : (
               <div className="divide-y divide-slate-100">
                 {cobrancasFiltradas.map((item) => (
-                  <button
+                  <div
                     key={item.id}
-                    type="button"
-                    onClick={() => setCobrancaSelecionada(item)}
-                    className="grid w-full grid-cols-[1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr] items-center p-4 text-left text-sm transition hover:bg-slate-50"
+                    className={`grid grid-cols-[0.35fr_1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr_0.7fr] items-center p-4 text-left text-sm transition ${
+                      parcelasSelecionadas.includes(item.id)
+                        ? "bg-blue-50/60"
+                        : "hover:bg-slate-50"
+                    }`}
                   >
-                    <span>
+                    <span className="flex items-center justify-center">
+                      <input
+                        type="checkbox"
+                        checked={parcelasSelecionadas.includes(item.id)}
+                        onChange={() => alternarSelecaoParcela(item.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-4 w-4 cursor-pointer accent-[#08163F]"
+                        aria-label={`Selecionar parcela ${item.parcela_atual}/${item.quantidade_parcelas} de ${item.mentoradoNome}`}
+                      />
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setCobrancaSelecionada(item)}
+                      className="text-left"
+                    >
                       <strong className="block">{item.mentoradoNome}</strong>
                       <small className="text-xs text-slate-400">
                         {item.mentoradoCodigo || "—"} · {item.mentoradoEmail}
                       </small>
-                    </span>
+                    </button>
 
-                    <span>{item.titulo}</span>
-                    <span>
+                    <button
+                      type="button"
+                      onClick={() => setCobrancaSelecionada(item)}
+                      className="text-left font-semibold text-slate-700"
+                    >
+                      {item.titulo}
+                    </button>
+
+                    <span className="font-bold text-slate-600">
                       {item.parcela_atual}/{item.quantidade_parcelas}
                     </span>
-                    <span>{formatarMoeda(Number(item.valor_parcela))}</span>
-                    <span>{formatarData(item.data_vencimento)}</span>
+
+                    <span className="font-black text-[#08163F]">
+                      {formatarMoeda(Number(item.valor_parcela))}
+                    </span>
+
+                    <span className="font-semibold text-slate-600">
+                      {formatarData(item.data_vencimento)}
+                    </span>
+
                     <span>
                       <StatusBadge status={item.status} />
                     </span>
-                  </button>
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => atualizarStatus(item.id, "Pago")}
+                        className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
+                      >
+                        Pago
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setCobrancaSelecionada(item)}
+                        className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-200"
+                      >
+                        Ver
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -998,7 +1329,7 @@ const valorParcelaCalculado =
                   </h2>
 
                   <p className="mt-2 text-sm font-bold text-blue-100">
-                    {cobrancaSelecionada.mentoradoCodigo || "—"} ·{" "}
+                    Código {cobrancaSelecionada.mentoradoCodigo || "—"} ·{" "}
                     {cobrancaSelecionada.mentoradoNome}
                   </p>
                 </div>
@@ -1017,6 +1348,16 @@ const valorParcelaCalculado =
             </div>
 
             <div className="grid gap-4 p-7 md:grid-cols-2">
+              <InfoBox
+                label="Código do mentorado"
+                value={cobrancaSelecionada.mentoradoCodigo || "—"}
+              />
+
+              <InfoBox
+                label="E-mail"
+                value={cobrancaSelecionada.mentoradoEmail || "—"}
+              />
+
               <InfoBox
                 label="Valor da parcela"
                 value={formatarMoeda(Number(cobrancaSelecionada.valor_parcela))}
@@ -1053,13 +1394,13 @@ const valorParcelaCalculado =
 
               <div className="rounded-2xl bg-[#f9fafb] p-5 md:col-span-2">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                  Observações
+                  Descrição e observações
                 </p>
 
                 <p className="mt-2 text-sm font-semibold leading-7 text-slate-600">
                   {cobrancaSelecionada.observacao ||
                     cobrancaSelecionada.descricao ||
-                    "Nenhuma observação adicionada."}
+                    "Nenhuma informação adicional adicionada."}
                 </p>
               </div>
 
@@ -1080,6 +1421,15 @@ const valorParcelaCalculado =
 
                 <button
                   onClick={() =>
+                    atualizarStatus(cobrancaSelecionada.id, "Pendente")
+                  }
+                  className="rounded-2xl bg-yellow-50 px-5 py-4 text-sm font-black text-yellow-700 transition hover:bg-yellow-100"
+                >
+                  Marcar pendente
+                </button>
+
+                <button
+                  onClick={() =>
                     atualizarStatus(cobrancaSelecionada.id, "Atrasado")
                   }
                   className="rounded-2xl bg-red-50 px-5 py-4 text-sm font-black text-red-600 transition hover:bg-red-100"
@@ -1088,8 +1438,17 @@ const valorParcelaCalculado =
                 </button>
 
                 <button
-                  onClick={() => excluirCobranca(cobrancaSelecionada.id)}
+                  onClick={() =>
+                    atualizarStatus(cobrancaSelecionada.id, "Cancelado")
+                  }
                   className="rounded-2xl bg-slate-100 px-5 py-4 text-sm font-black text-slate-600 transition hover:bg-slate-200"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  onClick={() => excluirCobranca(cobrancaSelecionada.id)}
+                  className="rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black text-white transition hover:brightness-110"
                 >
                   Excluir
                 </button>
@@ -1132,7 +1491,7 @@ function CampoFinanceiro({
 }: {
   label: string;
   ajuda: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <label className="block">
@@ -1181,6 +1540,17 @@ function ResumoCard({
   );
 }
 
+function MiniInfo({ titulo, valor }: { titulo: string; valor: string }) {
+  return (
+    <div className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">
+        {titulo}
+      </p>
+      <p className="mt-2 text-2xl font-black text-white">{valor}</p>
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
   const estilos: Record<string, string> = {
     Pago: "bg-emerald-100 text-emerald-700",
@@ -1200,14 +1570,29 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function InfoBox({ label, value }: { label: string; value: React.ReactNode }) {
+function InfoBox({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-2xl bg-[#f9fafb] p-5">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
         {label}
       </p>
 
-      <p className="mt-2 text-lg font-black text-[#08163F]">{value}</p>
+      <p className="mt-2 break-words text-lg font-black text-[#08163F]">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function InfoInline({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </p>
+      <p className="mt-1 break-words text-sm font-black text-[#08163F]">
+        {value}
+      </p>
     </div>
   );
 }
@@ -1223,6 +1608,9 @@ function formatarData(data: string) {
   if (!data) return "—";
 
   const [ano, mes, dia] = data.split("-");
+
+  if (!ano || !mes || !dia) return "—";
+
   return `${dia}/${mes}/${ano}`;
 }
 
@@ -1264,4 +1652,32 @@ function formatarDataISO(data: Date) {
   const dia = String(data.getDate()).padStart(2, "0");
 
   return `${ano}-${mes}-${dia}`;
+}
+
+function normalizarTexto(texto: string) {
+  return texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function textoOuNull(texto: string) {
+  const valor = texto.trim();
+  return valor ? valor : null;
+}
+
+function textoOuVazio(texto: string) {
+  return texto.trim();
+}
+
+function formatarErroSupabase(error: {
+  message?: string;
+  details?: string;
+  hint?: string;
+  code?: string;
+}) {
+  return [error.message, error.details, error.hint, error.code]
+    .filter(Boolean)
+    .join(" | ");
 }
