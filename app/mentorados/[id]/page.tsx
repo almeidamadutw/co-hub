@@ -2,6 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import { supabase } from "@/utils/supabase";
@@ -93,6 +104,15 @@ type ModuloComProgresso = ModuloMentoria & {
   aulasConcluidasModulo: number;
   percentual: number;
   statusProgresso: string;
+};
+
+type LinhaEvolucao = {
+  mes: string;
+  progresso: number;
+  aulas: number;
+  encontros: number;
+  pagamentos: number;
+  atrasos: number;
 };
 
 export default function PerfilMentoradoPage() {
@@ -257,15 +277,18 @@ export default function PerfilMentoradoPage() {
       .filter((item) => item.status !== "Pago" && item.status !== "Cancelado")
       .sort(
         (a, b) =>
-          new Date(a.data_vencimento).getTime() -
-          new Date(b.data_vencimento).getTime()
+          new Date(`${a.data_vencimento}T12:00:00`).getTime() -
+          new Date(`${b.data_vencimento}T12:00:00`).getTime()
       )[0];
+
+    const taxaPagamento = total === 0 ? 0 : Math.round((pago / total) * 100);
 
     return {
       total,
       pago,
       pendente,
       atrasado,
+      taxaPagamento,
       quantidade: cobrancas.length,
       proximaCobranca,
     };
@@ -295,6 +318,25 @@ export default function PerfilMentoradoPage() {
       })
       .slice(0, 5);
   }, [eventos]);
+
+  const resumoAgenda = useMemo(() => {
+    const concluidos = eventos.filter((evento) => evento.status === "Concluída");
+    const futuros = proximosEventos.length;
+    const cancelados = eventos.filter((evento) => evento.status === "Cancelada");
+
+    const taxaPresenca =
+      eventos.length === 0
+        ? 0
+        : Math.round((concluidos.length / eventos.length) * 100);
+
+    return {
+      total: eventos.length,
+      concluidos: concluidos.length,
+      futuros,
+      cancelados: cancelados.length,
+      taxaPresenca,
+    };
+  }, [eventos, proximosEventos]);
 
   const resumoProgresso = useMemo(() => {
     const aulasAtivas = aulas.filter((aula) => aula.ativo);
@@ -351,6 +393,16 @@ export default function PerfilMentoradoPage() {
       (modulo) => modulo.percentual > 0 && modulo.percentual < 100
     ).length;
 
+    const ultimoAcesso = aulasConcluidas
+      .filter((item) => item.concluida_em || item.updated_at || item.created_at)
+      .sort(
+        (a, b) =>
+          new Date(
+            b.concluida_em || b.updated_at || b.created_at
+          ).getTime() -
+          new Date(a.concluida_em || a.updated_at || a.created_at).getTime()
+      )[0];
+
     return {
       totalAulas,
       totalConcluidas,
@@ -358,8 +410,123 @@ export default function PerfilMentoradoPage() {
       modulosComProgresso,
       modulosConcluidos,
       modulosEmAndamento,
+      ultimoAcesso:
+        ultimoAcesso?.concluida_em ||
+        ultimoAcesso?.updated_at ||
+        ultimoAcesso?.created_at ||
+        null,
     };
   }, [aulas, modulos, progressoAulas]);
+
+  const evolucaoIndividual = useMemo<LinhaEvolucao[]>(() => {
+    const meses = ultimosMeses(6);
+
+    const progressoOrdenado = progressoAulas
+      .filter((item) => item.concluida)
+      .sort(
+        (a, b) =>
+          new Date(a.concluida_em || a.updated_at || a.created_at).getTime() -
+          new Date(b.concluida_em || b.updated_at || b.created_at).getTime()
+      );
+
+    return meses.map((mesInfo) => {
+      const fimMes = new Date(mesInfo.ano, mesInfo.mes + 1, 0, 23, 59, 59);
+
+      const aulasAteMes = progressoOrdenado.filter((item) => {
+        const dataConclusao = new Date(
+          item.concluida_em || item.updated_at || item.created_at
+        );
+
+        return dataConclusao.getTime() <= fimMes.getTime();
+      }).length;
+
+      const progresso =
+        resumoProgresso.totalAulas === 0
+          ? 0
+          : Math.round((aulasAteMes / resumoProgresso.totalAulas) * 100);
+
+      const encontrosMes = eventos.filter((evento) => {
+        const dataEvento = new Date(`${evento.data}T12:00:00`);
+        return (
+          dataEvento.getMonth() === mesInfo.mes &&
+          dataEvento.getFullYear() === mesInfo.ano &&
+          evento.status === "Concluída"
+        );
+      }).length;
+
+      const pagamentosMes = cobrancas.filter((cobranca) => {
+        if (!cobranca.data_pagamento || cobranca.status !== "Pago") return false;
+
+        const dataPagamento = new Date(`${cobranca.data_pagamento}T12:00:00`);
+
+        return (
+          dataPagamento.getMonth() === mesInfo.mes &&
+          dataPagamento.getFullYear() === mesInfo.ano
+        );
+      }).length;
+
+      const atrasosMes = cobrancas.filter((cobranca) => {
+        const dataVencimento = new Date(`${cobranca.data_vencimento}T12:00:00`);
+
+        return (
+          dataVencimento.getMonth() === mesInfo.mes &&
+          dataVencimento.getFullYear() === mesInfo.ano &&
+          cobranca.status === "Atrasado"
+        );
+      }).length;
+
+      return {
+        mes: mesInfo.label,
+        progresso,
+        aulas: aulasAteMes,
+        encontros: encontrosMes,
+        pagamentos: pagamentosMes,
+        atrasos: atrasosMes,
+      };
+    });
+  }, [cobrancas, eventos, progressoAulas, resumoProgresso.totalAulas]);
+
+  const diagnostico = useMemo(() => {
+    const alertas: string[] = [];
+    const pontosFortes: string[] = [];
+
+    if (resumoFinanceiro.atrasado > 0) {
+      alertas.push("Existe valor em atraso no financeiro.");
+    } else if (resumoFinanceiro.quantidade > 0) {
+      pontosFortes.push("Financeiro sem parcelas em atraso.");
+    }
+
+    if (resumoProgresso.percentual < 25 && resumoProgresso.totalAulas > 0) {
+      alertas.push("Progresso acadêmico ainda baixo.");
+    }
+
+    if (resumoProgresso.percentual >= 70) {
+      pontosFortes.push("Progresso geral acima de 70%.");
+    }
+
+    if (resumoAgenda.total > 0 && resumoAgenda.taxaPresenca < 50) {
+      alertas.push("Taxa de presença abaixo do ideal.");
+    }
+
+    if (resumoAgenda.taxaPresenca >= 70) {
+      pontosFortes.push("Boa presença nos encontros registrados.");
+    }
+
+    if (!resumoProgresso.ultimoAcesso && resumoProgresso.totalAulas > 0) {
+      alertas.push("Nenhuma aula concluída registrada até agora.");
+    }
+
+    return {
+      alertas,
+      pontosFortes,
+      status:
+        alertas.length > 1
+          ? "Atenção"
+          : alertas.length === 1
+          ? "Acompanhar"
+          : "Em dia",
+    };
+  }, [resumoAgenda, resumoFinanceiro, resumoProgresso]);
 
   function sair() {
     logoutUsuario();
@@ -369,7 +536,14 @@ export default function PerfilMentoradoPage() {
   if (!usuario || carregando) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        Carregando perfil do mentorado...
+        <div className="rounded-[28px] bg-white px-8 py-6 text-center shadow-xl shadow-slate-200">
+          <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">
+            CEO Club
+          </p>
+          <p className="mt-2 text-xl font-black text-[#08163F]">
+            Carregando perfil do mentorado...
+          </p>
+        </div>
       </main>
     );
   }
@@ -480,24 +654,177 @@ export default function PerfilMentoradoPage() {
                       {mentorado.codigo_inscricao ?? "—"}
                     </span>
                   </p>
+
+                  <p className="mt-2 text-sm font-semibold text-blue-100">
+                    Última evolução:{" "}
+                    {resumoProgresso.ultimoAcesso
+                      ? formatarData(resumoProgresso.ultimoAcesso)
+                      : "sem registro"}
+                  </p>
                 </div>
               </div>
 
-              <StatusBadge status={status} />
+              <div className="flex flex-wrap items-center gap-3">
+                <StatusBadge status={status} />
+                <StatusBadge status={diagnostico.status} />
+              </div>
             </div>
           </section>
 
           <section className="mb-7 grid gap-5 xl:grid-cols-4">
             <KPI titulo="Status" valor={status} destaque />
 
-            <KPI titulo="Código" valor={mentorado.codigo_inscricao ?? "—"} />
-
-            <KPI titulo="Cadastro" valor={formatarData(mentorado.created_at)} />
-
             <KPI
               titulo="Progresso"
               valor={`${resumoProgresso.percentual}%`}
+              texto={`${resumoProgresso.totalConcluidas}/${resumoProgresso.totalAulas} aulas`}
             />
+
+            <KPI
+              titulo="Presença"
+              valor={`${resumoAgenda.taxaPresenca}%`}
+              texto={`${resumoAgenda.concluidos}/${resumoAgenda.total} encontros`}
+            />
+
+            <KPI
+              titulo="Financeiro"
+              valor={`${resumoFinanceiro.taxaPagamento}%`}
+              texto="taxa de pagamento"
+            />
+          </section>
+
+          <section className="mb-7 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+            <Card titulo="Evolução individual">
+              <div className="h-[330px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={evolucaoIndividual}
+                    margin={{ top: 12, right: 18, left: -16, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="mes" tickLine={false} axisLine={false} />
+                    <YAxis tickLine={false} axisLine={false} />
+                    <Tooltip
+                      formatter={(value, name) => {
+                        if (name === "progresso") return [`${value}%`, "Progresso"];
+                        if (name === "encontros") return [value, "Encontros concluídos"];
+                        if (name === "pagamentos") return [value, "Pagamentos"];
+                        if (name === "atrasos") return [value, "Atrasos"];
+                        return [value, name];
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="progresso"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="encontros"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="pagamentos"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="atrasos"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-4">
+                <MiniBox
+                  label="Aulas concluídas"
+                  value={`${resumoProgresso.totalConcluidas}/${resumoProgresso.totalAulas}`}
+                />
+                <MiniBox
+                  label="Módulos concluídos"
+                  value={String(resumoProgresso.modulosConcluidos)}
+                />
+                <MiniBox
+                  label="Encontros"
+                  value={String(resumoAgenda.total)}
+                />
+                <MiniBox
+                  label="Atrasos"
+                  value={formatarMoeda(resumoFinanceiro.atrasado)}
+                  alerta={resumoFinanceiro.atrasado > 0}
+                />
+              </div>
+            </Card>
+
+            <Card titulo="Diagnóstico da mentora">
+              <div className="rounded-[26px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-6 text-white">
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-200">
+                  Leitura rápida
+                </p>
+
+                <h3 className="mt-3 text-3xl font-black">
+                  {diagnostico.status}
+                </h3>
+
+                <p className="mt-3 text-sm font-semibold leading-6 text-blue-100">
+                  Combina progresso, encontros e financeiro para indicar se o
+                  mentorado está em bom ritmo ou precisa de acompanhamento.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
+                  Pontos de atenção
+                </h4>
+
+                {diagnostico.alertas.length === 0 ? (
+                  <InfoBox
+                    titulo="Sem alertas críticos"
+                    texto="Nenhum ponto de atenção forte foi encontrado no momento."
+                    tipo="positivo"
+                  />
+                ) : (
+                  diagnostico.alertas.map((alerta) => (
+                    <InfoBox
+                      key={alerta}
+                      titulo="Atenção"
+                      texto={alerta}
+                      tipo="alerta"
+                    />
+                  ))
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
+                  Pontos fortes
+                </h4>
+
+                {diagnostico.pontosFortes.length === 0 ? (
+                  <InfoBox
+                    titulo="Ainda sem destaque"
+                    texto="Quando houver evolução consistente, ela aparecerá aqui."
+                    tipo="neutro"
+                  />
+                ) : (
+                  diagnostico.pontosFortes.map((ponto) => (
+                    <InfoBox
+                      key={ponto}
+                      titulo="Bom sinal"
+                      texto={ponto}
+                      tipo="positivo"
+                    />
+                  ))
+                )}
+              </div>
+            </Card>
           </section>
 
           <section className="grid gap-6 xl:grid-cols-2">
@@ -674,7 +1001,7 @@ export default function PerfilMentoradoPage() {
               </div>
             </Card>
 
-            <Card titulo="Progresso">
+            <Card titulo="Progresso por módulo">
               <div className="rounded-[26px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-6 text-white">
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
                   Evolução individual
@@ -724,7 +1051,7 @@ export default function PerfilMentoradoPage() {
               </div>
 
               <div className="space-y-3">
-                {resumoProgresso.modulosComProgresso.slice(0, 4).map((modulo) => (
+                {resumoProgresso.modulosComProgresso.map((modulo) => (
                   <div
                     key={modulo.id}
                     className="rounded-2xl bg-[#f9fafb] p-5"
@@ -788,13 +1115,33 @@ function formatarMoeda(valor: number) {
   }).format(valor || 0);
 }
 
+function ultimosMeses(quantidade: number) {
+  const hoje = new Date();
+
+  return Array.from({ length: quantidade }, (_, index) => {
+    const data = new Date(hoje.getFullYear(), hoje.getMonth() - (quantidade - 1 - index), 1);
+
+    return {
+      ano: data.getFullYear(),
+      mes: data.getMonth(),
+      label: new Intl.DateTimeFormat("pt-BR", {
+        month: "short",
+      })
+        .format(data)
+        .replace(".", ""),
+    };
+  });
+}
+
 function KPI({
   titulo,
   valor,
+  texto,
   destaque,
 }: {
   titulo: string;
   valor: React.ReactNode;
+  texto?: string;
   destaque?: boolean;
 }) {
   return (
@@ -814,6 +1161,16 @@ function KPI({
       </p>
 
       <p className="mt-4 text-3xl font-black">{valor}</p>
+
+      {texto && (
+        <p
+          className={`mt-2 text-sm font-semibold ${
+            destaque ? "text-blue-100" : "text-gray-400"
+          }`}
+        >
+          {texto}
+        </p>
+      )}
     </div>
   );
 }
@@ -843,7 +1200,7 @@ function Info({ label, value }: { label: string; value: string }) {
         {label}
       </p>
 
-      <p className="mt-1 font-black text-[#08163F]">{value}</p>
+      <p className="mt-1 break-words font-black text-[#08163F]">{value}</p>
     </div>
   );
 }
@@ -890,11 +1247,13 @@ function StatusBadge({ status }: { status: string }) {
     statusLower === "pago" ||
     statusLower === "confirmada" ||
     statusLower === "concluído" ||
-    statusLower === "concluido"
+    statusLower === "concluido" ||
+    statusLower === "em dia"
       ? "bg-emerald-50 text-emerald-700"
       : statusLower === "pendente" ||
         statusLower === "aguardando" ||
-        statusLower === "em andamento"
+        statusLower === "em andamento" ||
+        statusLower === "acompanhar"
       ? "bg-amber-50 text-amber-700"
       : statusLower === "inativo" ||
         statusLower === "cancelado" ||
@@ -902,7 +1261,7 @@ function StatusBadge({ status }: { status: string }) {
         statusLower === "não iniciado" ||
         statusLower === "nao iniciado"
       ? "bg-slate-100 text-slate-600"
-      : statusLower === "atrasado"
+      : statusLower === "atrasado" || statusLower === "atenção"
       ? "bg-red-50 text-red-700"
       : statusLower === "concluída" || statusLower === "concluida"
       ? "bg-blue-50 text-blue-700"
@@ -933,5 +1292,29 @@ function ActionButton({
     >
       {label} →
     </button>
+  );
+}
+
+function InfoBox({
+  titulo,
+  texto,
+  tipo,
+}: {
+  titulo: string;
+  texto: string;
+  tipo: "positivo" | "alerta" | "neutro";
+}) {
+  const classe =
+    tipo === "positivo"
+      ? "bg-emerald-50 text-emerald-700"
+      : tipo === "alerta"
+      ? "bg-red-50 text-red-700"
+      : "bg-slate-50 text-slate-600";
+
+  return (
+    <div className={`rounded-2xl p-5 ${classe}`}>
+      <p className="font-black">{titulo}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 opacity-80">{texto}</p>
+    </div>
   );
 }
