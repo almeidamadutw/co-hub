@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import { CEOCLUB_KEYS } from "@/utils/ceoclubKeys";
 
 type StatusSimulado = "Rascunho" | "Publicado" | "Bloqueado";
 
@@ -51,9 +52,14 @@ type Simulado = {
   dataCriacao: string;
   mentorados: number;
   questoes: Questao[];
+  ativo?: boolean;
+  moduloId?: string;
+  moduloTitulo?: string;
+  criadoEm?: string;
+  atualizadoEm?: string;
 };
 
-const STORAGE_KEY = "ceoclub_simulados_mentor";
+const STORAGE_KEY = CEOCLUB_KEYS.simulados;
 
 const tiposPergunta: { label: string; value: TipoPergunta; descricao: string }[] =
   [
@@ -75,7 +81,7 @@ const tiposPergunta: { label: string; value: TipoPergunta; descricao: string }[]
     {
       label: "Resposta discursiva",
       value: "dissertativa",
-      descricao: "Resposta aberta para análise da mentora.",
+      descricao: "Resposta aberta para análise do mentor.",
     },
     {
       label: "Escala",
@@ -109,39 +115,81 @@ function criarAlternativasIniciais(): Alternativa[] {
 
 function normalizarQuestao(questao: any): Questao {
   if (questao.enunciado && questao.tipo) {
-    return questao as Questao;
+    return {
+      ...questao,
+      descricao: questao.descricao ?? "",
+      imagem: questao.imagem ?? null,
+      obrigatoria: questao.obrigatoria ?? true,
+      pontos: questao.pontos ?? 1,
+      alternativas: questao.alternativas ?? criarAlternativasIniciais(),
+      respostasCorretas: questao.respostasCorretas ?? [],
+      explicacao: questao.explicacao ?? "",
+    } as Questao;
   }
+
+  const alternativasNormalizadas =
+    questao.alternativas?.map((alternativa: any, index: number) => ({
+      id: alternativa.id ?? String(index + 1),
+      texto: alternativa.texto ?? alternativa ?? "",
+      imagem: alternativa.imagem ?? null,
+    })) ?? criarAlternativasIniciais();
+
+  const respostaCorretaId = questao.respostaCorretaId ?? questao.correta ?? "1";
+
+  const indiceCorreto = alternativasNormalizadas.findIndex(
+    (alternativa: Alternativa) => alternativa.id === String(respostaCorretaId)
+  );
 
   return {
     id: questao.id ?? crypto.randomUUID(),
     tipo: "multipla-escolha",
-    enunciado: questao.pergunta ?? "Pergunta sem título",
-    descricao: "",
-    imagem: null,
-    obrigatoria: true,
-    pontos: 1,
-    alternativas:
-      questao.alternativas?.map((texto: string) => ({
-        id: crypto.randomUUID(),
-        texto,
-        imagem: null,
-      })) ?? criarAlternativasIniciais(),
-    respostasCorretas:
-      typeof questao.correta === "number" ? [questao.correta] : [],
+    enunciado: questao.enunciado ?? questao.pergunta ?? "Pergunta sem título",
+    descricao: questao.descricao ?? "",
+    imagem: questao.imagem ?? null,
+    obrigatoria: questao.obrigatoria ?? true,
+    pontos: questao.pontos ?? 1,
+    alternativas: alternativasNormalizadas,
+    respostasCorretas: indiceCorreto >= 0 ? [indiceCorreto] : [],
     explicacao: questao.explicacao ?? "",
   };
 }
 
 function normalizarSimulado(simulado: any): Simulado {
+  const questoes = (simulado.questoes ?? []).map(normalizarQuestao);
+
+  const status: StatusSimulado =
+    simulado.status ??
+    (simulado.ativo
+      ? "Publicado"
+      : questoes.length >= 30
+      ? "Rascunho"
+      : "Bloqueado");
+
   return {
     ...simulado,
+    id: simulado.id ?? crypto.randomUUID(),
+    titulo: simulado.titulo ?? "Simulado sem título",
+    modulo: simulado.modulo ?? simulado.moduloTitulo ?? "Sem módulo",
     descricao: simulado.descricao ?? "",
-    publicadoPor: simulado.publicadoPor ?? "Mentora",
-    status: simulado.status ?? "Bloqueado",
+    publicadoPor: simulado.publicadoPor ?? "Mentor",
+    status,
     tempoEstimado: simulado.tempoEstimado ?? "30 min",
-    dataCriacao: simulado.dataCriacao ?? simulado.data ?? "Hoje",
+    dataCriacao:
+      simulado.dataCriacao ??
+      simulado.criadoEm ??
+      simulado.data ??
+      new Date().toISOString(),
     mentorados: simulado.mentorados ?? 0,
-    questoes: (simulado.questoes ?? []).map(normalizarQuestao),
+    ativo: simulado.ativo ?? status === "Publicado",
+    moduloId: simulado.moduloId ?? "",
+    moduloTitulo: simulado.moduloTitulo ?? simulado.modulo ?? "Sem módulo",
+    criadoEm:
+      simulado.criadoEm ??
+      simulado.dataCriacao ??
+      simulado.data ??
+      new Date().toISOString(),
+    atualizadoEm: simulado.atualizadoEm ?? new Date().toISOString(),
+    questoes,
   };
 }
 
@@ -163,7 +211,9 @@ export default function EditarSimuladoPage() {
   const [descricao, setDescricao] = useState("");
   const [tempoEstimado, setTempoEstimado] = useState("30 min");
 
-  const [questaoEditandoId, setQuestaoEditandoId] = useState<string | null>(null);
+  const [questaoEditandoId, setQuestaoEditandoId] = useState<string | null>(
+    null
+  );
   const [tipoPergunta, setTipoPergunta] =
     useState<TipoPergunta>("multipla-escolha");
   const [enunciado, setEnunciado] = useState("");
@@ -231,12 +281,38 @@ export default function EditarSimuladoPage() {
   }, [simulado]);
 
   function persistir(listaAtualizada: Simulado[], simuladoAtualizado: Simulado) {
-    setSimulados(listaAtualizada);
-    setSimulado(simuladoAtualizado);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(listaAtualizada));
+    const agora = new Date().toISOString();
+
+    const listaSincronizada = listaAtualizada.map((item: Simulado) => ({
+      ...item,
+      ativo: item.status === "Publicado",
+      moduloId: item.moduloId ?? "",
+      moduloTitulo: item.modulo ?? item.moduloTitulo ?? "",
+      criadoEm: item.criadoEm ?? item.dataCriacao ?? agora,
+      atualizadoEm: agora,
+    }));
+
+    const simuladoSincronizado: Simulado = {
+      ...simuladoAtualizado,
+      ativo: simuladoAtualizado.status === "Publicado",
+      moduloId: simuladoAtualizado.moduloId ?? "",
+      moduloTitulo: simuladoAtualizado.modulo,
+      criadoEm:
+        simuladoAtualizado.criadoEm ??
+        simuladoAtualizado.dataCriacao ??
+        agora,
+      atualizadoEm: agora,
+    };
+
+    setSimulados(listaSincronizada);
+    setSimulado(simuladoSincronizado);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(listaSincronizada));
   }
 
-  function calcularStatus(questoesAtualizadas: Questao[], statusAtual: StatusSimulado) {
+  function calcularStatus(
+    questoesAtualizadas: Questao[],
+    statusAtual: StatusSimulado
+  ) {
     if (statusAtual === "Publicado" && questoesAtualizadas.length >= 30) {
       return "Publicado";
     }
@@ -353,9 +429,9 @@ export default function EditarSimuladoPage() {
   function removerAlternativa(index: number) {
     setAlternativas((atuais) => atuais.filter((_, i) => i !== index));
     setRespostasCorretas((atuais) =>
-      atuais.filter((resposta) => resposta !== index).map((resposta) =>
-        resposta > index ? resposta - 1 : resposta
-      )
+      atuais
+        .filter((resposta) => resposta !== index)
+        .map((resposta) => (resposta > index ? resposta - 1 : resposta))
     );
   }
 
@@ -473,7 +549,9 @@ export default function EditarSimuladoPage() {
 
     persistir(listaAtualizada, atualizado);
     limparFormularioPergunta();
-    setSucesso(questaoEditandoId ? "Pergunta atualizada." : "Pergunta adicionada.");
+    setSucesso(
+      questaoEditandoId ? "Pergunta atualizada." : "Pergunta adicionada."
+    );
   }
 
   function editarPergunta(questao: Questao) {
@@ -590,6 +668,7 @@ export default function EditarSimuladoPage() {
         <section className="flex flex-1 items-center justify-center p-8">
           <div className="max-w-xl rounded-[34px] bg-white p-8 text-center shadow-lg">
             <h1 className="text-3xl font-black">Simulado não encontrado</h1>
+
             <p className="mt-3 text-gray-500">
               Esse simulado não existe ou foi removido.
             </p>
@@ -624,6 +703,7 @@ export default function EditarSimuladoPage() {
               <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
                 Editor de simulado
               </p>
+
               <h1 className="text-xl font-black">{simulado.titulo}</h1>
             </div>
           </div>
@@ -650,8 +730,8 @@ export default function EditarSimuladoPage() {
 
                 <p className="mt-3 max-w-2xl text-[#D9DEE7]">
                   Monte o simulado como um formulário completo. Use múltipla
-                  escolha, caixas de seleção, escala, resposta discursiva,
-                  envio de arquivo e imagens.
+                  escolha, caixas de seleção, escala, resposta discursiva, envio
+                  de arquivo e imagens.
                 </p>
               </div>
 
@@ -659,6 +739,7 @@ export default function EditarSimuladoPage() {
                 <p className="text-sm font-bold text-[#C9CED6]">
                   Perguntas cadastradas
                 </p>
+
                 <p className="mt-2 text-4xl font-black">
                   {simulado.questoes.length}/30
                 </p>
@@ -694,6 +775,7 @@ export default function EditarSimuladoPage() {
               <p className="text-sm font-bold text-gray-500">
                 Progresso para publicação
               </p>
+
               <p className="text-sm font-black text-[#08163F]">
                 {progressoPublicacao}%
               </p>
@@ -759,7 +841,9 @@ export default function EditarSimuladoPage() {
                 </form>
               </Card>
 
-              <Card titulo={questaoEditandoId ? "Editar pergunta" : "Nova pergunta"}>
+              <Card
+                titulo={questaoEditandoId ? "Editar pergunta" : "Nova pergunta"}
+              >
                 <form onSubmit={salvarPergunta} className="space-y-5">
                   <Campo label="Tipo de pergunta">
                     <select
@@ -780,8 +864,9 @@ export default function EditarSimuladoPage() {
                   <div className="rounded-2xl bg-[#EEF2FF] p-4">
                     <p className="text-sm font-bold text-[#08163F]">
                       {
-                        tiposPergunta.find((tipo) => tipo.value === tipoPergunta)
-                          ?.descricao
+                        tiposPergunta.find(
+                          (tipo) => tipo.value === tipoPergunta
+                        )?.descricao
                       }
                     </p>
                   </div>
@@ -848,6 +933,7 @@ export default function EditarSimuladoPage() {
                           <h3 className="text-xl font-black text-[#08163F]">
                             Alternativas
                           </h3>
+
                           <p className="mt-1 text-sm font-semibold text-gray-500">
                             Marque a resposta correta. No tipo checkbox, pode
                             marcar mais de uma.
@@ -883,7 +969,9 @@ export default function EditarSimuladoPage() {
                                     : "bg-gray-100 text-gray-500"
                                 }`}
                               >
-                                {marcada ? "✓" : String.fromCharCode(65 + index)}
+                                {marcada
+                                  ? "✓"
+                                  : String.fromCharCode(65 + index)}
                               </button>
 
                               <div className="flex-1 space-y-3">
@@ -947,7 +1035,9 @@ export default function EditarSimuladoPage() {
                           <input
                             type="number"
                             value={escalaMin}
-                            onChange={(e) => setEscalaMin(Number(e.target.value))}
+                            onChange={(e) =>
+                              setEscalaMin(Number(e.target.value))
+                            }
                             className="input-ceo"
                           />
                         </Campo>
@@ -956,7 +1046,9 @@ export default function EditarSimuladoPage() {
                           <input
                             type="number"
                             value={escalaMax}
-                            onChange={(e) => setEscalaMax(Number(e.target.value))}
+                            onChange={(e) =>
+                              setEscalaMax(Number(e.target.value))
+                            }
                             className="input-ceo"
                           />
                         </Campo>
@@ -985,6 +1077,7 @@ export default function EditarSimuladoPage() {
                       <p className="font-black text-yellow-800">
                         Pergunta de envio de arquivo
                       </p>
+
                       <p className="mt-2 text-sm font-bold leading-relaxed text-yellow-700">
                         No protótipo, essa pergunta apenas registra que o
                         mentorado deverá anexar um arquivo. Na versão real, ela
@@ -993,17 +1086,18 @@ export default function EditarSimuladoPage() {
                     </div>
                   )}
 
-                  {tipoPergunta !== "escala" && tipoPergunta !== "envio-arquivo" && (
-                    <Campo label="Explicação após responder">
-                      <textarea
-                        value={explicacao}
-                        onChange={(e) => setExplicacao(e.target.value)}
-                        placeholder="Explique por que a resposta correta faz sentido..."
-                        rows={4}
-                        className="input-ceo resize-none"
-                      />
-                    </Campo>
-                  )}
+                  {tipoPergunta !== "escala" &&
+                    tipoPergunta !== "envio-arquivo" && (
+                      <Campo label="Explicação após responder">
+                        <textarea
+                          value={explicacao}
+                          onChange={(e) => setExplicacao(e.target.value)}
+                          placeholder="Explique por que a resposta correta faz sentido..."
+                          rows={4}
+                          className="input-ceo resize-none"
+                        />
+                      </Campo>
+                    )}
 
                   <div className="grid gap-5 md:grid-cols-2">
                     <Campo label="Pontuação">
@@ -1019,7 +1113,9 @@ export default function EditarSimuladoPage() {
                     <Campo label="Obrigatória">
                       <select
                         value={obrigatoria ? "sim" : "nao"}
-                        onChange={(e) => setObrigatoria(e.target.value === "sim")}
+                        onChange={(e) =>
+                          setObrigatoria(e.target.value === "sim")
+                        }
                         className="input-ceo"
                       >
                         <option value="sim">Sim</option>
@@ -1033,7 +1129,9 @@ export default function EditarSimuladoPage() {
                       type="submit"
                       className="rounded-2xl bg-[#08163F] px-6 py-3 font-black text-white shadow-lg transition hover:brightness-110"
                     >
-                      {questaoEditandoId ? "Salvar pergunta" : "Adicionar pergunta"}
+                      {questaoEditandoId
+                        ? "Salvar pergunta"
+                        : "Adicionar pergunta"}
                     </button>
 
                     <button
@@ -1053,6 +1151,7 @@ export default function EditarSimuladoPage() {
                     <p className="font-black text-[#08163F]">
                       Nenhuma pergunta cadastrada ainda.
                     </p>
+
                     <p className="mt-2 text-sm font-semibold text-gray-500">
                       Use o construtor acima para montar o simulado.
                     </p>
@@ -1165,15 +1264,20 @@ export default function EditarSimuladoPage() {
                   <p className="text-xs font-bold uppercase tracking-[0.22em] text-gray-400">
                     {modulo}
                   </p>
+
                   <h3 className="mt-3 text-2xl font-black text-[#08163F]">
                     {titulo || "Título do simulado"}
                   </h3>
+
                   <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
                     {descricao || "Descrição do simulado para o mentorado."}
                   </p>
 
                   <div className="mt-5 grid grid-cols-2 gap-3">
-                    <MiniInfo label="Perguntas" value={simulado.questoes.length} />
+                    <MiniInfo
+                      label="Perguntas"
+                      value={simulado.questoes.length}
+                    />
                     <MiniInfo label="Tempo" value={tempoEstimado} />
                   </div>
                 </div>
@@ -1181,10 +1285,22 @@ export default function EditarSimuladoPage() {
 
               <Card titulo="Boas práticas">
                 <div className="space-y-4">
-                  <Regra numero="1" texto="Misture questões fáceis, médias e difíceis." />
-                  <Regra numero="2" texto="Use imagens quando o contexto visual ajudar." />
-                  <Regra numero="3" texto="Sempre explique a resposta correta." />
-                  <Regra numero="4" texto="Evite alternativas ambíguas ou parecidas demais." />
+                  <Regra
+                    numero="1"
+                    texto="Misture questões fáceis, médias e difíceis."
+                  />
+                  <Regra
+                    numero="2"
+                    texto="Use imagens quando o contexto visual ajudar."
+                  />
+                  <Regra
+                    numero="3"
+                    texto="Sempre explique a resposta correta."
+                  />
+                  <Regra
+                    numero="4"
+                    texto="Evite alternativas ambíguas ou parecidas demais."
+                  />
                 </div>
               </Card>
             </aside>

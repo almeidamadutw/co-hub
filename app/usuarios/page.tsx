@@ -71,12 +71,19 @@ export default function UsuariosPage() {
       return;
     }
 
-    if (usuarioAtual.role === "mentorado") {
+    const usuarioValidado = usuarioAtual as User;
+
+    if (usuarioValidado.role === "mentorado") {
       router.replace("/mentorado/dashboard");
       return;
     }
 
-    setUsuario(usuarioAtual);
+    if (usuarioValidado.role !== "mentor") {
+      router.replace("/dashboard");
+      return;
+    }
+
+    setUsuario(usuarioValidado);
     carregarUsuarios();
   }, [router]);
 
@@ -430,7 +437,7 @@ export default function UsuariosPage() {
         <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-8 backdrop-blur-xl">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
-              Área da mentora
+              Área do mentor
             </p>
             <h1 className="text-xl font-black">Usuários</h1>
           </div>
@@ -475,8 +482,8 @@ export default function UsuariosPage() {
             <KPI titulo="Ativos" valor={resumo.ativos} />
             <KPI titulo="Pendentes" valor={resumo.pendentes} />
             <KPI titulo="Inativos" valor={resumo.inativos} />
-            <KPI titulo="Mentoradas" valor={resumo.mentorados} />
-            <KPI titulo="Mentoras" valor={resumo.mentores} />
+            <KPI titulo="Mentorados" valor={resumo.mentorados} />
+            <KPI titulo="Mentores" valor={resumo.mentores} />
           </section>
 
           {erro && (
@@ -518,7 +525,7 @@ export default function UsuariosPage() {
                   <input
                     value={nome}
                     onChange={(e) => setNome(e.target.value)}
-                    placeholder="Ex: Dra. Ana Martins"
+                    placeholder="Ex: Dr. João Martins"
                     className="input-ceo"
                   />
                 </Campo>
@@ -557,8 +564,8 @@ export default function UsuariosPage() {
                     }
                     className="input-ceo"
                   >
-                    <option value="mentorado">Mentorada</option>
-                    <option value="mentor">Mentora</option>
+                    <option value="mentorado">Mentorado</option>
+                    <option value="mentor">Mentor</option>
                     <option value="modulos">Módulos</option>
                     <option value="progresso">Progresso</option>
                     <option value="financeiro">Financeiro</option>
@@ -606,8 +613,8 @@ export default function UsuariosPage() {
                 className="input-ceo"
               >
                 <option value="todos">Todos os perfis</option>
-                <option value="mentorado">Mentoradas</option>
-                <option value="mentor">Mentoras</option>
+                <option value="mentorado">Mentorados</option>
+                <option value="mentor">Mentores</option>
                 <option value="financeiro">Financeiro</option>
                 <option value="modulos">Módulos</option>
                 <option value="progresso">Progresso</option>
@@ -747,12 +754,21 @@ export default function UsuariosPage() {
               <Card titulo="Resumo de acessos">
                 <div className="space-y-3">
                   <ResumoLinha label="Usuários ativos" value={resumo.ativos} />
+
                   <ResumoLinha
                     label="Usuários pendentes"
                     value={resumo.pendentes}
                   />
-                  <ResumoLinha label="Usuários inativos" value={resumo.inativos} />
-                  <ResumoLinha label="Perfis internos" value={resumo.total - resumo.mentorados - resumo.mentores} />
+
+                  <ResumoLinha
+                    label="Usuários inativos"
+                    value={resumo.inativos}
+                  />
+
+                  <ResumoLinha
+                    label="Perfis internos"
+                    value={resumo.total - resumo.mentorados - resumo.mentores}
+                  />
                 </div>
               </Card>
 
@@ -762,10 +778,12 @@ export default function UsuariosPage() {
                     numero="1"
                     texto="Use Inativar para suspender acesso sem perder histórico."
                   />
+
                   <Regra
                     numero="2"
                     texto="Exclua apenas perfis sem dados importantes vinculados."
                   />
+
                   <Regra
                     numero="3"
                     texto="Mantenha e-mail e telefone atualizados para suporte."
@@ -828,8 +846,8 @@ export default function UsuariosPage() {
                   }
                   className="input-ceo"
                 >
-                  <option value="mentorado">Mentorada</option>
-                  <option value="mentor">Mentora</option>
+                  <option value="mentorado">Mentorado</option>
+                  <option value="mentor">Mentor</option>
                   <option value="modulos">Módulos</option>
                   <option value="progresso">Progresso</option>
                   <option value="financeiro">Financeiro</option>
@@ -914,6 +932,7 @@ export default function UsuariosPage() {
         <Modal titulo="Excluir usuário" onClose={fecharModal}>
           <div className="rounded-2xl bg-red-50 p-5">
             <p className="font-black text-red-700">Atenção</p>
+
             <p className="mt-2 text-sm font-semibold leading-7 text-red-600">
               Esta ação remove o acesso de {usuarioSelecionado.nome}. Use esta
               opção apenas quando não houver histórico importante vinculado.
@@ -968,8 +987,8 @@ export default function UsuariosPage() {
 
 function traduzirPerfil(perfil: PerfilUsuario) {
   const labels: Record<PerfilUsuario, string> = {
-    mentor: "Mentora",
-    mentorado: "Mentorada",
+    mentor: "Mentor",
+    mentorado: "Mentorado",
     financeiro: "Financeiro",
     progresso: "Progresso",
     modulos: "Módulos",

@@ -7,9 +7,9 @@ import { supabase } from "@/utils/supabase";
 type UserRole = "mentor" | "mentorado" | "modulos" | "financeiro" | "progresso";
 
 type UsuarioLogado = {
+  id: string;
   nome: string;
   email: string;
-  senha: string;
   role: UserRole;
 };
 
@@ -43,6 +43,12 @@ export default function LoginPage() {
 
     const emailNormalizado = email.toLowerCase().trim();
     const senhaNormalizada = senha.trim();
+
+    if (!emailNormalizado || !senhaNormalizada) {
+      setCarregando(false);
+      setErro("Preencha e-mail e senha para entrar.");
+      return;
+    }
 
     const { data: loginData, error: loginError } =
       await supabase.auth.signInWithPassword({
@@ -82,9 +88,9 @@ export default function LoginPage() {
     }
 
     const usuarioLogado: UsuarioLogado = {
+      id: user.id,
       nome,
       email: perfil.email || user.email || emailNormalizado,
-      senha: "",
       role,
     };
 
@@ -154,6 +160,11 @@ export default function LoginPage() {
               <h1 className="max-w-md text-4xl font-extrabold leading-[1.02] drop-shadow-lg xl:text-5xl">
                 Inove seu jeito de pensar
               </h1>
+
+              <p className="mt-4 max-w-md text-sm font-semibold leading-6 text-white/80">
+                Acesse sua jornada de mentoria, acompanhe módulos, encontros,
+                evolução e próximos passos dentro do CEO Club.
+              </p>
             </div>
           </div>
         </div>
@@ -181,36 +192,51 @@ export default function LoginPage() {
               </div>
 
               <h1 className="text-4xl font-bold text-white">CEO Club</h1>
+
               <p className="mt-2 text-sm font-semibold text-[#C9CED6]">
                 by Mentora Dra. Luciana Rocha
               </p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
-              <input
-                type="email"
-                placeholder="E-mail"
-                className="w-full rounded-2xl border border-white/15 bg-white/8 px-4 py-3 text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setErro("");
-                }}
-              />
+  <label className="block">
+    <span className="mb-2 block text-sm font-bold text-[#E5E7EB]">
+      E-mail de acesso
+    </span>
 
-              <input
-                type="password"
-                placeholder="Senha"
-                className="w-full rounded-2xl border border-white/15 bg-white/8 px-4 py-3 text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40"
-                value={senha}
-                onChange={(e) => {
-                  setSenha(e.target.value);
-                  setErro("");
-                }}
-              />
+    <input
+      type="email"
+      placeholder="exemplo: seunome@ceoclub.com"
+      className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40"
+      value={email}
+      onChange={(e) => {
+        setEmail(e.target.value);
+        setErro("");
+      }}
+    />
+  </label>
+
+  <label className="block">
+    <span className="mb-2 block text-sm font-bold text-[#E5E7EB]">
+      Senha
+    </span>
+
+    <input
+      type="password"
+      placeholder="exemplo: 123456"
+      className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40"
+      value={senha}
+      onChange={(e) => {
+        setSenha(e.target.value);
+        setErro("");
+      }}
+    />
+  </label>
 
               {erro && (
-                <p className="text-sm font-semibold text-red-300">{erro}</p>
+                <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm font-semibold text-red-200">
+                  {erro}
+                </div>
               )}
 
               <button
@@ -226,13 +252,9 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="mt-6 rounded-2xl border border-white/10 bg-white/8 p-4 text-sm text-[#D1D5DB] backdrop-blur-sm">
-              <p className="mb-2 font-semibold text-white">
-                exemplo de login:
-              </p>
-              <p>mentor: seunomeadmin@ceoclub.com / 123456</p>
-              <p>mentorado: seunome@ceoclub.com / 123456</p>
-            </div>
+            <p className="mt-6 text-center text-xs font-semibold leading-5 text-[#C9CED6]">
+              Acesso exclusivo para mentor, mentorados e equipe autorizada.
+            </p>
           </div>
         </div>
       </section>

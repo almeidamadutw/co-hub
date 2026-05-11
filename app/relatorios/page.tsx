@@ -67,8 +67,8 @@ type ModuloMentoria = {
   id: string;
   titulo: string;
   descricao: string | null;
-  ordem: number;
-  ativo: boolean;
+  ordem: number | null;
+  ativo: boolean | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -81,8 +81,8 @@ type AulaMentoria = {
   objetivo: string | null;
   duracao: string | null;
   video_url: string | null;
-  ordem: number;
-  ativo: boolean;
+  ordem: number | null;
+  ativo: boolean | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -401,7 +401,7 @@ export default function RelatoriosPage() {
   }, [cobrancasFiltradas]);
 
   const resumoProgresso = useMemo(() => {
-    const aulasAtivas = aulas.filter((aula) => aula.ativo);
+    const aulasAtivas = aulas.filter((aula) => aula.ativo !== false);
     const idsAulasAtivas = new Set(aulasAtivas.map((aula) => aula.id));
 
     const progressoConcluido = progressoFiltrado.filter(
@@ -507,7 +507,7 @@ export default function RelatoriosPage() {
   }, [agendaFiltrada]);
 
   const acompanhamentoMentorados = useMemo<MentoradosComProgresso[]>(() => {
-    const aulasAtivas = aulas.filter((aula) => aula.ativo);
+    const aulasAtivas = aulas.filter((aula) => aula.ativo !== false);
     const idsAulasAtivas = new Set(aulasAtivas.map((aula) => aula.id));
 
     return mentoradosFiltrados
@@ -626,7 +626,7 @@ export default function RelatoriosPage() {
   }, [cobrancasFiltradas]);
 
   const graficoProgressoGeral = useMemo(() => {
-    const aulasAtivas = aulas.filter((aula) => aula.ativo);
+    const aulasAtivas = aulas.filter((aula) => aula.ativo !== false);
     const idsAulasAtivas = new Set(aulasAtivas.map((aula) => aula.id));
     const base = criarUltimosMeses(12);
 

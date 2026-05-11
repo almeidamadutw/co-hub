@@ -57,9 +57,11 @@ export default function SimuladosPage() {
     }
 
     if (!usuarioTemPermissao(user, ["mentor"])) {
-      router.replace("/dashboard");
-      return;
-    }
+  router.replace(
+    user.role === "mentorado" ? "/mentorado/dashboard" : "/login"
+  );
+  return;
+}
 
     setUsuario(user);
   }, [router]);
@@ -447,14 +449,21 @@ export default function SimuladosPage() {
                           </span>
 
                           <span className="rounded-full bg-white px-4 py-2 text-xs font-black text-slate-500 ring-1 ring-slate-100">
-                            {aberto ? "Recolher" : "Editar"}
-                          </span>
+  {aberto ? "Recolher" : "Expandir"}
+</span>
                         </div>
                       </button>
 
                       {aberto && (
                         <div className="space-y-5 border-t border-slate-100 p-6">
                           <div className="flex flex-wrap gap-3">
+                           <button
+  type="button"
+  onClick={() => router.push(`/simulados/${simulado.id}`)}
+  className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:brightness-110"
+>
+  Editor avançado
+</button>
                             <button
                               type="button"
                               onClick={() => alternarPublicacao(simulado.id)}

@@ -124,12 +124,18 @@ export default function DashboardMentoradoPage() {
         setCarregando(true);
         setErro("");
 
-        const { data: perfilData, error: perfilError } = await supabase
-          .from("profiles")
-          .select("id, nome, email, codigo_inscricao")
-          .eq("email", usuarioAtual.email)
-          .eq("role", "mentorado")
-          .single();
+        const usuarioId = (usuarioAtual as User & { id?: string })?.id;
+
+if (!usuarioId) {
+  throw new Error("Não foi possível identificar o usuário logado.");
+}
+
+const { data: perfilData, error: perfilError } = await supabase
+  .from("profiles")
+  .select("id, nome, email, codigo_inscricao")
+  .eq("id", usuarioId)
+  .eq("role", "mentorado")
+  .single();
 
         if (perfilError || !perfilData) {
           throw new Error(
@@ -720,7 +726,7 @@ export default function DashboardMentoradoPage() {
               <Card titulo="Próximo encontro">
                 <div className="rounded-[26px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-6 text-white">
                   <p className="text-sm font-bold text-[#C9CED6]">
-                    Agenda da mentoria
+                    Central de agenda
                   </p>
 
                   <p className="mt-3 text-3xl font-black">

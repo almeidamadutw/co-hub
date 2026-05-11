@@ -139,7 +139,7 @@ export default function SuporteMentoradoPage() {
           <MenuItem label="Praticar" onClick={() => router.push("/mentorado/praticar")} />
           <MenuItem label="Meu progresso" onClick={() => router.push("/mentorado/progresso")} />
           <MenuItem label="Minha agenda" onClick={() => router.push("/mentorado/agenda")} />
-          <MenuItem label="Tarefas" onClick={() => router.push("/mentorado/tarefas")} />
+          <MenuItem label="Praticar" onClick={() => router.push("/mentorado/praticar")} />
           <MenuItem ativo label="Suporte" onClick={() => router.push("/mentorado/suporte")} />
         </nav>
 
@@ -239,8 +239,7 @@ export default function SuporteMentoradoPage() {
               <Card titulo="Abrir chamado">
                 {enviado && (
                   <div className="mb-5 rounded-2xl bg-green-50 p-4 text-sm font-bold text-green-700">
-                    Chamado enviado com sucesso. Nossa equipe vai analisar sua
-                    solicitação.
+                    Solicitação registrada nesta tela. Para atendimento real, use o canal oficial da equipe.
                   </div>
                 )}
 

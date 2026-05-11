@@ -115,10 +115,8 @@ export default function FinanceiroPage() {
     useState<FormularioCobranca>(formularioInicial);
 
   const [mostrarPreviewParcelas, setMostrarPreviewParcelas] = useState(false);
-
   const [cobrancaSelecionada, setCobrancaSelecionada] =
     useState<CobrancaComMentorado | null>(null);
-
   const [parcelasSelecionadas, setParcelasSelecionadas] = useState<string[]>([]);
 
   useEffect(() => {
@@ -130,7 +128,7 @@ export default function FinanceiroPage() {
     }
 
     if (!usuarioTemPermissao(usuarioLogado, ["mentor", "financeiro"])) {
-      router.push("/dashboard");
+      router.push("/mentorado/dashboard");
       return;
     }
 
@@ -1149,7 +1147,11 @@ export default function FinanceiroPage() {
                   disabled={salvando}
                   className="rounded-2xl bg-[#08163F] px-5 py-3 font-black text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {salvando ? "Salvando..." : "Salvar lançamento"}
+                  {salvando
+                    ? "Salvando..."
+                    : editandoId
+                    ? "Salvar alterações"
+                    : "Salvar lançamento"}
                 </button>
 
                 <button

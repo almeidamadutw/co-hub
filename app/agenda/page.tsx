@@ -109,7 +109,7 @@ export default function AgendaPage() {
     }
 
     if (!usuarioTemPermissao(usuarioLogado, ["mentor"])) {
-      router.push("/dashboard");
+      router.push("/mentorado/dashboard");
       return;
     }
 
@@ -531,7 +531,7 @@ export default function AgendaPage() {
             <div className="flex flex-wrap items-start justify-between gap-6">
               <div>
                 <p className="mb-3 text-xs font-black uppercase tracking-[0.32em] text-[#C9CED6]">
-                  Agenda da mentora
+                  Central de agenda
                 </p>
 
                 <h1 className="max-w-4xl text-4xl font-black leading-tight">

@@ -74,10 +74,16 @@ export default function MentoradoModulosPage() {
       return;
     }
 
-    if (user.role !== "mentorado") {
-      router.replace("/dashboard");
-      return;
-    }
+    if (user.role === "mentor") {
+  router.replace("/dashboard");
+  return;
+}
+
+if (user.role !== "mentorado") {
+  logoutUsuario();
+  router.replace("/login");
+  return;
+}
 
     setUsuario(user);
   }, [router]);
@@ -89,56 +95,36 @@ export default function MentoradoModulosPage() {
       setCarregandoProgresso(true);
       setErro("");
 
-      const usuarioEmail = (usuario as User & { email?: string })?.email;
       const usuarioId = (usuario as User & { id?: string })?.id;
 
-      let idPerfil = "";
+if (!usuarioId) {
+  setErro("Não foi possível identificar o usuário logado.");
+  setCarregandoProgresso(false);
+  return;
+}
 
-      if (usuarioEmail) {
-        const { data: perfilPorEmail, error: erroEmail } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("email", usuarioEmail)
-          .eq("role", "mentorado")
-          .maybeSingle();
+const { data: perfil, error: erroPerfil } = await supabase
+  .from("profiles")
+  .select("id")
+  .eq("id", usuarioId)
+  .eq("role", "mentorado")
+  .maybeSingle();
 
-        if (erroEmail) {
-          setErro(erroEmail.message);
-          setCarregandoProgresso(false);
-          return;
-        }
+if (erroPerfil) {
+  setErro(erroPerfil.message);
+  setCarregandoProgresso(false);
+  return;
+}
 
-        if (perfilPorEmail?.id) {
-          idPerfil = perfilPorEmail.id;
-        }
-      }
+if (!perfil?.id) {
+  setErro("Não foi possível identificar o perfil do mentorado.");
+  setCarregandoProgresso(false);
+  return;
+}
 
-      if (!idPerfil && usuarioId) {
-        const { data: perfilPorId, error: erroId } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("id", usuarioId)
-          .eq("role", "mentorado")
-          .maybeSingle();
+const idPerfil = perfil.id;
 
-        if (erroId) {
-          setErro(erroId.message);
-          setCarregandoProgresso(false);
-          return;
-        }
-
-        if (perfilPorId?.id) {
-          idPerfil = perfilPorId.id;
-        }
-      }
-
-      if (!idPerfil) {
-        setErro("Não foi possível identificar o perfil do mentorado.");
-        setCarregandoProgresso(false);
-        return;
-      }
-
-      setMentoradoId(idPerfil);
+setMentoradoId(idPerfil);
 
       const { data, error } = await supabase
         .from("progresso_aulas")
@@ -271,10 +257,11 @@ export default function MentoradoModulosPage() {
     }
   }
 
-  function sair() {
-    logoutUsuario();
-    router.replace("/login");
-  }
+  async function sair() {
+  logoutUsuario();
+  await supabase.auth.signOut();
+  router.replace("/login");
+}
 
   if (!usuario || carregando || carregandoProgresso) {
     return (

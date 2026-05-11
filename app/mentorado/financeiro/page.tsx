@@ -358,8 +358,8 @@ export default function FinanceiroMentoradoPage() {
                 </h2>
 
                 <p className="mt-2 text-sm font-semibold text-slate-500">
-                  Consulte vencimentos, valores e comprovantes registrados pela
-                  equipe.
+                  Consulte vencimentos, valores e informações registradas pela
+equipe.
                 </p>
               </div>
 

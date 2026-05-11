@@ -104,9 +104,11 @@ export default function ModulosPage() {
     }
 
     if (!usuarioTemPermissao(usuarioLogado, ["mentor", "modulos"])) {
-      router.push("/dashboard");
-      return;
-    }
+  router.push(
+    usuarioLogado.role === "mentorado" ? "/mentorado/dashboard" : "/login"
+  );
+  return;
+}
 
     setUsuario(usuarioLogado);
   }, [router]);
@@ -211,10 +213,10 @@ export default function ModulosPage() {
       setErro("");
 
       await criarModulo({
-        titulo: formModulo.titulo.trim(),
-        descricao: formModulo.descricao.trim(),
-        criadoPor: null,
-      });
+  titulo: formModulo.titulo.trim(),
+  descricao: formModulo.descricao.trim(),
+  criadoPor: (usuario as User & { id?: string })?.id ?? null,
+});
 
       fecharFormularios();
     } catch (error) {
@@ -954,12 +956,13 @@ function AulaCard({
 
       {aula.video_url && (
         <a
-          href={aula.video_url}
-          target="_blank"
-          className="mt-4 block rounded-2xl bg-white p-4 text-sm font-black text-[#08163F] ring-1 ring-slate-100"
-        >
-          Abrir vídeo →
-        </a>
+  href={aula.video_url}
+  target="_blank"
+  rel="noreferrer"
+  className="mt-4 block rounded-2xl bg-white p-4 text-sm font-black text-[#08163F] ring-1 ring-slate-100"
+>
+  Abrir vídeo →
+</a>
       )}
 
       {aula.materiais_aula && aula.materiais_aula.length > 0 && (
@@ -975,12 +978,13 @@ function AulaCard({
                 className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#f9fafb] px-4 py-3"
               >
                 <a
-                  href={material.url}
-                  target="_blank"
-                  className="text-sm font-black text-[#08163F] hover:underline"
-                >
-                  {material.nome}
-                </a>
+  href={material.url}
+  target="_blank"
+  rel="noreferrer"
+  className="text-sm font-black text-[#08163F] hover:underline"
+>
+  {material.nome}
+</a>
 
                 <button
                   onClick={() => onRemoverMaterial(material.id)}

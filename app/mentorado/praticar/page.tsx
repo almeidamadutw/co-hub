@@ -36,10 +36,16 @@ export default function PraticarPage() {
       return;
     }
 
-    if (user.role !== "mentorado") {
-      router.replace("/dashboard");
-      return;
-    }
+    if (user.role === "mentor") {
+  router.replace("/dashboard");
+  return;
+}
+
+if (user.role !== "mentorado") {
+  logoutUsuario();
+  router.replace("/login");
+  return;
+}
 
     setUsuario(user);
   }, [router]);
@@ -112,9 +118,23 @@ export default function PraticarPage() {
       return;
     }
 
-    const acertos = simuladoSelecionado.questoes.filter(
-      (questao) => respostasAtuais[questao.id] === questao.respostaCorretaId
-    ).length;
+    const acertos = simuladoSelecionado.questoes.filter((questao: any) => {
+  const respostaMarcada = respostasAtuais[questao.id];
+
+  if (questao.respostaCorretaId) {
+    return respostaMarcada === questao.respostaCorretaId;
+  }
+
+  if (Array.isArray(questao.respostasCorretas)) {
+    const indiceMarcado = questao.alternativas.findIndex(
+      (alternativa: any) => alternativa.id === respostaMarcada
+    );
+
+    return questao.respostasCorretas.includes(indiceMarcado);
+  }
+
+  return false;
+}).length;
 
     const total = simuladoSelecionado.questoes.length;
     const percentual = Math.round((acertos / total) * 100);

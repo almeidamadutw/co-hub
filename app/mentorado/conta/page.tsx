@@ -16,12 +16,12 @@ export default function ContaMentoradoPage() {
 
   const [nome, setNome] = useState("");
   const [sobrenome, setSobrenome] = useState("");
-  const [telefone, setTelefone] = useState("(15) 99999-0000");
-  const [genero, setGenero] = useState("Não informado");
+  const [telefone, setTelefone] = useState("");
+  const [genero, setGenero] = useState("");
   const [nascimento, setNascimento] = useState("");
-  const [nacionalidade, setNacionalidade] = useState("Brasil");
-  const [profissao, setProfissao] = useState("Empreendedor(a)");
-  const [cidade, setCidade] = useState("Sorocaba");
+  const [nacionalidade, setNacionalidade] = useState("");
+  const [profissao, setProfissao] = useState("");
+  const [cidade, setCidade] = useState("");
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -52,7 +52,7 @@ export default function ContaMentoradoPage() {
 
     const partesNome = user.nome.split(" ");
     setNome(partesNome[0] ?? "");
-    setSobrenome(partesNome.slice(1).join(" ") || "Teste");
+    setSobrenome(partesNome.slice(1).join(" ") || "");
   }, [router]);
 
   function alterarFoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -453,7 +453,7 @@ export default function ContaMentoradoPage() {
                     </h3>
 
                     <p className="mt-2 text-sm font-semibold text-gray-500">
-                      Altere sua senha e revise opções de acesso.
+                      Para alterar sua senha, solicite suporte da equipe responsável pelo acesso.
                     </p>
                   </div>
 
@@ -483,11 +483,12 @@ export default function ContaMentoradoPage() {
                     </Campo>
 
                     <button
-                      type="button"
-                      className="w-fit rounded-2xl bg-[#08163F] px-7 py-4 font-black text-white shadow-lg transition hover:brightness-110"
-                    >
-                      Atualizar senha
-                    </button>
+  type="button"
+  onClick={() => router.push("/mentorado/suporte")}
+  className="w-fit rounded-2xl bg-[#08163F] px-7 py-4 font-black text-white shadow-lg transition hover:brightness-110"
+>
+  Solicitar alteração de senha
+</button>
                   </form>
                 </div>
 

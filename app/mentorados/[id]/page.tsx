@@ -68,8 +68,8 @@ type ModuloMentoria = {
   id: string;
   titulo: string;
   descricao: string | null;
-  ordem: number;
-  ativo: boolean;
+  ordem: number | null;
+  ativo: boolean | null;
   created_at: string;
   updated_at: string | null;
 };
@@ -990,9 +990,9 @@ export default function PerfilMentoradoPage() {
                 />
 
                 <ActionButton
-                  label="Ver simulados"
-                  onClick={() => router.push("/simulados")}
-                />
+  label="Ver módulos"
+  onClick={() => router.push("/modulos")}
+/>
 
                 <ActionButton
                   label="Financeiro"

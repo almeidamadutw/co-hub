@@ -418,7 +418,7 @@ export default function DashboardPage() {
   if (!usuario) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        Carregando painel da mentora...
+        Carregando painel...
       </main>
     );
   }
@@ -466,7 +466,7 @@ export default function DashboardPage() {
                   </p>
 
                   <h2 className="mt-2 text-4xl font-black">
-                    Bem-vinda de volta, {usuario.nome}
+                    Olá, {usuario.nome}
                   </h2>
 
                   <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#D9DEE7]">
@@ -770,9 +770,9 @@ export default function DashboardPage() {
                 />
 
                 <ActionButton
-                  label="Criar simulado"
-                  onClick={() => router.push("/simulados")}
-                />
+  label="Gerenciar simulados"
+  onClick={() => router.push("/modulos")}
+/>
 
                 <ActionButton
                   label="Ver agenda"

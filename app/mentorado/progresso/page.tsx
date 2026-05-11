@@ -26,10 +26,16 @@ export default function MentoradoProgressoPage() {
       return;
     }
 
-    if (user.role !== "mentorado") {
-      router.replace("/dashboard");
-      return;
-    }
+    if (user.role === "mentor") {
+  router.replace("/dashboard");
+  return;
+}
+
+if (user.role !== "mentorado") {
+  logoutUsuario();
+  router.replace("/login");
+  return;
+}
 
     setUsuario(user);
   }, [router]);
@@ -41,56 +47,36 @@ export default function MentoradoProgressoPage() {
       setCarregandoProgresso(true);
       setErro("");
 
-      const usuarioEmail = (usuario as User & { email?: string })?.email;
       const usuarioId = (usuario as User & { id?: string })?.id;
 
-      let idPerfil = "";
+if (!usuarioId) {
+  setErro("Não foi possível identificar o usuário logado.");
+  setCarregandoProgresso(false);
+  return;
+}
 
-      if (usuarioEmail) {
-        const { data: perfilPorEmail, error: erroEmail } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("email", usuarioEmail)
-          .eq("role", "mentorado")
-          .maybeSingle();
+const { data: perfil, error: erroPerfil } = await supabase
+  .from("profiles")
+  .select("id")
+  .eq("id", usuarioId)
+  .eq("role", "mentorado")
+  .maybeSingle();
 
-        if (erroEmail) {
-          setErro(erroEmail.message);
-          setCarregandoProgresso(false);
-          return;
-        }
+if (erroPerfil) {
+  setErro(erroPerfil.message);
+  setCarregandoProgresso(false);
+  return;
+}
 
-        if (perfilPorEmail?.id) {
-          idPerfil = perfilPorEmail.id;
-        }
-      }
+if (!perfil?.id) {
+  setErro("Não foi possível identificar o perfil do mentorado.");
+  setCarregandoProgresso(false);
+  return;
+}
 
-      if (!idPerfil && usuarioId) {
-        const { data: perfilPorId, error: erroId } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("id", usuarioId)
-          .eq("role", "mentorado")
-          .maybeSingle();
+const idPerfil = perfil.id;
 
-        if (erroId) {
-          setErro(erroId.message);
-          setCarregandoProgresso(false);
-          return;
-        }
-
-        if (perfilPorId?.id) {
-          idPerfil = perfilPorId.id;
-        }
-      }
-
-      if (!idPerfil) {
-        setErro("Não foi possível identificar o perfil do mentorado.");
-        setCarregandoProgresso(false);
-        return;
-      }
-
-      setMentoradoId(idPerfil);
+setMentoradoId(idPerfil);
 
       const { data, error } = await supabase
         .from("progresso_aulas")
@@ -478,22 +464,22 @@ function ModuloProgressoCard({
   modulo,
 }: {
   modulo: {
+  id: string;
+  titulo: string;
+  descricao: string | null;
+  ordem: number | null;
+  aulas: {
     id: string;
     titulo: string;
-    descricao: string | null;
-    ordem: number;
-    aulas: {
-      id: string;
-      titulo: string;
-      ordem: number;
-      duracao: string | null;
-      video_url: string | null;
-    }[];
-    totalAulasModulo: number;
-    aulasConcluidasModulo: number;
-    percentual: number;
-    status: string;
-  };
+    ordem: number | null;
+    duracao: string | null;
+    video_url: string | null;
+  }[];
+  totalAulasModulo: number;
+  aulasConcluidasModulo: number;
+  percentual: number;
+  status: string;
+};
 }) {
   const statusClasse =
     modulo.status === "Concluído"
@@ -510,7 +496,7 @@ function ModuloProgressoCard({
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <span className="rounded-full bg-[#08163F] px-4 py-2 text-xs font-black text-white">
-              Módulo {modulo.ordem}
+              Módulo {modulo.ordem ?? "—"}
             </span>
 
             <span className={`rounded-full px-4 py-2 text-xs font-black ${statusClasse}`}>
@@ -553,7 +539,7 @@ function ModuloProgressoCard({
               className="rounded-2xl bg-white p-4 ring-1 ring-slate-100"
             >
               <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                Aula {aula.ordem}
+                Aula {aula.ordem ?? "—"}
               </p>
 
               <p className="mt-2 font-black text-[#08163F]">{aula.titulo}</p>
