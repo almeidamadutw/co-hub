@@ -34,6 +34,8 @@ type Cobranca = {
 };
 
 type FiltroStatus = "Todos" | StatusCobranca;
+type FormaPagamento = "Crédito" | "Débito" | "Pix" | "Boleto" | "Dinheiro";
+type FiltroFormaPagamento = "Todos" | FormaPagamento;
 
 const statusOptions: FiltroStatus[] = [
   "Todos",
@@ -41,6 +43,15 @@ const statusOptions: FiltroStatus[] = [
   "Pendente",
   "Atrasado",
   "Cancelado",
+];
+
+const formaPagamentoOptions: FiltroFormaPagamento[] = [
+  "Todos",
+  "Crédito",
+  "Débito",
+  "Pix",
+  "Boleto",
+  "Dinheiro",
 ];
 
 export default function FinanceiroMentoradoPage() {
@@ -55,6 +66,8 @@ export default function FinanceiroMentoradoPage() {
 
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("Todos");
+  const [filtroFormaPagamento, setFiltroFormaPagamento] =
+    useState<FiltroFormaPagamento>("Todos");
   const [cobrancaSelecionada, setCobrancaSelecionada] =
     useState<Cobranca | null>(null);
 
@@ -132,6 +145,10 @@ export default function FinanceiroMentoradoPage() {
       const bateStatus =
         filtroStatus === "Todos" || item.status === filtroStatus;
 
+      const bateFormaPagamento =
+        filtroFormaPagamento === "Todos" ||
+        item.forma_pagamento === filtroFormaPagamento;
+
       const textoBusca = normalizarTexto(
         [
           item.titulo,
@@ -147,9 +164,9 @@ export default function FinanceiroMentoradoPage() {
 
       const bateBusca = !termo || textoBusca.includes(termo);
 
-      return bateStatus && bateBusca;
+      return bateStatus && bateFormaPagamento && bateBusca;
     });
-  }, [cobrancas, filtroStatus, busca]);
+  }, [cobrancas, filtroStatus, filtroFormaPagamento, busca]);
 
   const resumo = useMemo(() => {
     const totalContratado = cobrancas.reduce(
@@ -229,23 +246,23 @@ export default function FinanceiroMentoradoPage() {
     <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
       <Sidebar nome={usuario.nome} role={usuario.role} />
 
-      <section className="relative flex-1 overflow-hidden p-6 md:p-8">
+      <section className="relative min-w-0 flex-1 overflow-x-hidden p-4 sm:p-5 md:p-6 lg:p-8">
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#12317C]/15 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-slate-300/30 blur-3xl" />
 
-        <div className="relative z-10">
-          <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-[0_24px_60px_rgba(8,22,63,0.18)]">
-            <div className="flex flex-wrap items-start justify-between gap-6">
+        <div className="relative z-10 mx-auto w-full max-w-[1600px]">
+          <section className="mb-5 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:mb-6 sm:rounded-[30px] sm:p-6 lg:mb-8 lg:rounded-[34px] lg:p-8">
+              <div className="flex flex-wrap items-start justify-between gap-6">
               <div>
                 <p className="mb-3 text-xs font-black uppercase tracking-[0.32em] text-[#C9CED6]">
                   Financeiro
                 </p>
 
-                <h1 className="max-w-4xl text-4xl font-black leading-tight">
+                <h1 className="max-w-4xl text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
                   Minha área financeira
                 </h1>
 
-                <p className="mt-3 max-w-2xl text-[#D9DEE7]">
+                <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-[#D9DEE7] sm:mt-3 sm:text-base">
                   Acompanhe suas parcelas, vencimentos e histórico de pagamentos
                   da mentoria.
                 </p>
@@ -263,12 +280,12 @@ export default function FinanceiroMentoradoPage() {
                 )}
               </div>
 
-              <div className="w-full max-w-sm rounded-[26px] border border-white/15 bg-white/10 p-5 backdrop-blur-md">
+              <div className="w-full max-w-sm rounded-[22px] border border-white/15 bg-white/10 p-4 backdrop-blur-md sm:rounded-[26px] sm:p-5">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-100">
                   Próximo vencimento
                 </p>
 
-                <p className="mt-2 text-3xl font-black">
+                <p className="mt-2 text-2xl font-black sm:text-3xl">
                   {resumo.proximoVencimento
                     ? formatarData(resumo.proximoVencimento.data_vencimento)
                     : "—"}
@@ -298,7 +315,7 @@ export default function FinanceiroMentoradoPage() {
               </div>
             </div>
 
-            <div className="mt-8 grid gap-3 md:grid-cols-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:mt-8 lg:grid-cols-3">
               <MiniInfo
                 titulo="Parcelas"
                 valor={`${resumo.quantidadePagas}/${resumo.quantidadeTotal}`}
@@ -325,7 +342,7 @@ export default function FinanceiroMentoradoPage() {
             </div>
           )}
 
-          <section className="mb-6 grid gap-4 md:grid-cols-4">
+          <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4 sm:mb-6">
             <ResumoCard
               titulo="Total contratado"
               valor={formatarMoeda(resumo.totalContratado)}
@@ -346,8 +363,8 @@ export default function FinanceiroMentoradoPage() {
             />
           </section>
 
-          <section className="mb-6 rounded-[28px] border border-white/50 bg-white/85 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-            <div className="grid gap-4 xl:grid-cols-[1fr_0.6fr]">
+          <section className="mb-5 rounded-[22px] border border-white/50 bg-white/85 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:mb-6 sm:rounded-[28px] sm:p-5 lg:p-6">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
                   Parcelas
@@ -363,7 +380,7 @@ equipe.
                 </p>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-[1fr_0.6fr]">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_180px_180px]">
                 <input
                   type="text"
                   placeholder="Buscar por cobrança, status ou forma de pagamento"
@@ -383,17 +400,34 @@ equipe.
                     </option>
                   ))}
                 </select>
+
+                <select
+                  value={filtroFormaPagamento}
+                  onChange={(e) =>
+                    setFiltroFormaPagamento(
+                      e.target.value as FiltroFormaPagamento
+                    )
+                  }
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#08163F] outline-none focus:border-[#12317C]"
+                >
+                  {formaPagamentoOptions.map((forma) => (
+                    <option key={forma} value={forma}>
+                      {forma === "Todos" ? "Todas as formas" : forma}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </section>
 
-          <section className="mb-6 grid gap-5 xl:grid-cols-[1fr_0.45fr]">
-            <section className="overflow-hidden rounded-[30px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm">
-              <div className="hidden grid-cols-[1fr_0.6fr_0.7fr_0.7fr_0.7fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white md:grid">
+          <section className="mb-6 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.45fr)]">
+            <section className="overflow-x-auto rounded-[22px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[30px]">
+              <div className="hidden min-w-[920px] grid-cols-[1fr_0.55fr_0.65fr_0.65fr_0.7fr_0.65fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white md:grid">
                 <span>Cobrança</span>
                 <span>Parcela</span>
                 <span>Valor</span>
                 <span>Vencimento</span>
+                <span>Pagamento</span>
                 <span>Status</span>
               </div>
 
@@ -408,7 +442,7 @@ equipe.
                       key={item.id}
                       type="button"
                       onClick={() => setCobrancaSelecionada(item)}
-                      className="grid w-full gap-3 p-4 text-left text-sm transition hover:bg-slate-50 md:grid-cols-[1fr_0.6fr_0.7fr_0.7fr_0.7fr] md:items-center"
+                      className="grid w-full min-w-[920px] gap-3 p-4 text-left text-sm transition hover:bg-slate-50 md:grid-cols-[1fr_0.55fr_0.65fr_0.65fr_0.7fr_0.65fr] md:items-center"
                     >
                       <span>
                         <strong className="block text-[#08163F]">
@@ -432,6 +466,10 @@ equipe.
                         {formatarData(item.data_vencimento)}
                       </span>
 
+                      <span className="font-bold text-slate-600">
+                        {item.forma_pagamento || "—"}
+                      </span>
+
                       <span>
                         <StatusBadge status={item.status} />
                       </span>
@@ -441,7 +479,7 @@ equipe.
               )}
             </section>
 
-            <aside className="rounded-[30px] border border-white/50 bg-white/85 p-6 shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+            <aside className="rounded-[22px] border border-white/50 bg-white/85 p-4 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[30px] sm:p-5 lg:p-6">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
                 Pagamento
               </p>
@@ -478,17 +516,17 @@ equipe.
           onClick={() => setCobrancaSelecionada(null)}
         >
           <div
-            className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-[34px] bg-white shadow-2xl"
+            className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-[24px] bg-white shadow-2xl sm:rounded-[34px]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 z-10 bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
+            <div className="sticky top-0 z-10 bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white sm:p-7">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
                     Detalhes da parcela
                   </p>
 
-                  <h2 className="mt-3 text-3xl font-black">
+                  <h2 className="mt-3 text-2xl font-black sm:text-3xl">
                     {cobrancaSelecionada.titulo}
                   </h2>
 
@@ -513,7 +551,7 @@ equipe.
               </div>
             </div>
 
-            <div className="overflow-y-auto p-7">
+            <div className="overflow-y-auto p-5 sm:p-7">
               <div className="grid gap-4 md:grid-cols-2">
                 <InfoBox
                   label="Valor da parcela"
@@ -563,7 +601,7 @@ equipe.
               </div>
             </div>
 
-            <div className="sticky bottom-0 z-10 border-t border-slate-100 bg-white p-5">
+            <div className="sticky bottom-0 z-10 border-t border-slate-100 bg-white p-4 sm:p-5">
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
@@ -602,7 +640,7 @@ function ResumoCard({
 }) {
   return (
     <div
-      className={`rounded-[24px] border border-white/50 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm ${
+      className={`rounded-[22px] border border-white/50 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5 lg:p-6 ${
         destaque
           ? "bg-[#071A55] text-white"
           : alerta
@@ -618,7 +656,7 @@ function ResumoCard({
         {titulo}
       </h2>
 
-      <p className="mt-3 text-3xl font-black">{valor}</p>
+      <p className="mt-3 break-words text-2xl font-black sm:text-3xl">{valor}</p>
     </div>
   );
 }
@@ -633,11 +671,11 @@ function MiniInfo({
   texto: string;
 }) {
   return (
-    <div className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm">
+    <div className="rounded-2xl bg-white/10 p-3 backdrop-blur-sm sm:p-4">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">
         {titulo}
       </p>
-      <p className="mt-2 text-2xl font-black text-white">{valor}</p>
+      <p className="mt-2 break-words text-xl font-black text-white sm:text-2xl">{valor}</p>
       <p className="mt-1 text-xs font-bold text-blue-100">{texto}</p>
     </div>
   );

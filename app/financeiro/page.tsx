@@ -84,13 +84,7 @@ const statusOptions: StatusCobranca[] = [
   "Cancelado",
 ];
 
-const formasPagamento = [
-  "Pix",
-  "Cartão",
-  "Boleto",
-  "Dinheiro",
-  "Transferência",
-];
+const formasPagamento = ["Crédito", "Débito", "Pix", "Boleto", "Dinheiro"];
 
 export default function FinanceiroPage() {
   const router = useRouter();
@@ -687,23 +681,23 @@ export default function FinanceiroPage() {
     <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
       <Sidebar nome={usuario.nome} role={usuario.role} />
 
-      <section className="relative flex-1 overflow-hidden p-6 md:p-8">
+      <section className="relative min-w-0 flex-1 overflow-x-hidden p-4 sm:p-5 md:p-6 lg:p-8">
         <div className="pointer-events-none absolute right-[-120px] top-[-120px] h-[360px] w-[360px] rounded-full bg-[#12317C]/10 blur-3xl" />
         <div className="pointer-events-none absolute bottom-[-140px] left-[18%] h-[320px] w-[320px] rounded-full bg-[#07122F]/10 blur-3xl" />
 
-        <div className="relative z-10">
-          <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-[0_24px_60px_rgba(8,22,63,0.18)]">
-            <div className="flex flex-wrap items-start justify-between gap-6">
+        <div className="relative z-10 mx-auto w-full max-w-[1600px]">
+          <section className="mb-5 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:mb-6 sm:rounded-[30px] sm:p-6 lg:mb-8 lg:rounded-[34px] lg:p-8">
+              <div className="flex flex-wrap items-start justify-between gap-6">
               <div>
                 <p className="mb-3 text-xs font-black uppercase tracking-[0.32em] text-[#C9CED6]">
                   Financeiro CEO Club
                 </p>
 
-                <h1 className="max-w-4xl text-4xl font-black leading-tight">
+                <h1 className="max-w-4xl text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
                   Gestão financeira da mentoria
                 </h1>
 
-                <p className="mt-3 max-w-2xl text-[#D9DEE7]">
+                <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-[#D9DEE7] sm:mt-3 sm:text-base">
                   Cadastre cobranças, acompanhe parcelas e organize os
                   vencimentos de cada mentorado em um só painel.
                 </p>
@@ -721,7 +715,7 @@ export default function FinanceiroPage() {
               </button>
             </div>
 
-            <div className="mt-8 grid gap-3 md:grid-cols-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:mt-8 lg:grid-cols-3">
               <MiniInfo
                 titulo="Lançamentos"
                 valor={String(resumo.quantidadeTotal)}
@@ -737,7 +731,7 @@ export default function FinanceiroPage() {
             </div>
           </section>
 
-          <section className="mb-6 grid gap-4 md:grid-cols-4">
+          <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4 sm:mb-6">
             <ResumoCard
               titulo="Total previsto"
               valor={formatarMoeda(resumo.totalPrevisto)}
@@ -758,8 +752,8 @@ export default function FinanceiroPage() {
             />
           </section>
 
-          <section className="mb-6 rounded-[28px] border border-white/50 bg-white/85 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-            <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+          <section className="mb-5 rounded-[22px] border border-white/50 bg-white/85 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:mb-6 sm:rounded-[28px] sm:p-5 lg:p-6">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(220px,0.7fr)]">
               <input
                 type="text"
                 placeholder="Buscar por mentorado, e-mail, inscrição, cobrança ou status"
@@ -800,7 +794,7 @@ export default function FinanceiroPage() {
           {mostrarFormulario && (
             <form
               onSubmit={salvarCobranca}
-              className="mb-6 rounded-[28px] border border-white/50 bg-white/90 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm"
+              className="mb-5 rounded-[22px] border border-white/50 bg-white/90 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:mb-6 sm:rounded-[28px] sm:p-5 lg:p-6"
             >
               <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -851,7 +845,7 @@ export default function FinanceiroPage() {
                 </div>
               )}
 
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2 lg:gap-5">
                 <CampoFinanceiro
                   label="Mentorado"
                   ajuda="Escolha o perfil que receberá esta cobrança."
@@ -1165,7 +1159,7 @@ export default function FinanceiroPage() {
             </form>
           )}
 
-          <section className="overflow-hidden rounded-[30px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+          <section className="overflow-x-auto rounded-[22px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[30px]">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 bg-white/90 p-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
@@ -1210,7 +1204,7 @@ export default function FinanceiroPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-[0.35fr_1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr_0.7fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white">
+            <div className="grid min-w-[1180px] grid-cols-[0.35fr_1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr_0.7fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white">
               <span className="flex items-center justify-center">
                 <input
                   type="checkbox"
@@ -1239,7 +1233,7 @@ export default function FinanceiroPage() {
                 {cobrancasFiltradas.map((item) => (
                   <div
                     key={item.id}
-                    className={`grid grid-cols-[0.35fr_1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr_0.7fr] items-center p-4 text-left text-sm transition ${
+                    className={`grid min-w-[1180px] grid-cols-[0.35fr_1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr_0.7fr] items-center p-4 text-left text-sm transition ${
                       parcelasSelecionadas.includes(item.id)
                         ? "bg-blue-50/60"
                         : "hover:bg-slate-50"
@@ -1318,7 +1312,7 @@ export default function FinanceiroPage() {
 
       {cobrancaSelecionada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-3xl overflow-hidden rounded-[34px] bg-white shadow-2xl">
+          <div className="w-full max-w-3xl overflow-hidden rounded-[24px] bg-white shadow-2xl sm:rounded-[34px]">
             <div className="bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -1521,7 +1515,7 @@ function ResumoCard({
 }) {
   return (
     <div
-      className={`rounded-[24px] border border-white/50 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm ${
+      className={`rounded-[22px] border border-white/50 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5 lg:p-6 ${
         destaque
           ? "bg-[#071A55] text-white"
           : alerta
@@ -1537,18 +1531,18 @@ function ResumoCard({
         {titulo}
       </h2>
 
-      <p className="mt-3 text-3xl font-black">{valor}</p>
+      <p className="mt-3 break-words text-2xl font-black sm:text-3xl">{valor}</p>
     </div>
   );
 }
 
 function MiniInfo({ titulo, valor }: { titulo: string; valor: string }) {
   return (
-    <div className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm">
+    <div className="rounded-2xl bg-white/10 p-3 backdrop-blur-sm sm:p-4">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">
         {titulo}
       </p>
-      <p className="mt-2 text-2xl font-black text-white">{valor}</p>
+      <p className="mt-2 break-words text-xl font-black text-white sm:text-2xl">{valor}</p>
     </div>
   );
 }
