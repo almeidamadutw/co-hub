@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import { supabase } from "@/utils/supabase";
+import MentoradoSidebar from "@/components/MentoradoSidebar";
+import MentoradoLoading from "@/components/MentoradoLoading";
 
 type TipoAgenda = "Mentoria" | "Módulo" | "Reunião";
 type StatusAgenda = "Confirmada" | "Aguardando" | "Concluída" | "Cancelada";
@@ -196,145 +198,71 @@ export default function AgendaMentoradoPage() {
   }
 
   if (!usuario || carregando) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        Carregando agenda...
-      </main>
-    );
+    return <MentoradoLoading mensagem="Carregando agenda..." />;
   }
 
   return (
-    <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
-      <aside className="hidden min-h-screen w-[310px] flex-col border-r border-black/5 bg-white p-5 shadow-[10px_0_40px_rgba(15,23,42,0.04)] lg:flex">
-        <div className="mb-8 flex items-center gap-3 rounded-[24px] bg-[#f8fafc] p-3">
-          <div className="h-14 w-14 overflow-hidden rounded-2xl bg-[#08163F] p-1">
-            <img
-              src="/images/logo.jpeg"
-              alt="CEO Club"
-              className="h-full w-full rounded-xl object-cover"
-            />
-          </div>
+    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+      <MentoradoSidebar nome={perfil?.nome || usuario.nome} />
 
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-gray-400">
-              Curso
-            </p>
-            <h1 className="text-lg font-black text-[#08163F]">CEO Club</h1>
-          </div>
-        </div>
-
-        <nav className="space-y-2">
-          <MenuItem
-            label="Início"
-            onClick={() => router.push("/mentorado/dashboard")}
-          />
-          <MenuItem
-            ativo
-            label="Minha agenda"
-            onClick={() => router.push("/mentorado/agenda")}
-          />
-          <MenuItem
-            label="Meus módulos"
-            onClick={() => router.push("/mentorado/modulos")}
-          />
-          <MenuItem
-            label="Praticar"
-            onClick={() => router.push("/mentorado/praticar")}
-          />
-          <MenuItem
-            label="Meu progresso"
-            onClick={() => router.push("/mentorado/progresso")}
-          />
-          <MenuItem
-            label="Financeiro"
-            onClick={() => router.push("/mentorado/financeiro")}
-          />
-          <MenuItem
-            label="Minha conta"
-            onClick={() => router.push("/mentorado/conta")}
-          />
-        </nav>
-
-        <div className="mt-auto rounded-[24px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#C9CED6]">
-            Mentorado
-          </p>
-
-          <p className="mt-2 font-black">{usuario.nome}</p>
-
-          {perfil?.codigo_inscricao && (
-            <p className="mt-1 text-xs font-bold text-blue-100">
-              Inscrição {perfil.codigo_inscricao}
-            </p>
-          )}
-
-          <button
-            onClick={sair}
-            className="mt-5 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#08163F] transition hover:brightness-95"
-          >
-            Sair
-          </button>
-        </div>
-      </aside>
-
-      <section className="flex-1 overflow-hidden">
-        <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-6 backdrop-blur-xl md:px-8">
-          <div className="flex items-center gap-4">
+      <section className="relative min-w-0 flex-1 overflow-x-hidden">
+        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               onClick={() => router.push("/mentorado/dashboard")}
-              className="rounded-2xl bg-[#f3f5f8] px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+              className="rounded-xl bg-[#f3f5f8] px-3 py-2 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md sm:text-sm"
             >
               ← Voltar
             </button>
 
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
                 Área do mentorado
               </p>
-              <h1 className="text-xl font-black">Minha agenda</h1>
+              <h1 className="truncate text-base font-black sm:text-lg md:text-xl">Minha agenda</h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <button
               onClick={() => router.push("/mentorado/suporte")}
-              className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
+              className="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-[#08163F] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl sm:text-sm"
             >
               Suporte
             </button>
 
             <button
               onClick={sair}
-              className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110"
+              className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 sm:text-sm"
             >
               Sair
             </button>
           </div>
         </header>
 
-        <div className="h-[calc(100vh-82px)] overflow-y-auto px-6 py-10 md:px-8">
-          <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-xl">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="relative min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px] lg:p-6">
+            <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
                   Compromissos da jornada
                 </p>
 
-                <h2 className="mt-3 text-4xl font-black">
+                <h2 className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
                   Sua agenda CEO Club
                 </h2>
 
-              <p className="mt-3 max-w-2xl text-[#D9DEE7]">
+              <p className="mt-2 max-w-2xl break-words text-sm font-semibold leading-6 text-[#D9DEE7]">
   Veja seus compromissos em visão mensal, com detalhes ao clicar em cada evento.
 </p>
               </div>
 
-              <div className="rounded-[26px] bg-white/10 p-5 backdrop-blur-sm">
+              <div className="rounded-[20px] bg-white/10 p-4 backdrop-blur-sm">
                 <p className="text-sm font-bold text-[#C9CED6]">
                   Próximo compromisso
                 </p>
 
-                <p className="mt-2 text-3xl font-black">
+                <p className="mt-2 break-words text-2xl font-black leading-tight">
                   {proximoEvento ? formatarDataCurta(proximoEvento.data) : "—"}
                 </p>
 
@@ -347,19 +275,19 @@ export default function AgendaMentoradoPage() {
             </div>
           </section>
 
-          <section className="mb-8 grid gap-5 xl:grid-cols-4">
+          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KPI titulo="Eventos" valor={resumo.total} destaque />
             <KPI titulo="Mentorias" valor={resumo.mentorias} />
             <KPI titulo="Aguardando" valor={resumo.aguardando} />
             <KPI titulo="Confirmados" valor={resumo.confirmados} />
           </section>
 
-          <section className="mb-6 flex flex-wrap gap-3">
+          <section className="mb-4 flex flex-wrap gap-2">
             {["Todos", "Mentoria", "Módulo", "Reunião"].map((item) => (
               <button
                 key={item}
                 onClick={() => setFiltro(item as "Todos" | TipoAgenda)}
-                className={`rounded-2xl px-5 py-3 text-sm font-black transition ${
+                className={`rounded-xl px-4 py-2.5 text-xs font-black transition sm:text-sm ${
                   filtro === item
                     ? "bg-[#08163F] text-white shadow-lg"
                     : "bg-white text-gray-500 hover:text-[#08163F] hover:shadow-md"
@@ -376,54 +304,55 @@ export default function AgendaMentoradoPage() {
             </div>
           )}
 
-          <section className="grid gap-6 xl:grid-cols-[1fr_400px]">
-            <div className="overflow-hidden rounded-[30px] bg-white shadow-lg">
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-6">
+          <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
+            <div className="min-w-0 overflow-hidden rounded-[22px] bg-white shadow-lg sm:rounded-[24px]">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.22em] text-gray-400">
                     Calendário mensal
                   </p>
 
-                  <h3 className="mt-1 text-2xl font-black text-[#050816]">
+                  <h3 className="mt-1 break-words text-xl font-black text-[#050816] sm:text-2xl">
                     {formatarMesAno(mesAtual)}
                   </h3>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => mudarMes("anterior")}
-                    className="rounded-2xl bg-[#f3f5f8] px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+                    className="rounded-xl bg-[#f3f5f8] px-3 py-2 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md sm:text-sm"
                   >
                     ← Mês anterior
                   </button>
 
                   <button
                     onClick={() => setMesAtual(new Date())}
-                    className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#08163F] shadow-sm ring-1 ring-slate-100 transition hover:shadow-md"
+                    className="rounded-xl bg-white px-3 py-2 text-xs font-black text-[#08163F] shadow-sm ring-1 ring-slate-100 transition hover:shadow-md sm:text-sm"
                   >
                     Hoje
                   </button>
 
                   <button
                     onClick={() => mudarMes("proximo")}
-                    className="rounded-2xl bg-[#08163F] px-4 py-3 text-sm font-black text-white transition hover:brightness-110"
+                    className="rounded-xl bg-[#08163F] px-3 py-2 text-xs font-black text-white transition hover:brightness-110 sm:text-sm"
                   >
                     Próximo mês →
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-7 border-b border-gray-100 bg-[#f9fafb] text-center text-xs font-black uppercase tracking-[0.16em] text-gray-400">
+              <div className="overflow-x-auto">
+                <div className="grid min-w-[760px] grid-cols-7 border-b border-gray-100 bg-[#f9fafb] text-center text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 sm:text-xs">
                 {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(
                   (dia) => (
-                    <div key={dia} className="p-4">
+                    <div key={dia} className="p-3">
                       {dia}
                     </div>
                   )
                 )}
               </div>
 
-              <div className="grid grid-cols-7">
+                <div className="grid min-w-[760px] grid-cols-7">
                 {diasDoMes.map((dia) => {
                   const eventosDia = eventosDoDia(dia.dataISO);
                   const ehMesAtual = dia.ehMesAtual;
@@ -432,7 +361,7 @@ export default function AgendaMentoradoPage() {
                   return (
                     <div
                       key={dia.dataISO}
-                      className={`min-h-[145px] border-b border-r border-gray-100 p-3 ${
+                      className={`min-h-[105px] border-b border-r border-gray-100 p-2 sm:min-h-[120px] sm:p-3 ${
                         ehMesAtual ? "bg-white" : "bg-[#f9fafb] text-gray-300"
                       }`}
                     >
@@ -456,13 +385,13 @@ export default function AgendaMentoradoPage() {
                         )}
                       </div>
 
-                      <div className="mt-3 space-y-2">
+                      <div className="mt-2 space-y-1.5">
                         {eventosDia.slice(0, 3).map((evento) => (
                           <button
                             key={evento.id}
                             type="button"
                             onClick={() => setEventoSelecionado(evento)}
-                            className="block w-full rounded-xl bg-[#F3F5FF] px-3 py-2 text-left text-[11px] font-black text-[#08163F] transition hover:bg-[#08163F] hover:text-white"
+                            className="block w-full rounded-lg bg-[#F3F5FF] px-2 py-1.5 text-left text-[10px] font-black text-[#08163F] transition hover:bg-[#08163F] hover:text-white"
                           >
                             <span className="block truncate">
                               {limparHorario(evento.horario)} ·{" "}
@@ -480,20 +409,21 @@ export default function AgendaMentoradoPage() {
                     </div>
                   );
                 })}
+                </div>
               </div>
             </div>
 
-            <aside className="space-y-6">
+            <aside className="min-w-0 space-y-4">
               <Card titulo="Próximo compromisso">
                 {proximoEvento ? (
-                  <div className="rounded-[26px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-6 text-white">
+                  <div className="min-w-0 rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white sm:p-5">
                     <TipoBadge tipo={proximoEvento.tipo} />
 
                     <p className="mt-4 text-sm font-bold text-[#C9CED6]">
                       {proximoEvento.titulo || proximoEvento.tipo}
                     </p>
 
-                    <p className="mt-3 text-4xl font-black">
+                    <p className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl">
                       {formatarDataCurta(proximoEvento.data)}
                     </p>
 
@@ -503,7 +433,7 @@ export default function AgendaMentoradoPage() {
 
                     <button
                       onClick={() => setEventoSelecionado(proximoEvento)}
-                      className="mt-6 rounded-2xl bg-white px-5 py-3 font-black text-[#08163F] transition hover:brightness-95"
+                      className="mt-5 rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-[#08163F] transition hover:brightness-95"
                     >
                       Ver detalhes →
                     </button>
@@ -526,14 +456,14 @@ export default function AgendaMentoradoPage() {
                       <button
                         key={evento.id}
                         onClick={() => setEventoSelecionado(evento)}
-                        className="w-full rounded-2xl bg-[#f9fafb] p-4 text-left transition hover:bg-white hover:shadow-md"
+                        className="w-full min-w-0 rounded-2xl bg-[#f9fafb] p-3 text-left transition hover:bg-white hover:shadow-md"
                       >
                         <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">
                           {formatarData(evento.data)} ·{" "}
                           {limparHorario(evento.horario)}
                         </p>
 
-                        <p className="mt-1 font-black text-[#08163F]">
+                        <p className="mt-1 break-words font-black text-[#08163F]">
                           {evento.titulo || evento.tipo}
                         </p>
                       </button>
@@ -548,15 +478,15 @@ export default function AgendaMentoradoPage() {
 
       {eventoSelecionado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl overflow-hidden rounded-[34px] bg-white shadow-2xl">
-            <div className="bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
+          <div className="w-full max-w-[min(96vw,42rem)] overflow-hidden rounded-[24px] bg-white shadow-2xl sm:rounded-[30px]">
+            <div className="bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
                     Detalhes do compromisso
                   </p>
 
-                  <h2 className="mt-3 text-3xl font-black">
+                  <h2 className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl">
                     {eventoSelecionado.titulo || eventoSelecionado.tipo}
                   </h2>
                 </div>
@@ -575,7 +505,7 @@ export default function AgendaMentoradoPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 p-7 md:grid-cols-2">
+            <div className="grid gap-4 p-5 sm:p-6 md:grid-cols-2">
               <InfoBox label="Data" value={formatarData(eventoSelecionado.data)} />
               <InfoBox
                 label="Horário"
@@ -597,7 +527,7 @@ export default function AgendaMentoradoPage() {
 
               <button
                 onClick={() => router.push("/mentorado/suporte")}
-                className="rounded-2xl bg-[#08163F] px-5 py-4 text-sm font-black text-white shadow-lg transition hover:brightness-110 md:col-span-2"
+                className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 md:col-span-2"
               >
                 Falar com suporte sobre este compromisso →
               </button>
@@ -675,30 +605,6 @@ function limparHorario(horario: string) {
   return horario?.slice(0, 5) || "";
 }
 
-function MenuItem({
-  label,
-  ativo,
-  onClick,
-}: {
-  label: string;
-  ativo?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-black transition ${
-        ativo
-          ? "bg-[#EEF2FF] text-[#08163F]"
-          : "text-gray-500 hover:bg-[#f8fafc] hover:text-[#08163F]"
-      }`}
-    >
-      <span>{label}</span>
-      <span>→</span>
-    </button>
-  );
-}
-
 function KPI({
   titulo,
   valor,
@@ -710,21 +616,21 @@ function KPI({
 }) {
   return (
     <div
-      className={`rounded-[26px] p-6 shadow-lg ${
+      className={`min-w-0 overflow-hidden rounded-[20px] p-4 shadow-lg shadow-slate-200/70 sm:p-5 ${
         destaque
           ? "bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-white"
           : "bg-white text-[#08163F]"
       }`}
     >
       <p
-        className={`text-sm font-bold ${
+        className={`break-words text-xs font-black sm:text-sm ${
           destaque ? "text-[#C9CED6]" : "text-gray-500"
         }`}
       >
         {titulo}
       </p>
 
-      <p className="mt-4 text-3xl font-black">{valor}</p>
+      <p className="mt-3 break-words text-2xl font-black leading-tight sm:text-3xl">{valor}</p>
     </div>
   );
 }
@@ -737,24 +643,24 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-[30px] border border-gray-200 bg-white shadow-lg">
-      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-6">
-        <h3 className="text-2xl font-black text-[#050816]">{titulo}</h3>
+    <section className="min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
+      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
+        <h3 className="break-words text-lg font-black text-[#050816] sm:text-xl">{titulo}</h3>
       </div>
 
-      <div className="p-6">{children}</div>
-    </div>
+      <div className="min-w-0 p-4 sm:p-5">{children}</div>
+    </section>
   );
 }
 
 function InfoBox({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-[#f9fafb] p-5">
+    <div className="min-w-0 rounded-2xl bg-[#f9fafb] p-4">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
         {label}
       </p>
 
-      <p className="mt-2 text-lg font-black text-[#08163F]">{value}</p>
+      <p className="mt-2 break-words text-base font-black text-[#08163F]">{value}</p>
     </div>
   );
 }

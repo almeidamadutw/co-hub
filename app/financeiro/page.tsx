@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, usuarioTemPermissao, User } from "@/utils/auth";
+import MentoradoLoading from "@/components/MentoradoLoading";
 
 type StatusCobranca = "Pago" | "Pendente" | "Atrasado" | "Cancelado";
 
@@ -663,41 +664,30 @@ export default function FinanceiroPage() {
   }
 
   if (!usuario || carregando) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        <div className="rounded-[28px] bg-white px-8 py-6 text-center shadow-xl shadow-slate-200">
-          <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">
-            CEO Club
-          </p>
-          <p className="mt-2 text-xl font-black text-[#08163F]">
-            Carregando financeiro...
-          </p>
-        </div>
-      </main>
-    );
+    return <MentoradoLoading mensagem="Carregando financeiro..." />;
   }
 
   return (
-    <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
+    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
       <Sidebar nome={usuario.nome} role={usuario.role} />
 
-      <section className="relative min-w-0 flex-1 overflow-x-hidden p-4 sm:p-5 md:p-6 lg:p-8">
+      <section className="relative min-w-0 flex-1 overflow-x-hidden p-4 sm:p-5 lg:p-6">
         <div className="pointer-events-none absolute right-[-120px] top-[-120px] h-[360px] w-[360px] rounded-full bg-[#12317C]/10 blur-3xl" />
         <div className="pointer-events-none absolute bottom-[-140px] left-[18%] h-[320px] w-[320px] rounded-full bg-[#07122F]/10 blur-3xl" />
 
-        <div className="relative z-10 mx-auto w-full max-w-[1600px]">
-          <section className="mb-5 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:mb-6 sm:rounded-[30px] sm:p-6 lg:mb-8 lg:rounded-[34px] lg:p-8">
-              <div className="flex flex-wrap items-start justify-between gap-6">
+        <div className="relative z-10 mx-auto w-full max-w-[1440px]">
+          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:p-5 lg:rounded-[26px] lg:p-6">
+              <div className="flex min-w-0 flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="mb-3 text-xs font-black uppercase tracking-[0.32em] text-[#C9CED6]">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.28em] text-[#C9CED6] sm:text-xs">
                   Financeiro CEO Club
                 </p>
 
-                <h1 className="max-w-4xl text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
+                <h1 className="max-w-4xl break-words text-xl font-black leading-tight sm:text-2xl lg:text-3xl">
                   Gestão financeira da mentoria
                 </h1>
 
-                <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-[#D9DEE7] sm:mt-3 sm:text-base">
+                <p className="mt-2 max-w-2xl break-words text-sm font-medium leading-6 text-[#D9DEE7]">
                   Cadastre cobranças, acompanhe parcelas e organize os
                   vencimentos de cada mentorado em um só painel.
                 </p>
@@ -705,7 +695,7 @@ export default function FinanceiroPage() {
 
               <button
                 onClick={abrirNovoLancamento}
-                className="rounded-2xl px-5 py-3 font-black text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105"
+                className="rounded-2xl px-5 py-3 text-sm font-black text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105"
                 style={{
                   background:
                     "linear-gradient(180deg, #F3F4F6 0%, #D1D5DB 55%, #9CA3AF 100%)",
@@ -715,7 +705,7 @@ export default function FinanceiroPage() {
               </button>
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:mt-8 lg:grid-cols-3">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <MiniInfo
                 titulo="Lançamentos"
                 valor={String(resumo.quantidadeTotal)}
@@ -731,7 +721,7 @@ export default function FinanceiroPage() {
             </div>
           </section>
 
-          <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4 sm:mb-6">
+          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <ResumoCard
               titulo="Total previsto"
               valor={formatarMoeda(resumo.totalPrevisto)}
@@ -752,14 +742,14 @@ export default function FinanceiroPage() {
             />
           </section>
 
-          <section className="mb-5 rounded-[22px] border border-white/50 bg-white/85 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:mb-6 sm:rounded-[28px] sm:p-5 lg:p-6">
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(220px,0.7fr)]">
+          <section className="mb-4 min-w-0 rounded-[20px] border border-white/50 bg-white/85 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(200px,0.7fr)]">
               <input
                 type="text"
                 placeholder="Buscar por mentorado, e-mail, inscrição, cobrança ou status"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[#08163F] outline-none placeholder:text-slate-400 focus:border-[#12317C]"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#08163F] outline-none placeholder:text-slate-400 focus:border-[#12317C]"
               />
 
               <select
@@ -794,19 +784,19 @@ export default function FinanceiroPage() {
           {mostrarFormulario && (
             <form
               onSubmit={salvarCobranca}
-              className="mb-5 rounded-[22px] border border-white/50 bg-white/90 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:mb-6 sm:rounded-[28px] sm:p-5 lg:p-6"
+              className="mb-4 min-w-0 rounded-[20px] border border-white/50 bg-white/90 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5"
             >
-              <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
                     {editandoId ? "Editar lançamento" : "Novo lançamento"}
                   </p>
 
-                  <h2 className="mt-1 text-2xl font-black text-[#08163F]">
+                  <h2 className="mt-1 break-words text-xl font-black text-[#08163F] sm:text-2xl">
                     Dados da cobrança
                   </h2>
 
-                  <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+                  <p className="mt-2 max-w-2xl break-words text-sm font-semibold leading-6 text-slate-500">
                     Informe o mentorado, valor, vencimento e forma de pagamento.
                     Para cobranças parceladas, o sistema cria uma linha para
                     cada parcela.
@@ -816,14 +806,14 @@ export default function FinanceiroPage() {
                 <button
                   type="button"
                   onClick={fecharFormulario}
-                  className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-slate-200"
+                  className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-black text-[#08163F] transition hover:bg-slate-200"
                 >
                   Fechar
                 </button>
               </div>
 
               {mentoradoSelecionado && (
-                <div className="mb-5 rounded-[24px] border border-slate-200 bg-[#f9fafb] p-5">
+                <div className="mb-4 min-w-0 rounded-[18px] border border-slate-200 bg-[#f9fafb] p-4">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
                     Mentorado selecionado
                   </p>
@@ -845,7 +835,7 @@ export default function FinanceiroPage() {
                 </div>
               )}
 
-              <div className="grid gap-4 md:grid-cols-2 lg:gap-5">
+              <div className="grid min-w-0 gap-3 md:grid-cols-2 lg:gap-4">
                 <CampoFinanceiro
                   label="Mentorado"
                   ajuda="Escolha o perfil que receberá esta cobrança."
@@ -1052,7 +1042,7 @@ export default function FinanceiroPage() {
                     onChange={(e) =>
                       atualizarCampoFormulario("descricao", e.target.value)
                     }
-                    className="input-financeiro min-h-[110px]"
+                    className="input-financeiro min-h-[88px]"
                   />
                 </CampoFinanceiro>
 
@@ -1066,24 +1056,24 @@ export default function FinanceiroPage() {
                     onChange={(e) =>
                       atualizarCampoFormulario("observacao", e.target.value)
                     }
-                    className="input-financeiro min-h-[110px]"
+                    className="input-financeiro min-h-[88px]"
                   />
                 </CampoFinanceiro>
               </div>
 
               {!editandoId && (
-                <div className="mt-6 rounded-[26px] border border-slate-200 bg-[#f9fafb] p-5">
+                <div className="mt-5 rounded-[20px] border border-slate-200 bg-[#f9fafb] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
                         Prévia das parcelas
                       </p>
 
-                      <h3 className="mt-1 text-xl font-black text-[#08163F]">
+                      <h3 className="mt-1 break-words text-lg font-black text-[#08163F]">
                         Confira antes de salvar
                       </h3>
 
-                      <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+                      <p className="mt-2 max-w-2xl break-words text-sm font-semibold leading-6 text-slate-500">
                         A prévia mostra cada parcela, valor e vencimento.
                       </p>
                     </div>
@@ -1091,7 +1081,7 @@ export default function FinanceiroPage() {
                     <button
                       type="button"
                       onClick={gerarPreviewParcelas}
-                      className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white transition hover:brightness-110"
+                      className="rounded-xl bg-[#08163F] px-4 py-2.5 text-sm font-black text-white transition hover:brightness-110"
                     >
                       Gerar prévia
                     </button>
@@ -1135,11 +1125,11 @@ export default function FinanceiroPage() {
                 </div>
               )}
 
-              <div className="mt-5 flex flex-wrap gap-3">
+              <div className="mt-4 flex flex-wrap gap-2 sm:gap-3">
                 <button
                   type="submit"
                   disabled={salvando}
-                  className="rounded-2xl bg-[#08163F] px-5 py-3 font-black text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-xl bg-[#08163F] px-4 py-2.5 text-sm font-black text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {salvando
                     ? "Salvando..."
@@ -1151,7 +1141,7 @@ export default function FinanceiroPage() {
                 <button
                   type="button"
                   onClick={limparFormulario}
-                  className="rounded-2xl border border-slate-300 bg-white px-5 py-3 font-black text-[#0B1D59] transition hover:bg-slate-50"
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-black text-[#0B1D59] transition hover:bg-slate-50"
                 >
                   Limpar
                 </button>
@@ -1159,8 +1149,8 @@ export default function FinanceiroPage() {
             </form>
           )}
 
-          <section className="overflow-x-auto rounded-[22px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[30px]">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 bg-white/90 p-4">
+          <section className="min-w-0 overflow-x-auto rounded-[20px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[24px]">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white/90 p-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
                   Seleção de parcelas
@@ -1177,7 +1167,7 @@ export default function FinanceiroPage() {
                   type="button"
                   onClick={alternarSelecaoTodasFiltradas}
                   disabled={cobrancasFiltradas.length === 0}
-                  className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-black text-[#08163F] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
                 >
                   {todasFiltradasSelecionadas
                     ? "Desmarcar filtradas"
@@ -1188,7 +1178,7 @@ export default function FinanceiroPage() {
                   type="button"
                   onClick={limparSelecaoParcelas}
                   disabled={parcelasSelecionadas.length === 0}
-                  className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl bg-slate-100 px-3 py-2.5 text-xs font-black text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
                 >
                   Limpar seleção
                 </button>
@@ -1197,14 +1187,14 @@ export default function FinanceiroPage() {
                   type="button"
                   onClick={excluirParcelasSelecionadas}
                   disabled={parcelasSelecionadas.length === 0}
-                  className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl bg-red-50 px-3 py-2.5 text-xs font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
                 >
                   Excluir selecionadas
                 </button>
               </div>
             </div>
 
-            <div className="grid min-w-[1180px] grid-cols-[0.35fr_1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr_0.7fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white">
+            <div className="grid min-w-[1080px] grid-cols-[0.35fr_1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr_0.7fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-3 text-sm font-semibold text-white">
               <span className="flex items-center justify-center">
                 <input
                   type="checkbox"
@@ -1233,7 +1223,7 @@ export default function FinanceiroPage() {
                 {cobrancasFiltradas.map((item) => (
                   <div
                     key={item.id}
-                    className={`grid min-w-[1180px] grid-cols-[0.35fr_1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr_0.7fr] items-center p-4 text-left text-sm transition ${
+                    className={`grid min-w-[1080px] grid-cols-[0.35fr_1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr_0.7fr] items-center p-3 text-left text-xs transition sm:text-sm ${
                       parcelasSelecionadas.includes(item.id)
                         ? "bg-blue-50/60"
                         : "hover:bg-slate-50"
@@ -1253,10 +1243,10 @@ export default function FinanceiroPage() {
                     <button
                       type="button"
                       onClick={() => setCobrancaSelecionada(item)}
-                      className="text-left"
+                      className="min-w-0 text-left"
                     >
-                      <strong className="block">{item.mentoradoNome}</strong>
-                      <small className="text-xs text-slate-400">
+                      <strong className="block truncate">{item.mentoradoNome}</strong>
+                      <small className="block truncate text-xs text-slate-400">
                         {item.mentoradoCodigo || "—"} · {item.mentoradoEmail}
                       </small>
                     </button>
@@ -1264,7 +1254,7 @@ export default function FinanceiroPage() {
                     <button
                       type="button"
                       onClick={() => setCobrancaSelecionada(item)}
-                      className="text-left font-semibold text-slate-700"
+                      className="min-w-0 truncate text-left font-semibold text-slate-700"
                     >
                       {item.titulo}
                     </button>
@@ -1312,15 +1302,15 @@ export default function FinanceiroPage() {
 
       {cobrancaSelecionada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-3xl overflow-hidden rounded-[24px] bg-white shadow-2xl sm:rounded-[34px]">
-            <div className="bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
+          <div className="w-full max-w-[min(96vw,48rem)] overflow-hidden rounded-[24px] bg-white shadow-2xl sm:rounded-[30px]">
+            <div className="bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
                     Detalhes do lançamento
                   </p>
 
-                  <h2 className="mt-3 text-3xl font-black">
+                  <h2 className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl">
                     {cobrancaSelecionada.titulo}
                   </h2>
 
@@ -1343,7 +1333,7 @@ export default function FinanceiroPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 p-7 md:grid-cols-2">
+            <div className="grid gap-3 p-5 sm:p-6 md:grid-cols-2">
               <InfoBox
                 label="Código do mentorado"
                 value={cobrancaSelecionada.mentoradoCodigo || "—"}
@@ -1403,14 +1393,14 @@ export default function FinanceiroPage() {
               <div className="flex flex-wrap gap-3 md:col-span-2">
                 <button
                   onClick={() => editarCobranca(cobrancaSelecionada)}
-                  className="rounded-2xl bg-[#08163F] px-5 py-4 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                  className="rounded-xl bg-[#08163F] px-4 py-2.5 text-sm font-black text-white shadow-lg transition hover:brightness-110"
                 >
                   Editar
                 </button>
 
                 <button
                   onClick={() => atualizarStatus(cobrancaSelecionada.id, "Pago")}
-                  className="rounded-2xl bg-emerald-50 px-5 py-4 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
+                  className="rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
                 >
                   Marcar como pago
                 </button>
@@ -1419,7 +1409,7 @@ export default function FinanceiroPage() {
                   onClick={() =>
                     atualizarStatus(cobrancaSelecionada.id, "Pendente")
                   }
-                  className="rounded-2xl bg-yellow-50 px-5 py-4 text-sm font-black text-yellow-700 transition hover:bg-yellow-100"
+                  className="rounded-xl bg-yellow-50 px-4 py-2.5 text-sm font-black text-yellow-700 transition hover:bg-yellow-100"
                 >
                   Marcar pendente
                 </button>
@@ -1428,7 +1418,7 @@ export default function FinanceiroPage() {
                   onClick={() =>
                     atualizarStatus(cobrancaSelecionada.id, "Atrasado")
                   }
-                  className="rounded-2xl bg-red-50 px-5 py-4 text-sm font-black text-red-600 transition hover:bg-red-100"
+                  className="rounded-xl bg-red-50 px-4 py-2.5 text-sm font-black text-red-600 transition hover:bg-red-100"
                 >
                   Marcar atraso
                 </button>
@@ -1437,14 +1427,14 @@ export default function FinanceiroPage() {
                   onClick={() =>
                     atualizarStatus(cobrancaSelecionada.id, "Cancelado")
                   }
-                  className="rounded-2xl bg-slate-100 px-5 py-4 text-sm font-black text-slate-600 transition hover:bg-slate-200"
+                  className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-200"
                 >
                   Cancelar
                 </button>
 
                 <button
                   onClick={() => excluirCobranca(cobrancaSelecionada.id)}
-                  className="rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black text-white transition hover:brightness-110"
+                  className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white transition hover:brightness-110"
                 >
                   Excluir
                 </button>
@@ -1460,9 +1450,10 @@ export default function FinanceiroPage() {
           border-radius: 1rem;
           border: 1px solid #e2e8f0;
           background: white;
-          padding: 0.85rem 1rem;
+          padding: 0.68rem 0.9rem;
           color: #08163f;
           font-weight: 700;
+          font-size: 0.875rem;
           outline: none;
           transition: 0.2s ease;
         }
@@ -1491,9 +1482,9 @@ function CampoFinanceiro({
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-black text-[#08163F]">{label}</span>
+      <span className="break-words text-sm font-black text-[#08163F]">{label}</span>
 
-      <p className="mt-1 min-h-[38px] text-xs font-semibold leading-5 text-slate-500">
+      <p className="mt-1 min-h-[32px] break-words text-xs font-semibold leading-5 text-slate-500">
         {ajuda}
       </p>
 
@@ -1515,7 +1506,7 @@ function ResumoCard({
 }) {
   return (
     <div
-      className={`rounded-[22px] border border-white/50 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5 lg:p-6 ${
+      className={`min-w-0 overflow-hidden rounded-[20px] border border-white/50 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5 ${
         destaque
           ? "bg-[#071A55] text-white"
           : alerta
@@ -1524,25 +1515,25 @@ function ResumoCard({
       }`}
     >
       <h2
-        className={`text-sm font-black ${
+        className={`break-words text-xs font-black sm:text-sm ${
           destaque ? "text-blue-100" : alerta ? "text-red-600" : "text-slate-500"
         }`}
       >
         {titulo}
       </h2>
 
-      <p className="mt-3 break-words text-2xl font-black sm:text-3xl">{valor}</p>
+      <p className="mt-3 break-words text-xl font-black leading-tight sm:text-2xl lg:text-3xl">{valor}</p>
     </div>
   );
 }
 
 function MiniInfo({ titulo, valor }: { titulo: string; valor: string }) {
   return (
-    <div className="rounded-2xl bg-white/10 p-3 backdrop-blur-sm sm:p-4">
+    <div className="min-w-0 rounded-2xl bg-white/10 p-3 backdrop-blur-sm">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">
         {titulo}
       </p>
-      <p className="mt-2 break-words text-xl font-black text-white sm:text-2xl">{valor}</p>
+      <p className="mt-2 break-words text-lg font-black text-white sm:text-xl">{valor}</p>
     </div>
   );
 }
@@ -1568,12 +1559,12 @@ function StatusBadge({ status }: { status: string }) {
 
 function InfoBox({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="rounded-2xl bg-[#f9fafb] p-5">
+    <div className="min-w-0 rounded-2xl bg-[#f9fafb] p-4">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
         {label}
       </p>
 
-      <p className="mt-2 break-words text-lg font-black text-[#08163F]">
+      <p className="mt-2 break-words text-base font-black text-[#08163F]">
         {value}
       </p>
     </div>

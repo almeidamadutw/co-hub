@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  Area,
-  AreaChart,
   CartesianGrid,
   Line,
   LineChart,
@@ -535,14 +533,23 @@ export default function PerfilMentoradoPage() {
 
   if (!usuario || carregando) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        <div className="rounded-[28px] bg-white px-8 py-6 text-center shadow-xl shadow-slate-200">
-          <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">
+      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] px-4 text-[#08163F]">
+        <div className="w-full max-w-sm rounded-[24px] border border-white/60 bg-white/90 p-6 text-center shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-xs font-black text-white shadow-lg">
+            CEO
+          </div>
+
+          <p className="mt-5 text-xs font-black uppercase tracking-[0.28em] text-slate-400">
             CEO Club
           </p>
-          <p className="mt-2 text-xl font-black text-[#08163F]">
+
+          <h1 className="mt-2 break-words text-lg font-black leading-tight text-[#08163F] sm:text-xl">
             Carregando perfil do mentorado...
-          </p>
+          </h1>
+
+          <div className="mx-auto mt-5 h-1.5 w-32 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-[#12317C]" />
+          </div>
         </div>
       </main>
     );
@@ -550,18 +557,22 @@ export default function PerfilMentoradoPage() {
 
   if (erro) {
     return (
-      <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
+      <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
         <Sidebar nome={usuario.nome} role={usuario.role} />
 
-        <section className="flex flex-1 items-center justify-center p-8">
-          <div className="max-w-lg rounded-[30px] bg-white p-8 text-center shadow-lg">
-            <h1 className="text-3xl font-black">Erro ao carregar perfil</h1>
+        <section className="relative flex min-w-0 flex-1 items-center justify-center overflow-x-hidden p-4 sm:p-6">
+          <div className="w-full max-w-lg rounded-[24px] bg-white p-6 text-center shadow-xl shadow-slate-200/70 sm:p-8">
+            <h1 className="break-words text-2xl font-black sm:text-3xl">
+              Erro ao carregar perfil
+            </h1>
 
-            <p className="mt-3 text-gray-500">{erro}</p>
+            <p className="mt-3 break-words text-sm font-semibold leading-6 text-gray-500">
+              {erro}
+            </p>
 
             <button
               onClick={() => router.push("/mentorados")}
-              className="mt-6 rounded-2xl bg-[#08163F] px-6 py-3 font-bold text-white"
+              className="mt-6 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white"
             >
               Voltar para mentorados
             </button>
@@ -573,20 +584,22 @@ export default function PerfilMentoradoPage() {
 
   if (!mentorado) {
     return (
-      <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
+      <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
         <Sidebar nome={usuario.nome} role={usuario.role} />
 
-        <section className="flex flex-1 items-center justify-center p-8">
-          <div className="max-w-lg rounded-[30px] bg-white p-8 text-center shadow-lg">
-            <h1 className="text-3xl font-black">Mentorado não encontrado</h1>
+        <section className="relative flex min-w-0 flex-1 items-center justify-center overflow-x-hidden p-4 sm:p-6">
+          <div className="w-full max-w-lg rounded-[24px] bg-white p-6 text-center shadow-xl shadow-slate-200/70 sm:p-8">
+            <h1 className="break-words text-2xl font-black sm:text-3xl">
+              Mentorado não encontrado
+            </h1>
 
-            <p className="mt-3 text-gray-500">
+            <p className="mt-3 break-words text-sm font-semibold leading-6 text-gray-500">
               Esse perfil não foi encontrado no sistema.
             </p>
 
             <button
               onClick={() => router.push("/mentorados")}
-              className="mt-6 rounded-2xl bg-[#08163F] px-6 py-3 font-bold text-white"
+              className="mt-6 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white"
             >
               Voltar para mentorados
             </button>
@@ -599,42 +612,42 @@ export default function PerfilMentoradoPage() {
   const status = mentorado.status ?? "Ativo";
 
   return (
-    <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
+    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
       <Sidebar nome={usuario.nome} role={usuario.role} />
 
-      <section className="flex-1 overflow-hidden">
-        <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-8 backdrop-blur-xl">
-          <div className="flex items-center gap-4">
+      <section className="relative min-w-0 flex-1 overflow-x-hidden">
+        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               onClick={() => router.push("/mentorados")}
-              className="rounded-2xl bg-[#f3f5f8] px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+              className="rounded-xl bg-[#f3f5f8] px-3 py-2 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md sm:text-sm"
             >
               ← Voltar
             </button>
 
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
                 Perfil do mentorado
               </p>
 
-              <h1 className="text-xl font-black">{mentorado.nome}</h1>
+              <h1 className="truncate text-base font-black sm:text-lg md:text-xl">{mentorado.nome}</h1>
             </div>
           </div>
 
           <button
             onClick={sair}
-            className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110"
+            className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 sm:text-sm"
           >
             Sair
           </button>
         </header>
 
-        <div className="h-[calc(100vh-82px)] overflow-y-auto px-8 py-10">
-          <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-xl">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-6">
-                <div className="flex h-28 w-28 items-center justify-center rounded-full border border-white/15 bg-white/10 shadow-lg">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#D9DEE7] to-[#9CA3AF] text-3xl font-black uppercase text-white">
+        <div className="relative min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px] lg:p-6">
+            <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 shadow-lg sm:h-24 sm:w-24">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#D9DEE7] to-[#9CA3AF] text-2xl font-black uppercase text-white sm:h-16 sm:w-16 sm:text-3xl">
                     {mentorado.nome?.charAt(0) ?? "M"}
                   </div>
                 </div>
@@ -644,18 +657,18 @@ export default function PerfilMentoradoPage() {
                     Código de inscrição
                   </p>
 
-                  <h2 className="mt-2 text-4xl font-black">
+                  <h2 className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
                     {mentorado.nome}
                   </h2>
 
-                  <p className="mt-2 text-[#D9DEE7]">
+                  <p className="mt-2 break-words text-sm font-semibold text-[#D9DEE7]">
                     Código:{" "}
                     <span className="font-bold text-white">
                       {mentorado.codigo_inscricao ?? "—"}
                     </span>
                   </p>
 
-                  <p className="mt-2 text-sm font-semibold text-blue-100">
+                  <p className="mt-2 break-words text-sm font-semibold text-blue-100">
                     Última evolução:{" "}
                     {resumoProgresso.ultimoAcesso
                       ? formatarData(resumoProgresso.ultimoAcesso)
@@ -671,7 +684,7 @@ export default function PerfilMentoradoPage() {
             </div>
           </section>
 
-          <section className="mb-7 grid gap-5 xl:grid-cols-4">
+          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KPI titulo="Status" valor={status} destaque />
 
             <KPI
@@ -693,9 +706,9 @@ export default function PerfilMentoradoPage() {
             />
           </section>
 
-          <section className="mb-7 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+          <section className="mb-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
             <Card titulo="Evolução individual">
-              <div className="h-[330px]">
+              <div className="h-[260px] min-w-0 sm:h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
                     data={evolucaoIndividual}
@@ -742,7 +755,7 @@ export default function PerfilMentoradoPage() {
                 </ResponsiveContainer>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid min-w-0 gap-3 md:grid-cols-4">
                 <MiniBox
                   label="Aulas concluídas"
                   value={`${resumoProgresso.totalConcluidas}/${resumoProgresso.totalAulas}`}
@@ -764,16 +777,16 @@ export default function PerfilMentoradoPage() {
             </Card>
 
             <Card titulo="Diagnóstico da mentora">
-              <div className="rounded-[26px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-6 text-white">
+              <div className="min-w-0 rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white sm:p-5">
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-200">
                   Leitura rápida
                 </p>
 
-                <h3 className="mt-3 text-3xl font-black">
+                <h3 className="mt-2 break-words text-xl font-black sm:text-2xl">
                   {diagnostico.status}
                 </h3>
 
-                <p className="mt-3 text-sm font-semibold leading-6 text-blue-100">
+                <p className="mt-2 break-words text-sm font-semibold leading-6 text-blue-100">
                   Combina progresso, encontros e financeiro para indicar se o
                   mentorado está em bom ritmo ou precisa de acompanhamento.
                 </p>
@@ -827,7 +840,7 @@ export default function PerfilMentoradoPage() {
             </Card>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-2">
+          <section className="grid min-w-0 gap-4 xl:grid-cols-2">
             <Card titulo="Dados do mentorado">
               <Info label="Nome" value={mentorado.nome} />
               <Info label="E-mail" value={mentorado.email} />
@@ -843,7 +856,7 @@ export default function PerfilMentoradoPage() {
             </Card>
 
             <Card titulo="Financeiro">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid min-w-0 gap-3 md:grid-cols-2">
                 <MiniBox
                   label="Total lançado"
                   value={formatarMoeda(resumoFinanceiro.total)}
@@ -867,15 +880,15 @@ export default function PerfilMentoradoPage() {
                 />
               </div>
 
-              <div className="mt-5 rounded-2xl bg-[#f9fafb] p-5">
+              <div className="mt-4 rounded-2xl bg-[#f9fafb] p-4">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">
                   Próxima cobrança
                 </p>
 
                 {resumoFinanceiro.proximaCobranca ? (
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="font-black text-[#08163F]">
+                      <p className="break-words font-black text-[#08163F]">
                         {resumoFinanceiro.proximaCobranca.titulo}
                       </p>
 
@@ -904,10 +917,10 @@ export default function PerfilMentoradoPage() {
                 {cobrancas.slice(0, 5).map((cobranca) => (
                   <div
                     key={cobranca.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-100"
+                    className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-3 ring-1 ring-slate-100 sm:p-4"
                   >
                     <div>
-                      <p className="font-black text-[#08163F]">
+                      <p className="break-words font-black text-[#08163F]">
                         {cobranca.titulo}
                       </p>
 
@@ -918,8 +931,8 @@ export default function PerfilMentoradoPage() {
                       </p>
                     </div>
 
-                    <div className="text-right">
-                      <p className="font-black text-[#08163F]">
+                    <div className="min-w-0 text-left sm:text-right">
+                      <p className="break-words font-black text-[#08163F]">
                         {formatarMoeda(Number(cobranca.valor_parcela))}
                       </p>
 
@@ -939,7 +952,7 @@ export default function PerfilMentoradoPage() {
 
               <button
                 onClick={() => router.push("/financeiro")}
-                className="mt-5 w-full rounded-2xl bg-[#08163F] px-5 py-4 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                className="mt-5 w-full rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
               >
                 Abrir financeiro geral →
               </button>
@@ -955,7 +968,7 @@ export default function PerfilMentoradoPage() {
                   proximosEventos.map((evento) => (
                     <div
                       key={evento.id}
-                      className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-[#f9fafb] p-5"
+                      className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#f9fafb] p-4"
                     >
                       <div>
                         <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
@@ -978,7 +991,7 @@ export default function PerfilMentoradoPage() {
                 )}
               </div>
 
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-2">
                 <ActionButton
                   label="Agendar sessão"
                   onClick={() => router.push("/agenda")}
@@ -990,9 +1003,9 @@ export default function PerfilMentoradoPage() {
                 />
 
                 <ActionButton
-  label="Ver módulos"
-  onClick={() => router.push("/modulos")}
-/>
+                  label="Ver módulos"
+                  onClick={() => router.push("/modulos")}
+                />
 
                 <ActionButton
                   label="Financeiro"
@@ -1002,14 +1015,14 @@ export default function PerfilMentoradoPage() {
             </Card>
 
             <Card titulo="Progresso por módulo">
-              <div className="rounded-[26px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-6 text-white">
+              <div className="min-w-0 rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white sm:p-5">
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
                   Evolução individual
                 </p>
 
-                <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
+                <div className="mt-4 flex min-w-0 flex-wrap items-end justify-between gap-4">
                   <div>
-                    <strong className="block text-5xl font-black">
+                    <strong className="block break-words text-3xl font-black sm:text-4xl">
                       {resumoProgresso.percentual}%
                     </strong>
 
@@ -1019,7 +1032,7 @@ export default function PerfilMentoradoPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-2xl bg-white/10 px-5 py-4 text-right">
+                  <div className="rounded-2xl bg-white/10 px-4 py-3 text-left sm:text-right">
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-200">
                       Módulos concluídos
                     </p>
@@ -1030,7 +1043,7 @@ export default function PerfilMentoradoPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 h-4 overflow-hidden rounded-full bg-white/15">
+                <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/15">
                   <div
                     className="h-full rounded-full bg-white"
                     style={{ width: `${resumoProgresso.percentual}%` }}
@@ -1038,7 +1051,7 @@ export default function PerfilMentoradoPage() {
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid min-w-0 gap-3 md:grid-cols-2">
                 <MiniBox
                   label="Em andamento"
                   value={String(resumoProgresso.modulosEmAndamento)}
@@ -1054,15 +1067,15 @@ export default function PerfilMentoradoPage() {
                 {resumoProgresso.modulosComProgresso.map((modulo) => (
                   <div
                     key={modulo.id}
-                    className="rounded-2xl bg-[#f9fafb] p-5"
+                    className="min-w-0 rounded-2xl bg-[#f9fafb] p-4"
                   >
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
                           Módulo {modulo.ordem}
                         </p>
 
-                        <h4 className="mt-1 font-black text-[#08163F]">
+                        <h4 className="mt-1 break-words font-black text-[#08163F]">
                           {modulo.titulo}
                         </h4>
 
@@ -1146,25 +1159,25 @@ function KPI({
 }) {
   return (
     <div
-      className={`rounded-[26px] p-6 shadow-lg ${
+      className={`min-w-0 overflow-hidden rounded-[20px] p-4 shadow-lg shadow-slate-200/70 sm:p-5 ${
         destaque
           ? "bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-white"
           : "bg-white text-[#08163F]"
       }`}
     >
       <p
-        className={`text-sm font-bold ${
+        className={`break-words text-xs font-black sm:text-sm ${
           destaque ? "text-[#C9CED6]" : "text-gray-500"
         }`}
       >
         {titulo}
       </p>
 
-      <p className="mt-4 text-3xl font-black">{valor}</p>
+      <p className="mt-3 break-words text-2xl font-black leading-tight sm:text-3xl">{valor}</p>
 
       {texto && (
         <p
-          className={`mt-2 text-sm font-semibold ${
+          className={`mt-2 break-words text-sm font-semibold ${
             destaque ? "text-blue-100" : "text-gray-400"
           }`}
         >
@@ -1183,19 +1196,19 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-[30px] border border-gray-200 bg-white shadow-lg">
-      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-6">
-        <h3 className="text-2xl font-black text-[#050816]">{titulo}</h3>
+    <section className="min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
+      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
+        <h3 className="break-words text-lg font-black text-[#050816] sm:text-xl">{titulo}</h3>
       </div>
 
-      <div className="space-y-4 p-6">{children}</div>
-    </div>
+      <div className="min-w-0 space-y-3 p-4 sm:p-5">{children}</div>
+    </section>
   );
 }
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-[#f9fafb] p-4">
+    <div className="min-w-0 rounded-2xl bg-[#f9fafb] p-4">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">
         {label}
       </p>
@@ -1218,7 +1231,7 @@ function MiniBox({
 }) {
   return (
     <div
-      className={`rounded-2xl p-5 ${
+      className={`min-w-0 rounded-2xl p-4 ${
         destaque
           ? "bg-[#08163F] text-white"
           : alerta
@@ -1234,7 +1247,7 @@ function MiniBox({
         {label}
       </p>
 
-      <p className="mt-2 text-xl font-black">{value}</p>
+      <p className="mt-2 break-words text-lg font-black sm:text-xl">{value}</p>
     </div>
   );
 }
@@ -1268,7 +1281,7 @@ function StatusBadge({ status }: { status: string }) {
       : "bg-blue-100 text-blue-700";
 
   return (
-    <span className={`rounded-full px-4 py-2 text-xs font-black ${classe}`}>
+    <span className={`inline-flex w-fit shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${classe}`}>
       {status}
     </span>
   );
@@ -1288,7 +1301,7 @@ function ActionButton({
   return (
     <button
       onClick={onClick}
-      className="rounded-2xl bg-[#f9fafb] p-5 text-left font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+      className="min-w-0 rounded-2xl bg-[#f9fafb] p-4 text-left text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
     >
       {label} →
     </button>
@@ -1312,9 +1325,9 @@ function InfoBox({
       : "bg-slate-50 text-slate-600";
 
   return (
-    <div className={`rounded-2xl p-5 ${classe}`}>
-      <p className="font-black">{titulo}</p>
-      <p className="mt-2 text-sm font-semibold leading-6 opacity-80">{texto}</p>
+    <div className={`min-w-0 rounded-2xl p-4 ${classe}`}>
+      <p className="break-words font-black">{titulo}</p>
+      <p className="mt-2 break-words text-sm font-semibold leading-6 opacity-80">{texto}</p>
     </div>
   );
 }

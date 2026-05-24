@@ -110,7 +110,10 @@ export default function UsuariosPage() {
       },
     });
 
-    const json = await resposta.json();
+    const tipoResposta = resposta.headers.get("content-type") ?? "";
+    const json = tipoResposta.includes("application/json")
+      ? await resposta.json()
+      : { error: await resposta.text() };
 
     if (!resposta.ok) {
       setErro(json.error ?? "Erro ao carregar usuários.");
@@ -250,7 +253,10 @@ export default function UsuariosPage() {
       }),
     });
 
-    const json = await resposta.json();
+    const tipoResposta = resposta.headers.get("content-type") ?? "";
+    const json = tipoResposta.includes("application/json")
+      ? await resposta.json()
+      : { error: await resposta.text() };
 
     if (!resposta.ok) {
       setErro(json.error ?? "Erro ao criar usuário.");
@@ -297,7 +303,10 @@ export default function UsuariosPage() {
         }),
       });
 
-      const json = await resposta.json();
+      const tipoResposta = resposta.headers.get("content-type") ?? "";
+      const json = tipoResposta.includes("application/json")
+        ? await resposta.json()
+        : { error: await resposta.text() };
 
       if (!resposta.ok) {
         throw new Error(json.error ?? "Não foi possível atualizar o usuário.");
@@ -347,7 +356,10 @@ export default function UsuariosPage() {
         }),
       });
 
-      const json = await resposta.json();
+      const tipoResposta = resposta.headers.get("content-type") ?? "";
+      const json = tipoResposta.includes("application/json")
+        ? await resposta.json()
+        : { error: await resposta.text() };
 
       if (!resposta.ok) {
         throw new Error(json.error ?? "Não foi possível alterar o status.");
@@ -398,7 +410,10 @@ export default function UsuariosPage() {
         }),
       });
 
-      const json = await resposta.json();
+      const tipoResposta = resposta.headers.get("content-type") ?? "";
+      const json = tipoResposta.includes("application/json")
+        ? await resposta.json()
+        : { error: await resposta.text() };
 
       if (!resposta.ok) {
         throw new Error(json.error ?? "Não foi possível excluir o usuário.");
@@ -420,49 +435,45 @@ export default function UsuariosPage() {
   }
 
   if (!usuario) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        Carregando usuários...
-      </main>
-    );
+    return <MentorLoading mensagem="Carregando usuários..." />;
   }
 
   const usuarioLogado = usuario;
 
   return (
-    <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
+    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
       <Sidebar nome={usuarioLogado.nome} role={usuarioLogado.role} />
 
-      <section className="flex-1 overflow-hidden">
-        <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-8 backdrop-blur-xl">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
+      <section className="relative min-w-0 flex-1 overflow-x-hidden">
+        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
               Área do mentor
             </p>
-            <h1 className="text-xl font-black">Usuários</h1>
+            <h1 className="truncate text-base font-black sm:text-lg md:text-xl">Usuários</h1>
           </div>
 
           <button
             onClick={sair}
-            className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110"
+            className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 sm:text-sm"
           >
             Sair
           </button>
         </header>
 
-        <div className="h-[calc(100vh-82px)] overflow-y-auto px-8 py-10">
-          <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-xl">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="relative min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px] lg:p-6">
+            <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
                   Gestão de acessos
                 </p>
 
-                <h2 className="mt-3 text-4xl font-black">
+                <h2 className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
                   Usuários do CEO Club
                 </h2>
 
-                <p className="mt-3 max-w-2xl text-[#D9DEE7]">
+                <p className="mt-2 max-w-2xl break-words text-sm font-semibold leading-6 text-[#D9DEE7]">
                   Controle os acessos da mentoria, acompanhe status e mantenha
                   cada perfil organizado por função.
                 </p>
@@ -470,14 +481,14 @@ export default function UsuariosPage() {
 
               <button
                 onClick={() => setMostrarFormulario((atual) => !atual)}
-                className="rounded-2xl bg-white px-6 py-4 font-black text-[#08163F] shadow-lg transition hover:brightness-95"
+                className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-lg transition hover:brightness-95"
               >
                 {mostrarFormulario ? "Fechar formulário" : "+ Novo usuário"}
               </button>
             </div>
           </section>
 
-          <section className="mb-7 grid gap-5 xl:grid-cols-6">
+          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <KPI titulo="Total" valor={resumo.total} destaque />
             <KPI titulo="Ativos" valor={resumo.ativos} />
             <KPI titulo="Pendentes" valor={resumo.pendentes} />
@@ -487,13 +498,13 @@ export default function UsuariosPage() {
           </section>
 
           {erro && (
-            <div className="mb-6 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+            <div className="mb-4 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
               {erro}
             </div>
           )}
 
           {sucesso && (
-            <div className="mb-6 rounded-2xl bg-green-50 p-4 text-sm font-bold text-green-700">
+            <div className="mb-4 rounded-2xl bg-green-50 p-4 text-sm font-bold text-green-700">
               {sucesso}
             </div>
           )}
@@ -501,26 +512,26 @@ export default function UsuariosPage() {
           {mostrarFormulario && (
             <form
               onSubmit={criarUsuario}
-              className="mb-8 rounded-[32px] bg-white p-7 shadow-lg"
+              className="mb-4 min-w-0 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:rounded-[24px] sm:p-5 lg:p-6"
             >
-              <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="mb-4 flex min-w-0 flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <h3 className="text-2xl font-black text-[#050816]">
+                  <h3 className="break-words text-xl font-black text-[#050816] sm:text-2xl">
                     Novo usuário
                   </h3>
 
-                  <p className="mt-2 max-w-2xl text-sm font-semibold text-gray-500">
+                  <p className="mt-2 max-w-2xl break-words text-sm font-semibold leading-6 text-gray-500">
                     Crie um acesso inicial, defina o perfil e entregue a senha
                     temporária para o primeiro login.
                   </p>
                 </div>
 
-                <span className="w-fit rounded-full bg-[#EEF2FF] px-4 py-2 text-xs font-black text-[#08163F]">
+                <span className="w-fit shrink-0 rounded-full bg-[#EEF2FF] px-3 py-1.5 text-xs font-black text-[#08163F]">
                   Senha padrão: 123456
                 </span>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <Campo label="Nome">
                   <input
                     value={nome}
@@ -573,11 +584,11 @@ export default function UsuariosPage() {
                 </Campo>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-4">
+              <div className="mt-4 flex flex-wrap gap-3">
                 <button
                   type="submit"
                   disabled={salvando}
-                  className="rounded-2xl bg-[#08163F] px-7 py-4 font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {salvando ? "Criando..." : "Criar usuário"}
                 </button>
@@ -588,7 +599,7 @@ export default function UsuariosPage() {
                     limparFormulario();
                     setMostrarFormulario(false);
                   }}
-                  className="rounded-2xl bg-[#f3f5f8] px-7 py-4 font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+                  className="rounded-xl bg-[#f3f5f8] px-4 py-2.5 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md sm:text-sm"
                 >
                   Cancelar
                 </button>
@@ -596,13 +607,13 @@ export default function UsuariosPage() {
             </form>
           )}
 
-          <section className="mb-6 rounded-[26px] bg-white p-5 shadow-lg">
-            <div className="grid gap-4 xl:grid-cols-[1fr_220px_220px_auto]">
+          <section className="mb-4 min-w-0 rounded-[20px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
               <input
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 placeholder="Buscar por nome, e-mail, telefone ou código..."
-                className="w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-5 py-4 font-bold text-[#08163F] outline-none transition focus:border-[#12317C] focus:ring-4 focus:ring-[#12317C]/10"
+                className="w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-4 py-2.5 text-sm font-bold text-[#08163F] outline-none transition focus:border-[#12317C] focus:ring-4 focus:ring-[#12317C]/10"
               />
 
               <select
@@ -633,17 +644,17 @@ export default function UsuariosPage() {
                 <option value="Inativo">Inativos</option>
               </select>
 
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-2 sm:gap-3">
                 <button
                   onClick={carregarUsuarios}
-                  className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                  className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-black text-white shadow-lg transition hover:brightness-110 sm:text-sm"
                 >
                   Atualizar
                 </button>
 
                 <button
                   onClick={limparFiltros}
-                  className="rounded-2xl bg-[#f3f5f8] px-5 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+                  className="rounded-xl bg-[#f3f5f8] px-4 py-2.5 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md sm:text-sm"
                 >
                   Limpar
                 </button>
@@ -655,19 +666,19 @@ export default function UsuariosPage() {
             </p>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
-            <div className="space-y-5">
+          <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
+            <div className="min-w-0 space-y-3">
               {carregando ? (
-                <div className="rounded-[30px] bg-white p-8 text-center font-black shadow-lg">
+                <div className="rounded-[22px] bg-white p-5 text-center font-black shadow-lg shadow-slate-200/70">
                   Carregando lista...
                 </div>
               ) : usuariosFiltrados.length === 0 ? (
-                <div className="rounded-[30px] bg-white p-8 text-center shadow-lg">
+                <div className="rounded-[22px] bg-white p-5 text-center shadow-lg shadow-slate-200/70">
                   <p className="text-xl font-black text-[#08163F]">
                     Nenhum usuário encontrado
                   </p>
 
-                  <p className="mt-2 text-sm font-semibold text-gray-500">
+                  <p className="mt-2 break-all text-sm font-semibold text-gray-500">
                     Ajuste os filtros ou cadastre um novo acesso.
                   </p>
                 </div>
@@ -675,11 +686,11 @@ export default function UsuariosPage() {
                 usuariosFiltrados.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-[30px] bg-white p-6 shadow-lg"
+                    className="min-w-0 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5"
                   >
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                       <div>
-                        <div className="mb-4 flex flex-wrap items-center gap-3">
+                        <div className="mb-3 flex flex-wrap items-center gap-2 sm:gap-3">
                           <PerfilBadge perfil={item.role} />
                           <StatusBadge status={item.status ?? "Ativo"} />
                           {item.codigo_inscricao && (
@@ -689,11 +700,11 @@ export default function UsuariosPage() {
                           )}
                         </div>
 
-                        <h3 className="text-2xl font-black text-[#050816]">
+                        <h3 className="break-words text-xl font-black text-[#050816] sm:text-2xl">
                           {item.nome}
                         </h3>
 
-                        <p className="mt-2 text-sm font-semibold text-gray-500">
+                        <p className="mt-2 break-all text-sm font-semibold text-gray-500">
                           {item.email}
                         </p>
 
@@ -704,7 +715,7 @@ export default function UsuariosPage() {
                         )}
                       </div>
 
-                      <div className="grid min-w-[240px] grid-cols-2 gap-3">
+                      <div className="grid min-w-0 grid-cols-2 gap-3 lg:min-w-[220px]">
                         <MiniInfo
                           label="Perfil"
                           value={traduzirPerfil(item.role)}
@@ -719,17 +730,17 @@ export default function UsuariosPage() {
                       </div>
                     </div>
 
-                    <div className="mt-5 flex flex-wrap gap-3 border-t border-gray-100 pt-5">
+                    <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-4 sm:gap-3">
                       <button
                         onClick={() => abrirEditar(item)}
-                        className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-md transition hover:brightness-110"
+                        className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-black text-white shadow-md transition hover:brightness-110 sm:text-sm"
                       >
                         Editar
                       </button>
 
                       <button
                         onClick={() => abrirInativar(item)}
-                        className={`rounded-2xl px-5 py-3 text-sm font-black shadow-md transition hover:brightness-105 ${
+                        className={`rounded-xl px-4 py-2.5 text-xs font-black shadow-md transition hover:brightness-105 sm:text-sm ${
                           item.status === "Inativo"
                             ? "bg-emerald-50 text-emerald-700"
                             : "bg-yellow-50 text-yellow-700"
@@ -740,7 +751,7 @@ export default function UsuariosPage() {
 
                       <button
                         onClick={() => abrirExcluir(item)}
-                        className="rounded-2xl bg-red-50 px-5 py-3 text-sm font-black text-red-700 shadow-md transition hover:brightness-105"
+                        className="rounded-xl bg-red-50 px-4 py-2.5 text-xs font-black text-red-700 shadow-md transition hover:brightness-105 sm:text-sm"
                       >
                         Excluir
                       </button>
@@ -750,7 +761,7 @@ export default function UsuariosPage() {
               )}
             </div>
 
-            <aside className="space-y-6">
+            <aside className="min-w-0 space-y-4">
               <Card titulo="Resumo de acessos">
                 <div className="space-y-3">
                   <ResumoLinha label="Usuários ativos" value={resumo.ativos} />
@@ -798,22 +809,22 @@ export default function UsuariosPage() {
       {modalAcao === "editar" && usuarioSelecionado && (
         <Modal titulo="Editar usuário" onClose={fecharModal}>
           <form onSubmit={salvarEdicao}>
-            <div className="mb-6 rounded-2xl bg-[#f9fafb] p-5">
+            <div className="mb-4 min-w-0 rounded-2xl bg-[#f9fafb] p-4">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-gray-400">
                 Código de inscrição
               </p>
 
-              <p className="mt-2 text-2xl font-black text-[#08163F]">
+              <p className="mt-2 break-words text-xl font-black text-[#08163F] sm:text-2xl">
                 {usuarioSelecionado.codigo_inscricao || "Sem código cadastrado"}
               </p>
 
-              <p className="mt-2 text-sm font-semibold text-gray-500">
+              <p className="mt-2 break-all text-sm font-semibold text-gray-500">
                 Este código é gerado no cadastro e não pode ser alterado por
                 esta edição.
               </p>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="grid min-w-0 gap-3 md:grid-cols-2">
               <Campo label="Nome">
                 <input
                   value={editNome}
@@ -869,11 +880,11 @@ export default function UsuariosPage() {
               </Campo>
             </div>
 
-            <div className="mt-7 flex flex-wrap gap-3">
+            <div className="mt-5 flex flex-wrap gap-3">
               <button
                 type="submit"
                 disabled={salvando}
-                className="rounded-2xl bg-[#08163F] px-6 py-4 font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {salvando ? "Salvando..." : "Salvar alterações"}
               </button>
@@ -881,7 +892,7 @@ export default function UsuariosPage() {
               <button
                 type="button"
                 onClick={fecharModal}
-                className="rounded-2xl bg-[#f3f5f8] px-6 py-4 font-black text-[#08163F]"
+                className="rounded-2xl bg-[#f3f5f8] px-5 py-3 text-sm font-black text-[#08163F]"
               >
                 Cancelar
               </button>
@@ -905,11 +916,11 @@ export default function UsuariosPage() {
               : `Deseja inativar o acesso de ${usuarioSelecionado.nome}? O perfil continuará salvo, mas ficará marcado como inativo.`}
           </p>
 
-          <div className="mt-7 flex flex-wrap gap-3">
+          <div className="mt-5 flex flex-wrap gap-3">
             <button
               onClick={confirmarInativacao}
               disabled={salvando}
-              className="rounded-2xl bg-[#08163F] px-6 py-4 font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
             >
               {salvando
                 ? "Processando..."
@@ -920,7 +931,7 @@ export default function UsuariosPage() {
 
             <button
               onClick={fecharModal}
-              className="rounded-2xl bg-[#f3f5f8] px-6 py-4 font-black text-[#08163F]"
+              className="rounded-2xl bg-[#f3f5f8] px-5 py-3 text-sm font-black text-[#08163F]"
             >
               Cancelar
             </button>
@@ -930,7 +941,7 @@ export default function UsuariosPage() {
 
       {modalAcao === "excluir" && usuarioSelecionado && (
         <Modal titulo="Excluir usuário" onClose={fecharModal}>
-          <div className="rounded-2xl bg-red-50 p-5">
+          <div className="rounded-2xl bg-red-50 p-4">
             <p className="font-black text-red-700">Atenção</p>
 
             <p className="mt-2 text-sm font-semibold leading-7 text-red-600">
@@ -939,18 +950,18 @@ export default function UsuariosPage() {
             </p>
           </div>
 
-          <div className="mt-7 flex flex-wrap gap-3">
+          <div className="mt-5 flex flex-wrap gap-3">
             <button
               onClick={confirmarExclusao}
               disabled={salvando}
-              className="rounded-2xl bg-red-600 px-6 py-4 font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
             >
               {salvando ? "Excluindo..." : "Excluir usuário"}
             </button>
 
             <button
               onClick={fecharModal}
-              className="rounded-2xl bg-[#f3f5f8] px-6 py-4 font-black text-[#08163F]"
+              className="rounded-2xl bg-[#f3f5f8] px-5 py-3 text-sm font-black text-[#08163F]"
             >
               Cancelar
             </button>
@@ -964,7 +975,8 @@ export default function UsuariosPage() {
           border-radius: 1rem;
           border: 1px solid #e5e7eb;
           background: #f9fafb;
-          padding: 1rem;
+          padding: 0.75rem 0.9rem;
+          font-size: 0.875rem;
           font-weight: 700;
           color: #08163f;
           outline: none;
@@ -981,6 +993,30 @@ export default function UsuariosPage() {
           background: white;
         }
       `}</style>
+    </main>
+  );
+}
+
+function MentorLoading({ mensagem }: { mensagem: string }) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] px-4 text-[#08163F]">
+      <div className="w-full max-w-sm rounded-[24px] border border-white/60 bg-white/90 p-6 text-center shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-xs font-black text-white shadow-lg">
+          CEO
+        </div>
+
+        <p className="mt-5 text-xs font-black uppercase tracking-[0.28em] text-slate-400">
+          CEO Club
+        </p>
+
+        <h1 className="mt-2 break-words text-lg font-black leading-tight text-[#08163F] sm:text-xl">
+          {mensagem}
+        </h1>
+
+        <div className="mx-auto mt-5 h-1.5 w-32 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full w-1/2 animate-pulse rounded-full bg-[#12317C]" />
+        </div>
+      </div>
     </main>
   );
 }
@@ -1005,8 +1041,8 @@ function Campo({
   children: React.ReactNode;
 }) {
   return (
-    <label>
-      <span className="text-sm font-black text-gray-500">{label}</span>
+    <label className="min-w-0">
+      <span className="break-words text-sm font-black text-gray-500">{label}</span>
       <div className="mt-2">{children}</div>
     </label>
   );
@@ -1023,33 +1059,33 @@ function KPI({
 }) {
   return (
     <div
-      className={`rounded-[26px] p-6 shadow-lg ${
+      className={`min-w-0 overflow-hidden rounded-[20px] p-4 shadow-lg shadow-slate-200/70 sm:p-5 ${
         destaque
           ? "bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-white"
           : "bg-white text-[#08163F]"
       }`}
     >
       <p
-        className={`text-sm font-bold ${
+        className={`break-words text-xs font-black sm:text-sm ${
           destaque ? "text-[#C9CED6]" : "text-gray-500"
         }`}
       >
         {titulo}
       </p>
 
-      <p className="mt-4 text-3xl font-black">{valor}</p>
+      <p className="mt-3 break-words text-2xl font-black leading-tight sm:text-3xl">{valor}</p>
     </div>
   );
 }
 
 function MiniInfo({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-[#f9fafb] p-4">
+    <div className="min-w-0 rounded-2xl bg-[#f9fafb] p-4">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">
         {label}
       </p>
 
-      <p className="mt-1 font-black text-[#08163F]">{value}</p>
+      <p className="mt-1 break-words font-black text-[#08163F]">{value}</p>
     </div>
   );
 }
@@ -1062,24 +1098,24 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-[30px] border border-gray-200 bg-white shadow-lg">
-      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-6">
-        <h3 className="text-2xl font-black text-[#050816]">{titulo}</h3>
+    <section className="min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
+      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
+        <h3 className="break-words text-xl font-black text-[#050816] sm:text-2xl">{titulo}</h3>
       </div>
 
-      <div className="p-6">{children}</div>
-    </div>
+      <div className="min-w-0 p-4 sm:p-5">{children}</div>
+    </section>
   );
 }
 
 function Regra({ numero, texto }: { numero: string; texto: string }) {
   return (
-    <div className="flex gap-4 rounded-2xl bg-[#f9fafb] p-4">
+    <div className="flex min-w-0 gap-3 rounded-2xl bg-[#f9fafb] p-3 sm:p-4">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#08163F] text-sm font-black text-white">
         {numero}
       </div>
 
-      <p className="text-sm font-bold leading-relaxed text-gray-600">{texto}</p>
+      <p className="break-words text-sm font-bold leading-relaxed text-gray-600">{texto}</p>
     </div>
   );
 }
@@ -1095,7 +1131,7 @@ function PerfilBadge({ perfil }: { perfil: PerfilUsuario }) {
 
   return (
     <span
-      className={`rounded-full px-3 py-1 text-xs font-black ${classes[perfil]}`}
+      className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-black ${classes[perfil]}`}
     >
       {traduzirPerfil(perfil)}
     </span>
@@ -1111,7 +1147,7 @@ function StatusBadge({ status }: { status: StatusUsuario }) {
 
   return (
     <span
-      className={`rounded-full px-3 py-1 text-xs font-black ${classes[status]}`}
+      className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-black ${classes[status]}`}
     >
       {status}
     </span>
@@ -1126,9 +1162,9 @@ function ResumoLinha({
   value: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl bg-[#f9fafb] p-4">
-      <p className="text-sm font-bold text-gray-500">{label}</p>
-      <p className="text-lg font-black text-[#08163F]">{value}</p>
+    <div className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-[#f9fafb] p-3 sm:p-4">
+      <p className="break-words text-sm font-bold text-gray-500">{label}</p>
+      <p className="break-words text-base font-black text-[#08163F] sm:text-lg">{value}</p>
     </div>
   );
 }
@@ -1144,26 +1180,26 @@ function Modal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-3xl overflow-hidden rounded-[34px] bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-7 text-white">
+      <div className="w-full max-w-[min(96vw,44rem)] overflow-hidden rounded-[24px] bg-white shadow-2xl sm:rounded-[30px]">
+        <div className="flex items-start justify-between gap-4 bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white sm:p-6">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
               Gestão de acessos
             </p>
 
-            <h2 className="mt-3 text-3xl font-black">{titulo}</h2>
+            <h2 className="mt-2 break-words text-xl font-black sm:text-2xl">{titulo}</h2>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-2xl font-black text-white transition hover:bg-white/20"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-xl font-black text-white transition hover:bg-white/20"
           >
             ×
           </button>
         </div>
 
-        <div className="max-h-[70vh] overflow-y-auto p-7">{children}</div>
+        <div className="max-h-[70vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">{children}</div>
       </div>
     </div>
   );

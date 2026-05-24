@@ -734,83 +734,92 @@ export default function RelatoriosPage() {
 
   if (!usuario || carregando) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        <div className="rounded-[28px] bg-white px-8 py-6 text-center shadow-xl shadow-slate-200">
-          <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">
+      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] px-4 text-[#08163F]">
+        <div className="w-full max-w-sm rounded-[24px] border border-white/60 bg-white/90 p-6 text-center shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-xs font-black text-white shadow-lg">
+            CEO
+          </div>
+
+          <p className="mt-5 text-xs font-black uppercase tracking-[0.28em] text-slate-400">
             CEO Club
           </p>
-          <p className="mt-2 text-xl font-black text-[#08163F]">
+
+          <h1 className="mt-2 break-words text-lg font-black leading-tight text-[#08163F] sm:text-xl">
             Carregando relatórios...
-          </p>
+          </h1>
+
+          <div className="mx-auto mt-5 h-1.5 w-32 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-[#12317C]" />
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
+    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
       <Sidebar nome={usuario.nome} role={usuario.role} />
 
-      <section className="relative flex-1 overflow-hidden">
+      <section className="relative min-w-0 flex-1 overflow-x-hidden">
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#12317C]/15 blur-3xl" />
         <div className="pointer-events-none absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-slate-300/30 blur-3xl" />
 
-        <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-8 backdrop-blur-xl">
-          <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] to-[#12317C] text-sm font-black text-white shadow-lg">
+        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#07122F] to-[#12317C] text-xs font-black text-white shadow-lg">
               CC
             </div>
 
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
                 Área da mentora
               </p>
-              <h1 className="text-xl font-black">Relatórios estratégicos</h1>
+              <h1 className="truncate text-base font-black sm:text-lg md:text-xl">Relatórios estratégicos</h1>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex shrink-0 flex-wrap gap-2 sm:gap-3">
             <button
               onClick={iniciarTela}
-              className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-[#08163F] shadow-sm transition hover:bg-slate-50"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-[#08163F] shadow-sm transition hover:bg-slate-50 sm:text-sm"
             >
               Atualizar
             </button>
 
             <button
               onClick={() => router.push("/financeiro")}
-              className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110"
+              className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 sm:text-sm"
             >
               Abrir financeiro
             </button>
           </div>
         </header>
 
-        <div className="relative z-10 h-[calc(100vh-82px)] overflow-y-auto px-8 py-10">
-          <section className="relative overflow-hidden rounded-[2.2rem] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-9 text-white shadow-2xl shadow-[#07122F]/25">
+        <div className="relative z-10 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+          <section className="relative min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-2xl shadow-[#07122F]/25 sm:p-5 lg:rounded-[26px] lg:p-6">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
             <div className="absolute -bottom-32 left-20 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl" />
 
-            <div className="relative flex flex-wrap items-start justify-between gap-8">
+            <div className="relative flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div>
-                <p className="text-sm font-bold uppercase tracking-[0.28em] text-blue-200">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-200 sm:text-xs">
                   Inteligência da mentoria
                 </p>
 
-                <h2 className="mt-4 max-w-5xl text-4xl font-black leading-tight xl:text-5xl">
+                <h2 className="mt-3 max-w-5xl break-words text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
                   Relatórios para cruzar financeiro, progresso, mentorados e agenda.
                 </h2>
 
-                <p className="mt-5 max-w-3xl text-lg leading-8 text-blue-100">
+                <p className="mt-3 max-w-3xl break-words text-sm font-semibold leading-6 text-blue-100">
                   Um painel geral para entender a saúde da turma, a evolução dos módulos, presença em encontros e sinais de atenção.
                 </p>
               </div>
 
-              <div className="rounded-[26px] border border-white/15 bg-white/10 p-5 backdrop-blur-md">
+              <div className="min-w-0 rounded-[20px] border border-white/15 bg-white/10 p-4 backdrop-blur-md sm:max-w-[280px]">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-100">
                   Progresso médio
                 </p>
-                <p className="mt-2 text-5xl font-black">{resumoProgresso.percentualMedio}%</p>
+                <p className="mt-2 break-words text-3xl font-black sm:text-4xl">{resumoProgresso.percentualMedio}%</p>
                 <p className="mt-1 text-sm font-semibold text-blue-100">
                   {resumoProgresso.totalConclusoes} conclusões registradas
                 </p>
@@ -818,13 +827,13 @@ export default function RelatoriosPage() {
             </div>
           </section>
 
-          <section className="mt-6 rounded-[28px] border border-white/50 bg-white/85 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.8fr_0.7fr_0.7fr]">
+          <section className="mt-4 min-w-0 rounded-[20px] border border-white/50 bg-white/85 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm sm:p-5">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.1fr)_minmax(180px,0.8fr)_minmax(160px,0.7fr)_minmax(170px,0.7fr)]">
               <input
                 value={busca}
                 onChange={(event) => setBusca(event.target.value)}
                 placeholder="Buscar por mentorado, código, e-mail ou cobrança"
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-[#08163F] outline-none placeholder:text-slate-400 focus:border-[#12317C]"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#08163F] outline-none placeholder:text-slate-400 focus:border-[#12317C]"
               />
 
               <select
@@ -867,38 +876,38 @@ export default function RelatoriosPage() {
           </section>
 
           {erro && (
-            <div className="mt-6 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+            <div className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
               {erro}
             </div>
           )}
 
           {avisos.map((aviso) => (
-            <div key={aviso} className="mt-6 rounded-2xl bg-yellow-50 p-4 text-sm font-bold text-yellow-700">
+            <div key={aviso} className="mt-4 rounded-2xl bg-yellow-50 p-4 text-sm font-bold text-yellow-700">
               {aviso}
             </div>
           ))}
 
-          <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KPI titulo="Progresso médio" valor={`${resumoProgresso.percentualMedio}%`} texto={`${resumoProgresso.aulasConcluidasMedia} aulas por mentorado em média.`} destaque />
             <KPI titulo="Mentorados" valor={String(mentoradosFiltrados.length)} texto={`${resumoProgresso.semProgresso} sem progresso registrado.`} alerta={resumoProgresso.semProgresso > 0} />
             <KPI titulo="Presença" valor={`${resumoAgenda.taxaPresenca}%`} texto={`${resumoAgenda.concluidos}/${resumoAgenda.total} eventos concluídos.`} />
             <KPI titulo="Recebimento" valor={`${resumoFinanceiro.taxaRecebimento}%`} texto={`${formatarMoeda(resumoFinanceiro.recebido)} recebidos.`} />
           </section>
 
-          <section className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KPI titulo="Receita prevista" valor={formatarMoeda(resumoFinanceiro.previsto)} texto="Soma das parcelas dentro dos filtros." />
             <KPI titulo="Em aberto" valor={formatarMoeda(resumoFinanceiro.aberto)} texto="Pendentes e atrasadas." />
             <KPI titulo="Atrasado" valor={formatarMoeda(resumoFinanceiro.atrasado)} texto={`${resumoFinanceiro.mentoradosComAtraso} mentorado(s) com atraso.`} alerta={resumoFinanceiro.atrasado > 0} />
             <KPI titulo="Módulo difícil" valor={resumoProgresso.moduloMaisDificil?.titulo ?? "—"} texto={`${resumoProgresso.moduloMaisDificil?.percentual ?? 0}% de progresso médio.`} alerta />
           </section>
 
-          <section className="mt-8 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
             <Card
               etiqueta="Gráfico de linha"
               titulo="Evolução geral da turma"
               descricao="Mostra o progresso médio acumulado da turma e quantas conclusões aconteceram em cada mês."
             >
-              <div className="h-[360px]">
+              <div className="h-[260px] min-w-0 sm:h-[300px] lg:h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={graficoProgressoGeral} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -921,7 +930,7 @@ export default function RelatoriosPage() {
               titulo="Progresso por módulo"
               descricao="Ajuda a identificar onde a turma está avançando e onde está travando."
             >
-              <div className="h-[360px]">
+              <div className="h-[260px] min-w-0 sm:h-[300px] lg:h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={resumoProgresso.modulosComProgresso} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -938,13 +947,13 @@ export default function RelatoriosPage() {
             </Card>
           </section>
 
-          <section className="mt-8 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
             <Card
               etiqueta="Financeiro"
               titulo="Evolução financeira mensal"
               descricao="Compara previsto, recebido, em aberto e atrasado mês a mês."
             >
-              <div className="h-[360px]">
+              <div className="h-[260px] min-w-0 sm:h-[300px] lg:h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={graficoFinanceiro} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -965,7 +974,7 @@ export default function RelatoriosPage() {
               titulo="Entrada de mentorados"
               descricao="Mostra quantos mentorados entraram por mês e o acumulado no período."
             >
-              <div className="h-[360px]">
+              <div className="h-[260px] min-w-0 sm:h-[300px] lg:h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={graficoMentorados} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -980,7 +989,7 @@ export default function RelatoriosPage() {
             </Card>
           </section>
 
-          <section className="mt-8 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+          <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
             <Card
               etiqueta="Acompanhamento"
               titulo="Mentorados em atenção"
@@ -989,8 +998,8 @@ export default function RelatoriosPage() {
               {acompanhamentoMentorados.length === 0 ? (
                 <EmptyState titulo="Nenhum mentorado encontrado" texto="Ajuste os filtros ou cadastre mentorados para visualizar este painel." />
               ) : (
-                <div className="overflow-hidden rounded-[1.5rem] border border-slate-100">
-                  <div className="grid grid-cols-[1.2fr_0.55fr_0.55fr_0.75fr_0.55fr] bg-[#08163F] p-4 text-xs font-black uppercase tracking-[0.12em] text-white">
+                <div className="min-w-0 overflow-x-auto rounded-[22px] border border-slate-100">
+                  <div className="grid min-w-[820px] grid-cols-[1.2fr_0.5fr_0.5fr_0.65fr_0.55fr] bg-[#08163F] p-3 text-[10px] font-black uppercase tracking-[0.12em] text-white sm:text-xs">
                     <span>Mentorado</span>
                     <span>Prog.</span>
                     <span>Eventos</span>
@@ -1004,11 +1013,11 @@ export default function RelatoriosPage() {
                         key={item.mentorado_id}
                         type="button"
                         onClick={() => router.push(`/mentorados/${item.mentorado_id}`)}
-                        className="grid w-full grid-cols-[1.2fr_0.55fr_0.55fr_0.75fr_0.55fr] items-center p-4 text-left text-sm transition hover:bg-slate-50"
+                        className="grid w-full min-w-[820px] grid-cols-[1.2fr_0.5fr_0.5fr_0.65fr_0.55fr] items-center p-3 text-left text-sm transition hover:bg-slate-50 sm:p-4"
                       >
                         <span>
-                          <strong className="block text-[#08163F]">{item.nome}</strong>
-                          <small className="text-xs font-semibold text-slate-400">{item.codigo || "—"} · {item.email}</small>
+                          <strong className="block break-words text-[#08163F]">{item.nome}</strong>
+                          <small className="break-all text-xs font-semibold text-slate-400">{item.codigo || "—"} · {item.email}</small>
                         </span>
                         <strong>{item.progresso}%</strong>
                         <strong>{item.eventosConcluidos}</strong>
@@ -1028,12 +1037,12 @@ export default function RelatoriosPage() {
             >
               <div className="grid gap-4">
                 {distribuicaoStatus.map((item) => (
-                  <div key={item.status} className="rounded-2xl bg-[#f9fafb] p-5">
+                  <div key={item.status} className="min-w-0 rounded-2xl bg-[#f9fafb] p-4">
                     <div className="flex items-center justify-between gap-4">
                       <StatusBadge status={item.status} />
                       <strong className="text-sm text-[#08163F]">{formatarMoeda(item.valor)}</strong>
                     </div>
-                    <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-200">
+                    <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-200">
                       <div className="h-full rounded-full bg-[#08163F]" style={{ width: `${item.percentual}%` }} />
                     </div>
                     <p className="mt-2 text-xs font-bold text-slate-500">
@@ -1045,7 +1054,7 @@ export default function RelatoriosPage() {
             </Card>
           </section>
 
-          <section className="mt-8 grid gap-6 xl:grid-cols-2">
+          <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-2">
             <Card
               etiqueta="Agenda"
               titulo="Próximos encontros"
@@ -1056,7 +1065,7 @@ export default function RelatoriosPage() {
               ) : (
                 <div className="grid gap-3">
                   {resumoAgenda.proximos.map((evento) => (
-                    <div key={evento.id} className="rounded-2xl bg-[#f9fafb] p-5">
+                    <div key={evento.id} className="min-w-0 rounded-2xl bg-[#f9fafb] p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                           <p className="text-sm font-black text-[#08163F]">{evento.titulo}</p>
@@ -1088,7 +1097,7 @@ export default function RelatoriosPage() {
                       key={item.id}
                       type="button"
                       onClick={() => router.push("/financeiro")}
-                      className="rounded-2xl bg-[#f9fafb] p-5 text-left transition hover:bg-slate-100"
+                      className="min-w-0 rounded-2xl bg-[#f9fafb] p-4 text-left transition hover:bg-slate-100"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
@@ -1109,14 +1118,14 @@ export default function RelatoriosPage() {
             </Card>
           </section>
 
-          <section className="mt-8 rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
+          <section className="mt-4 min-w-0 rounded-[22px] bg-white p-4 shadow-xl shadow-slate-200/70 sm:rounded-[24px] sm:p-5 lg:p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
                   Cobranças atrasadas
                 </p>
 
-                <h3 className="mt-1 text-2xl font-black">Acompanhamento prioritário</h3>
+                <h3 className="mt-1 break-words text-xl font-black sm:text-2xl">Acompanhamento prioritário</h3>
 
                 <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
                   Use esta lista para organizar contato, renegociação ou conferência de baixa no financeiro.
@@ -1125,19 +1134,19 @@ export default function RelatoriosPage() {
 
               <button
                 onClick={() => router.push("/financeiro")}
-                className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                className="rounded-2xl bg-[#08163F] px-5 py-2.5 text-sm font-black text-white shadow-lg transition hover:brightness-110"
               >
                 Gerenciar cobranças
               </button>
             </div>
 
             {resumoFinanceiro.atrasadas.length === 0 ? (
-              <div className="mt-7">
+              <div className="mt-5">
                 <EmptyState titulo="Nenhuma parcela atrasada" texto="O filtro atual não encontrou cobranças atrasadas." />
               </div>
             ) : (
-              <div className="mt-7 overflow-hidden rounded-[1.8rem] border border-slate-100">
-                <div className="grid grid-cols-[1.1fr_1fr_0.6fr_0.7fr_0.6fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-xs font-black uppercase tracking-[0.12em] text-white">
+              <div className="mt-5 min-w-0 overflow-x-auto rounded-[22px] border border-slate-100">
+                <div className="grid min-w-[820px] grid-cols-[1.1fr_1fr_0.6fr_0.7fr_0.6fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-3 text-[10px] font-black uppercase tracking-[0.12em] text-white sm:text-xs">
                   <span>Mentorado</span>
                   <span>Cobrança</span>
                   <span>Valor</span>
@@ -1147,7 +1156,7 @@ export default function RelatoriosPage() {
 
                 <div className="divide-y divide-slate-100">
                   {resumoFinanceiro.atrasadas.map((item) => (
-                    <div key={item.id} className="grid grid-cols-[1.1fr_1fr_0.6fr_0.7fr_0.6fr] items-center p-4 text-sm">
+                    <div key={item.id} className="grid min-w-[820px] grid-cols-[1.1fr_1fr_0.6fr_0.7fr_0.6fr] items-center p-3 text-sm sm:p-4">
                       <span>
                         <strong className="block text-[#08163F]">{item.mentoradoNome}</strong>
                         <small className="text-xs font-semibold text-slate-400">{item.mentoradoCodigo || "—"} · {item.mentoradoEmail}</small>
@@ -1183,7 +1192,7 @@ function KPI({
 }) {
   return (
     <article
-      className={`rounded-[1.7rem] p-6 shadow-xl ${
+      className={`min-w-0 overflow-hidden rounded-[20px] p-4 shadow-xl sm:p-5 ${
         destaque
           ? "bg-[#071A55] text-white shadow-[#071A55]/20"
           : alerta
@@ -1192,17 +1201,17 @@ function KPI({
       }`}
     >
       <p
-        className={`text-sm font-black ${
+        className={`break-words text-xs font-black sm:text-sm ${
           destaque ? "text-blue-100" : alerta ? "text-rose-700" : "text-slate-500"
         }`}
       >
         {titulo}
       </p>
 
-      <strong className="mt-4 block text-3xl font-black xl:text-4xl">{valor}</strong>
+      <strong className="mt-3 block break-words text-2xl font-black sm:text-3xl">{valor}</strong>
 
       <p
-        className={`mt-3 text-sm font-medium leading-6 ${
+        className={`mt-2 break-words text-sm font-medium leading-6 ${
           destaque ? "text-blue-100" : alerta ? "text-rose-600" : "text-slate-500"
         }`}
       >
@@ -1224,32 +1233,32 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
+    <section className="min-w-0 overflow-hidden rounded-[22px] bg-white p-4 shadow-xl shadow-slate-200/70 sm:rounded-[24px] sm:p-5 lg:p-6">
       <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
         {etiqueta}
       </p>
 
-      <h3 className="mt-1 text-2xl font-black">{titulo}</h3>
+      <h3 className="mt-1 break-words text-lg font-black sm:text-xl">{titulo}</h3>
 
-      <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
+      <p className="mt-2 break-words text-sm font-semibold leading-6 text-slate-500">
         {descricao}
       </p>
 
-      <div className="mt-6">{children}</div>
+      <div className="mt-4 min-w-0">{children}</div>
     </section>
   );
 }
 
 function EmptyState({ titulo, texto }: { titulo: string; texto: string }) {
   return (
-    <div className="rounded-[1.8rem] border border-dashed border-slate-200 bg-[#f9fafb] p-8 text-center">
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.3rem] bg-white text-2xl shadow-sm">
+    <div className="min-w-0 rounded-[22px] border border-dashed border-slate-200 bg-[#f9fafb] p-5 text-center sm:p-6">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[18px] bg-white text-xl shadow-sm sm:h-14 sm:w-14">
         ◌
       </div>
 
-      <h4 className="mt-5 text-lg font-black">{titulo}</h4>
+      <h4 className="mt-4 break-words text-base font-black sm:text-lg">{titulo}</h4>
 
-      <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-500">
+      <p className="mx-auto mt-2 max-w-md break-words text-sm font-semibold leading-6 text-slate-500">
         {texto}
       </p>
     </div>

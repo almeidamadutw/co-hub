@@ -653,29 +653,27 @@ export default function EditarSimuladoPage() {
   }
 
   if (!usuario) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        Carregando edição...
-      </main>
-    );
+    return <MentorLoading mensagem="Carregando edição..." />;
   }
 
   if (!simulado) {
     return (
-      <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
+      <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
         <Sidebar nome={usuario.nome} role={usuario.role} />
 
-        <section className="flex flex-1 items-center justify-center p-8">
-          <div className="max-w-xl rounded-[34px] bg-white p-8 text-center shadow-lg">
-            <h1 className="text-3xl font-black">Simulado não encontrado</h1>
+        <section className="relative flex min-w-0 flex-1 items-center justify-center overflow-x-hidden p-4 sm:p-6">
+          <div className="w-full max-w-lg rounded-[24px] bg-white p-6 text-center shadow-xl shadow-slate-200/70 sm:p-8">
+            <h1 className="break-words text-2xl font-black sm:text-3xl">
+              Simulado não encontrado
+            </h1>
 
-            <p className="mt-3 text-gray-500">
+            <p className="mt-3 break-words text-sm font-semibold leading-6 text-gray-500">
               Esse simulado não existe ou foi removido.
             </p>
 
             <button
               onClick={() => router.push("/simulados")}
-              className="mt-6 rounded-2xl bg-[#08163F] px-6 py-3 font-black text-white"
+              className="mt-6 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white"
             >
               Voltar para simulados
             </button>
@@ -686,61 +684,61 @@ export default function EditarSimuladoPage() {
   }
 
   return (
-    <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
+    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
       <Sidebar nome={usuario.nome} role={usuario.role} />
 
-      <section className="flex-1 overflow-hidden">
-        <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-8 backdrop-blur-xl">
-          <div className="flex items-center gap-4">
+      <section className="relative min-w-0 flex-1 overflow-x-hidden">
+        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               onClick={() => router.push("/simulados")}
-              className="rounded-2xl bg-[#f3f5f8] px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+              className="rounded-xl bg-[#f3f5f8] px-3 py-2 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md sm:text-sm"
             >
               ← Voltar
             </button>
 
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
                 Editor de simulado
               </p>
 
-              <h1 className="text-xl font-black">{simulado.titulo}</h1>
+              <h1 className="truncate text-base font-black sm:text-lg md:text-xl">{simulado.titulo}</h1>
             </div>
           </div>
 
           <button
             onClick={sair}
-            className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110"
+            className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 sm:text-sm"
           >
             Sair
           </button>
         </header>
 
-        <div className="h-[calc(100vh-82px)] overflow-y-auto px-8 py-10">
-          <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-xl">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="relative min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px] lg:p-6">
+            <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
                   {simulado.modulo}
                 </p>
 
-                <h2 className="mt-3 text-4xl font-black">
+                <h2 className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
                   Construtor de perguntas
                 </h2>
 
-                <p className="mt-3 max-w-2xl text-[#D9DEE7]">
+                <p className="mt-2 max-w-2xl break-words text-sm font-semibold leading-6 text-[#D9DEE7]">
                   Monte o simulado como um formulário completo. Use múltipla
                   escolha, caixas de seleção, escala, resposta discursiva, envio
                   de arquivo e imagens.
                 </p>
               </div>
 
-              <div className="rounded-[26px] bg-white/10 p-5 backdrop-blur-sm">
+              <div className="min-w-0 rounded-[20px] bg-white/10 p-4 backdrop-blur-sm">
                 <p className="text-sm font-bold text-[#C9CED6]">
                   Perguntas cadastradas
                 </p>
 
-                <p className="mt-2 text-4xl font-black">
+                <p className="mt-2 break-words text-2xl font-black sm:text-3xl">
                   {simulado.questoes.length}/30
                 </p>
               </div>
@@ -748,18 +746,18 @@ export default function EditarSimuladoPage() {
           </section>
 
           {erro && (
-            <div className="mb-6 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+            <div className="mb-4 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
               {erro}
             </div>
           )}
 
           {sucesso && (
-            <div className="mb-6 rounded-2xl bg-green-50 p-4 text-sm font-bold text-green-700">
+            <div className="mb-4 rounded-2xl bg-green-50 p-4 text-sm font-bold text-green-700">
               {sucesso}
             </div>
           )}
 
-          <section className="mb-8 grid gap-5 xl:grid-cols-4">
+          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KPI titulo="Status" valor={simulado.status} destaque />
             <KPI titulo="Perguntas" valor={simulado.questoes.length} />
             <KPI titulo="Mínimo" valor="30" />
@@ -770,7 +768,7 @@ export default function EditarSimuladoPage() {
             />
           </section>
 
-          <section className="mb-8 rounded-[26px] bg-white p-5 shadow-lg">
+          <section className="mb-4 min-w-0 rounded-[20px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-bold text-gray-500">
                 Progresso para publicação
@@ -781,7 +779,7 @@ export default function EditarSimuladoPage() {
               </p>
             </div>
 
-            <div className="h-5 overflow-hidden rounded-full bg-gray-100">
+            <div className="h-3 overflow-hidden rounded-full bg-gray-100">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] via-[#12317C] to-[#07122F]"
                 style={{ width: `${progressoPublicacao}%` }}
@@ -789,10 +787,10 @@ export default function EditarSimuladoPage() {
             </div>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[1fr_430px]">
-            <div className="space-y-6">
+          <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
+            <div className="min-w-0 space-y-4">
               <Card titulo="Configurações do simulado">
-                <form onSubmit={salvarDadosGerais} className="space-y-5">
+                <form onSubmit={salvarDadosGerais} className="space-y-3">
                   <Campo label="Título">
                     <input
                       value={titulo}
@@ -801,7 +799,7 @@ export default function EditarSimuladoPage() {
                     />
                   </Campo>
 
-                  <div className="grid gap-5 md:grid-cols-2">
+                  <div className="grid min-w-0 gap-3 md:grid-cols-2">
                     <Campo label="Módulo">
                       <select
                         value={modulo}
@@ -834,7 +832,7 @@ export default function EditarSimuladoPage() {
 
                   <button
                     type="submit"
-                    className="rounded-2xl bg-[#08163F] px-6 py-3 font-black text-white shadow-lg transition hover:brightness-110"
+                    className="rounded-2xl bg-[#08163F] px-5 py-2.5 text-sm font-black text-white shadow-lg transition hover:brightness-110"
                   >
                     Salvar configurações
                   </button>
@@ -844,7 +842,7 @@ export default function EditarSimuladoPage() {
               <Card
                 titulo={questaoEditandoId ? "Editar pergunta" : "Nova pergunta"}
               >
-                <form onSubmit={salvarPergunta} className="space-y-5">
+                <form onSubmit={salvarPergunta} className="space-y-3">
                   <Campo label="Tipo de pergunta">
                     <select
                       value={tipoPergunta}
@@ -861,7 +859,7 @@ export default function EditarSimuladoPage() {
                     </select>
                   </Campo>
 
-                  <div className="rounded-2xl bg-[#EEF2FF] p-4">
+                  <div className="min-w-0 rounded-2xl bg-[#EEF2FF] p-3 sm:p-4">
                     <p className="text-sm font-bold text-[#08163F]">
                       {
                         tiposPergunta.find(
@@ -891,7 +889,7 @@ export default function EditarSimuladoPage() {
                     />
                   </Campo>
 
-                  <div className="rounded-[24px] bg-[#f9fafb] p-5">
+                  <div className="min-w-0 rounded-[20px] bg-[#f9fafb] p-4">
                     <p className="text-sm font-black text-gray-500">
                       Imagem da pergunta
                     </p>
@@ -900,11 +898,11 @@ export default function EditarSimuladoPage() {
                       <img
                         src={imagemPergunta}
                         alt="Imagem da pergunta"
-                        className="mt-4 max-h-72 rounded-2xl object-cover"
+                        className="mt-3 max-h-52 rounded-2xl object-cover"
                       />
                     )}
 
-                    <div className="mt-4 flex flex-wrap gap-3">
+                    <div className="mt-3 flex flex-wrap gap-2 sm:gap-3">
                       <input
                         type="file"
                         accept="image/*"
@@ -916,7 +914,7 @@ export default function EditarSimuladoPage() {
                         <button
                           type="button"
                           onClick={() => setImagemPergunta(null)}
-                          className="rounded-2xl bg-red-50 px-5 py-3 font-black text-red-700 transition hover:bg-red-100"
+                          className="rounded-2xl bg-red-50 px-4 py-2.5 text-sm font-black text-red-700 transition hover:bg-red-100"
                         >
                           Remover imagem
                         </button>
@@ -927,10 +925,10 @@ export default function EditarSimuladoPage() {
                   {(tipoPergunta === "multipla-escolha" ||
                     tipoPergunta === "checkbox" ||
                     tipoPergunta === "verdadeiro-falso") && (
-                    <div className="space-y-4 rounded-[24px] bg-[#f9fafb] p-5">
-                      <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-3 rounded-[20px] bg-[#f9fafb] p-4">
+                      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                          <h3 className="text-xl font-black text-[#08163F]">
+                          <h3 className="break-words text-lg font-black text-[#08163F]">
                             Alternativas
                           </h3>
 
@@ -944,7 +942,7 @@ export default function EditarSimuladoPage() {
                           <button
                             type="button"
                             onClick={adicionarAlternativa}
-                            className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-sm transition hover:shadow-md"
+                            className="rounded-2xl bg-white px-4 py-2.5 text-xs font-black text-[#08163F] shadow-sm transition hover:shadow-md sm:text-sm"
                           >
                             + Alternativa
                           </button>
@@ -957,9 +955,9 @@ export default function EditarSimuladoPage() {
                         return (
                           <div
                             key={alternativa.id}
-                            className="rounded-2xl bg-white p-4 shadow-sm"
+                            className="rounded-2xl bg-white p-3 shadow-sm sm:p-4"
                           >
-                            <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                            <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-start">
                               <button
                                 type="button"
                                 onClick={() => selecionarRespostaCorreta(index)}
@@ -1012,7 +1010,7 @@ export default function EditarSimuladoPage() {
                                   <button
                                     type="button"
                                     onClick={() => removerAlternativa(index)}
-                                    className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100"
+                                    className="rounded-2xl bg-red-50 px-4 py-2.5 text-xs font-black text-red-700 transition hover:bg-red-100 sm:text-sm"
                                   >
                                     Remover
                                   </button>
@@ -1025,12 +1023,12 @@ export default function EditarSimuladoPage() {
                   )}
 
                   {tipoPergunta === "escala" && (
-                    <div className="rounded-[24px] bg-[#f9fafb] p-5">
-                      <h3 className="text-xl font-black text-[#08163F]">
+                    <div className="min-w-0 rounded-[20px] bg-[#f9fafb] p-4">
+                      <h3 className="break-words text-lg font-black text-[#08163F]">
                         Configuração da escala
                       </h3>
 
-                      <div className="mt-5 grid gap-5 md:grid-cols-2">
+                      <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-2">
                         <Campo label="Valor mínimo">
                           <input
                             type="number"
@@ -1073,7 +1071,7 @@ export default function EditarSimuladoPage() {
                   )}
 
                   {tipoPergunta === "envio-arquivo" && (
-                    <div className="rounded-2xl bg-yellow-50 p-5">
+                    <div className="min-w-0 rounded-2xl bg-yellow-50 p-4">
                       <p className="font-black text-yellow-800">
                         Pergunta de envio de arquivo
                       </p>
@@ -1099,7 +1097,7 @@ export default function EditarSimuladoPage() {
                       </Campo>
                     )}
 
-                  <div className="grid gap-5 md:grid-cols-2">
+                  <div className="grid min-w-0 gap-3 md:grid-cols-2">
                     <Campo label="Pontuação">
                       <input
                         type="number"
@@ -1124,10 +1122,10 @@ export default function EditarSimuladoPage() {
                     </Campo>
                   </div>
 
-                  <div className="flex flex-wrap gap-4">
+                  <div className="flex shrink-0 flex-wrap gap-2">
                     <button
                       type="submit"
-                      className="rounded-2xl bg-[#08163F] px-6 py-3 font-black text-white shadow-lg transition hover:brightness-110"
+                      className="rounded-2xl bg-[#08163F] px-5 py-2.5 text-sm font-black text-white shadow-lg transition hover:brightness-110"
                     >
                       {questaoEditandoId
                         ? "Salvar pergunta"
@@ -1137,7 +1135,7 @@ export default function EditarSimuladoPage() {
                     <button
                       type="button"
                       onClick={limparFormularioPergunta}
-                      className="rounded-2xl bg-[#f3f5f8] px-6 py-3 font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+                      className="rounded-2xl bg-[#f3f5f8] px-5 py-2.5 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
                     >
                       Limpar
                     </button>
@@ -1147,7 +1145,7 @@ export default function EditarSimuladoPage() {
 
               <Card titulo="Perguntas cadastradas">
                 {simulado.questoes.length === 0 ? (
-                  <div className="rounded-2xl bg-[#f9fafb] p-6 text-center">
+                  <div className="rounded-2xl bg-[#f9fafb] p-4 text-center sm:p-5">
                     <p className="font-black text-[#08163F]">
                       Nenhuma pergunta cadastrada ainda.
                     </p>
@@ -1157,13 +1155,13 @@ export default function EditarSimuladoPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {simulado.questoes.map((questao, index) => (
                       <div
                         key={questao.id}
-                        className="rounded-2xl bg-[#f9fafb] p-5"
+                        className="min-w-0 rounded-2xl bg-[#f9fafb] p-4"
                       >
-                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-start md:justify-between">
                           <div>
                             <div className="mb-3 flex flex-wrap gap-2">
                               <span className="rounded-full bg-[#08163F] px-3 py-1 text-xs font-black text-white">
@@ -1181,7 +1179,7 @@ export default function EditarSimuladoPage() {
                               )}
                             </div>
 
-                            <h3 className="font-black text-[#08163F]">
+                            <h3 className="break-words font-black text-[#08163F]">
                               {questao.enunciado}
                             </h3>
 
@@ -1198,24 +1196,24 @@ export default function EditarSimuladoPage() {
                             </p>
                           </div>
 
-                          <div className="flex flex-wrap gap-3">
+                          <div className="flex shrink-0 flex-wrap gap-2">
                             <button
                               onClick={() => editarPergunta(questao)}
-                              className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#08163F] shadow-sm transition hover:shadow-md"
+                              className="rounded-xl bg-white px-3 py-2 text-xs font-black text-[#08163F] shadow-sm transition hover:shadow-md sm:text-sm"
                             >
                               Editar
                             </button>
 
                             <button
                               onClick={() => duplicarPergunta(questao)}
-                              className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#08163F] shadow-sm transition hover:shadow-md"
+                              className="rounded-xl bg-white px-3 py-2 text-xs font-black text-[#08163F] shadow-sm transition hover:shadow-md sm:text-sm"
                             >
                               Duplicar
                             </button>
 
                             <button
                               onClick={() => excluirPergunta(questao.id)}
-                              className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100"
+                              className="rounded-2xl bg-red-50 px-4 py-2.5 text-xs font-black text-red-700 transition hover:bg-red-100 sm:text-sm"
                             >
                               Excluir
                             </button>
@@ -1228,10 +1226,10 @@ export default function EditarSimuladoPage() {
               </Card>
             </div>
 
-            <aside className="space-y-6">
+            <aside className="min-w-0 space-y-4">
               <Card titulo="Publicação">
                 <div
-                  className={`rounded-2xl p-5 ${
+                  className={`min-w-0 rounded-2xl p-4 ${
                     podePublicar ? "bg-green-50" : "bg-red-50"
                   }`}
                 >
@@ -1252,7 +1250,7 @@ export default function EditarSimuladoPage() {
 
                   <button
                     onClick={publicarSimulado}
-                    className="mt-5 w-full rounded-2xl bg-[#08163F] px-5 py-3 font-black text-white shadow-lg transition hover:brightness-110"
+                    className="mt-4 w-full rounded-2xl bg-[#08163F] px-5 py-2.5 text-sm font-black text-white shadow-lg transition hover:brightness-110"
                   >
                     Publicar simulado
                   </button>
@@ -1260,12 +1258,12 @@ export default function EditarSimuladoPage() {
               </Card>
 
               <Card titulo="Prévia rápida">
-                <div className="rounded-[24px] bg-[#f9fafb] p-5">
+                <div className="min-w-0 rounded-[20px] bg-[#f9fafb] p-4">
                   <p className="text-xs font-bold uppercase tracking-[0.22em] text-gray-400">
                     {modulo}
                   </p>
 
-                  <h3 className="mt-3 text-2xl font-black text-[#08163F]">
+                  <h3 className="mt-2 break-words text-lg font-black text-[#08163F] sm:text-xl">
                     {titulo || "Título do simulado"}
                   </h3>
 
@@ -1273,7 +1271,7 @@ export default function EditarSimuladoPage() {
                     {descricao || "Descrição do simulado para o mentorado."}
                   </p>
 
-                  <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="mt-4 grid grid-cols-2 gap-3">
                     <MiniInfo
                       label="Perguntas"
                       value={simulado.questoes.length}
@@ -1284,7 +1282,7 @@ export default function EditarSimuladoPage() {
               </Card>
 
               <Card titulo="Boas práticas">
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <Regra
                     numero="1"
                     texto="Misture questões fáceis, médias e difíceis."
@@ -1314,7 +1312,8 @@ export default function EditarSimuladoPage() {
           border-radius: 1rem;
           border: 1px solid #e5e7eb;
           background: #f9fafb;
-          padding: 1rem;
+          padding: 0.75rem 0.9rem;
+          font-size: 0.875rem;
           font-weight: 700;
           color: #08163f;
           outline: none;
@@ -1331,6 +1330,30 @@ export default function EditarSimuladoPage() {
           background: white;
         }
       `}</style>
+    </main>
+  );
+}
+
+function MentorLoading({ mensagem }: { mensagem: string }) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] px-4 text-[#08163F]">
+      <div className="w-full max-w-sm rounded-[24px] border border-white/60 bg-white/90 p-6 text-center shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-xs font-black text-white shadow-lg">
+          CEO
+        </div>
+
+        <p className="mt-5 text-xs font-black uppercase tracking-[0.28em] text-slate-400">
+          CEO Club
+        </p>
+
+        <h1 className="mt-2 break-words text-lg font-black leading-tight text-[#08163F] sm:text-xl">
+          {mensagem}
+        </h1>
+
+        <div className="mx-auto mt-5 h-1.5 w-32 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full w-1/2 animate-pulse rounded-full bg-[#12317C]" />
+        </div>
+      </div>
     </main>
   );
 }
@@ -1361,7 +1384,7 @@ function KPI({
 }) {
   return (
     <div
-      className={`rounded-[26px] p-6 shadow-lg ${
+      className={`min-w-0 overflow-hidden rounded-[20px] p-4 shadow-lg shadow-slate-200/70 sm:p-5 ${
         destaque
           ? "bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-white"
           : alerta
@@ -1370,14 +1393,14 @@ function KPI({
       }`}
     >
       <p
-        className={`text-sm font-bold ${
+        className={`break-words text-xs font-black sm:text-sm ${
           destaque ? "text-[#C9CED6]" : alerta ? "text-red-500" : "text-gray-500"
         }`}
       >
         {titulo}
       </p>
 
-      <p className="mt-4 text-3xl font-black">{valor}</p>
+      <p className="mt-3 break-words text-2xl font-black leading-tight sm:text-3xl">{valor}</p>
     </div>
   );
 }
@@ -1390,8 +1413,8 @@ function Campo({
   children: React.ReactNode;
 }) {
   return (
-    <label>
-      <span className="text-sm font-black text-gray-500">{label}</span>
+    <label className="min-w-0">
+      <span className="break-words text-sm font-black text-gray-500">{label}</span>
       <div className="mt-2">{children}</div>
     </label>
   );
@@ -1399,11 +1422,11 @@ function Campo({
 
 function MiniInfo({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
+    <div className="rounded-2xl bg-white p-3 shadow-sm sm:p-4">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">
         {label}
       </p>
-      <p className="mt-1 font-black text-[#08163F]">{value}</p>
+      <p className="mt-1 break-words font-black text-[#08163F]">{value}</p>
     </div>
   );
 }
@@ -1416,24 +1439,24 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-[30px] border border-gray-200 bg-white shadow-lg">
-      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-6">
-        <h3 className="text-2xl font-black text-[#050816]">{titulo}</h3>
+    <section className="min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
+      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
+        <h3 className="break-words text-lg font-black text-[#050816] sm:text-xl">{titulo}</h3>
       </div>
 
-      <div className="p-6">{children}</div>
-    </div>
+      <div className="min-w-0 p-4 sm:p-5">{children}</div>
+    </section>
   );
 }
 
 function Regra({ numero, texto }: { numero: string; texto: string }) {
   return (
-    <div className="flex gap-4 rounded-2xl bg-[#f9fafb] p-4">
+    <div className="flex min-w-0 gap-3 rounded-2xl bg-[#f9fafb] p-3 sm:p-4">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#08163F] text-sm font-black text-white">
         {numero}
       </div>
 
-      <p className="text-sm font-bold leading-relaxed text-gray-600">{texto}</p>
+      <p className="break-words text-sm font-bold leading-relaxed text-gray-600">{texto}</p>
     </div>
   );
 }

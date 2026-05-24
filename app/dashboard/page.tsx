@@ -146,7 +146,10 @@ export default function DashboardPage() {
         },
       });
 
-      const json = await resposta.json();
+      const tipoResposta = resposta.headers.get("content-type") ?? "";
+      const json = tipoResposta.includes("application/json")
+        ? await resposta.json()
+        : { error: await resposta.text() };
 
       if (!resposta.ok) {
         throw new Error(json.error ?? "Não foi possível carregar usuários.");
@@ -417,45 +420,61 @@ export default function DashboardPage() {
 
   if (!usuario) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        Carregando painel...
+      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] px-4 text-[#08163F]">
+        <div className="w-full max-w-sm rounded-[24px] border border-white/60 bg-white/90 p-6 text-center shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-xs font-black text-white shadow-lg">
+            CEO
+          </div>
+
+          <p className="mt-5 text-xs font-black uppercase tracking-[0.28em] text-slate-400">
+            CEO Club
+          </p>
+
+          <h1 className="mt-2 break-words text-lg font-black leading-tight text-[#08163F] sm:text-xl">
+            Carregando painel...
+          </h1>
+
+          <div className="mx-auto mt-5 h-1.5 w-32 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-[#12317C]" />
+          </div>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
+    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
       <Sidebar nome={usuario.nome} role={usuario.role} />
 
-      <section className="flex-1 overflow-hidden">
-        <header className="sticky top-0 z-20 flex h-[82px] items-center justify-between border-b border-black/5 bg-white/80 px-8 backdrop-blur-xl">
-          <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] to-[#12317C] text-sm font-black text-white shadow-lg">
+      <section className="relative min-w-0 flex-1 overflow-x-hidden">
+        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#07122F] to-[#12317C] text-xs font-black text-white shadow-lg">
               CC
             </div>
 
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.26em] text-gray-400">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
                 Área da mentora
               </p>
-              <h1 className="text-xl font-black">Painel estratégico</h1>
+              <h1 className="truncate text-base font-black sm:text-lg md:text-xl">Painel estratégico</h1>
             </div>
           </div>
 
           <button
             onClick={sair}
-            className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110"
+            className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 sm:text-sm"
           >
             Sair
           </button>
         </header>
 
-        <div className="h-[calc(100vh-82px)] overflow-y-auto px-8 py-10">
-          <section className="mb-8 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-8 text-white shadow-xl">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-6">
-                <div className="flex h-28 w-28 items-center justify-center rounded-full border border-white/15 bg-white/10 shadow-lg">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#D9DEE7] to-[#9CA3AF] text-3xl font-black uppercase text-white">
+        <div className="relative min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px] lg:p-6">
+            <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 shadow-lg sm:h-24 sm:w-24">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#D9DEE7] to-[#9CA3AF] text-2xl font-black uppercase text-white sm:h-16 sm:w-16">
                     {usuario.nome.charAt(0)}
                   </div>
                 </div>
@@ -465,28 +484,28 @@ export default function DashboardPage() {
                     CEO Club
                   </p>
 
-                  <h2 className="mt-2 text-4xl font-black">
+                  <h2 className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
                     Olá, {usuario.nome}
                   </h2>
 
-                  <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#D9DEE7]">
+                  <p className="mt-2 max-w-2xl break-words text-sm font-semibold leading-6 text-[#D9DEE7]">
                     Acompanhe mentorados, progresso, encontros, financeiro e
                     conteúdos da mentoria em uma visão única.
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2 sm:gap-3">
                 <button
                   onClick={() => router.push("/usuarios")}
-                  className="rounded-2xl bg-white px-6 py-4 font-black text-[#08163F] shadow-lg transition hover:-translate-y-0.5 hover:brightness-95"
+                  className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-lg transition hover:-translate-y-0.5 hover:brightness-95"
                 >
                   + Cadastrar mentorado
                 </button>
 
                 <button
                   onClick={() => router.push("/mentorados")}
-                  className="rounded-2xl border border-white/20 bg-white/10 px-6 py-4 font-black text-white transition hover:bg-white/15"
+                  className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-black text-white transition hover:bg-white/15"
                 >
                   Gerenciar mentorados →
                 </button>
@@ -500,7 +519,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <section className="mb-7 grid gap-5 xl:grid-cols-5">
+          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <KPI
               titulo="Mentorados"
               valor={carregandoDados ? "..." : mentorados.length}
@@ -534,7 +553,7 @@ export default function DashboardPage() {
             />
           </section>
 
-          <section className="mb-8 rounded-[26px] bg-white p-5 shadow-lg">
+          <section className="mb-4 min-w-0 rounded-[20px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-bold text-gray-500">
                 Evolução geral dos mentorados
@@ -545,20 +564,20 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="h-5 overflow-hidden rounded-full bg-gray-100">
+            <div className="h-3 overflow-hidden rounded-full bg-gray-100">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] via-[#12317C] to-[#07122F]"
                 style={{ width: `${progressoMedio}%` }}
               />
             </div>
 
-            <p className="mt-4 text-sm font-semibold text-gray-500">
+            <p className="mt-3 break-words text-sm font-semibold text-gray-500">
               Média calculada com base nas aulas concluídas por cada mentorado
               dentro dos módulos ativos.
             </p>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
             <Card titulo="Mentorados em acompanhamento">
               {carregandoDados ? (
                 <EmptyState
@@ -578,19 +597,19 @@ export default function DashboardPage() {
                     <button
                       key={mentorado.id}
                       onClick={() => router.push(`/mentorados/${mentorado.id}`)}
-                      className="w-full rounded-2xl border border-gray-100 bg-[#f9fafb] p-4 text-left transition hover:border-[#12317C]/20 hover:bg-white hover:shadow-md"
+                      className="w-full min-w-0 rounded-2xl border border-gray-100 bg-[#f9fafb] p-3 text-left transition hover:border-[#12317C]/20 hover:bg-white hover:shadow-md sm:p-4"
                     >
                       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-3">
-                            <p className="font-black text-[#08163F]">
+                            <p className="break-words font-black text-[#08163F]">
                               {mentorado.nome}
                             </p>
 
                             <StatusBadge status={mentorado.status ?? "Ativo"} />
                           </div>
 
-                          <p className="mt-1 text-sm font-medium text-gray-500">
+                          <p className="mt-1 break-words text-sm font-medium text-gray-500">
                             {mentorado.email}
                           </p>
 
@@ -599,7 +618,7 @@ export default function DashboardPage() {
                             {mentorado.progresso}% concluído
                           </p>
 
-                          <div className="mt-3 h-3 overflow-hidden rounded-full bg-white">
+                          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
                             <div
                               className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] via-[#12317C] to-[#07122F]"
                               style={{ width: `${mentorado.progresso}%` }}
@@ -607,12 +626,12 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        <div className="text-left md:text-right">
+                        <div className="min-w-0 text-left md:text-right">
                           <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">
                             Aberto
                           </p>
 
-                          <p className="mt-1 font-black text-[#08163F]">
+                          <p className="mt-1 break-words text-sm font-black text-[#08163F]">
                             {formatarMoeda(mentorado.financeiroAberto)}
                           </p>
 
@@ -629,14 +648,14 @@ export default function DashboardPage() {
               )}
             </Card>
 
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-4">
               <Card titulo="Financeiro">
-                <div className="rounded-[26px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-6 text-white">
+                <div className="min-w-0 rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white sm:p-5">
                   <p className="text-sm font-bold text-[#C9CED6]">
                     Em aberto
                   </p>
 
-                  <p className="mt-3 text-3xl font-black">
+                  <p className="mt-2 break-words text-xl font-black leading-tight sm:text-2xl">
                     {formatarMoeda(resumoFinanceiro.totalAberto)}
                   </p>
 
@@ -645,7 +664,7 @@ export default function DashboardPage() {
                   </p>
 
                   {resumoFinanceiro.quantidadeAtrasada > 0 && (
-                    <div className="mt-5 rounded-2xl bg-red-500/15 p-4">
+                    <div className="mt-4 rounded-2xl bg-red-500/15 p-3">
                       <p className="text-xs font-black uppercase tracking-[0.18em] text-red-100">
                         Atenção
                       </p>
@@ -660,7 +679,7 @@ export default function DashboardPage() {
 
                   <button
                     onClick={() => router.push("/financeiro")}
-                    className="mt-6 rounded-2xl bg-white px-5 py-3 font-black text-[#08163F] transition hover:brightness-95"
+                    className="mt-5 rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-[#08163F] transition hover:brightness-95"
                   >
                     Abrir financeiro →
                   </button>
@@ -681,14 +700,14 @@ export default function DashboardPage() {
                       <button
                         key={evento.id}
                         onClick={() => router.push("/agenda")}
-                        className="w-full rounded-2xl bg-[#f9fafb] p-4 text-left transition hover:bg-white hover:shadow-md"
+                        className="w-full min-w-0 rounded-2xl bg-[#f9fafb] p-3 text-left transition hover:bg-white hover:shadow-md"
                       >
                         <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">
                           {formatarData(evento.data)} ·{" "}
                           {limparHorario(evento.horario)}
                         </p>
 
-                        <p className="mt-1 font-black text-[#08163F]">
+                        <p className="mt-1 break-words text-sm font-black text-[#08163F]">
                           {evento.titulo || evento.tipo}
                         </p>
 
@@ -703,7 +722,7 @@ export default function DashboardPage() {
             </div>
 
             <Card titulo="Módulos e aulas">
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid min-w-0 gap-3 md:grid-cols-3">
                 <ResumoBox
                   titulo="Módulos ativos"
                   valor={String(modulos.length)}
@@ -729,13 +748,13 @@ export default function DashboardPage() {
                   return (
                     <div
                       key={modulo.id}
-                      className="rounded-2xl bg-[#f9fafb] p-5"
+                      className="min-w-0 rounded-2xl bg-[#f9fafb] p-4"
                     >
                       <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
                         Módulo {modulo.ordem ?? "—"}
                       </p>
 
-                      <p className="mt-1 font-black text-[#08163F]">
+                      <p className="mt-1 break-words text-sm font-black text-[#08163F]">
                         {modulo.titulo}
                       </p>
 
@@ -758,7 +777,7 @@ export default function DashboardPage() {
             </Card>
 
             <Card titulo="Ações rápidas">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid min-w-0 gap-3 md:grid-cols-2">
                 <ActionButton
                   label="Cadastrar mentorado"
                   onClick={() => router.push("/usuarios")}
@@ -770,9 +789,9 @@ export default function DashboardPage() {
                 />
 
                 <ActionButton
-  label="Gerenciar simulados"
-  onClick={() => router.push("/modulos")}
-/>
+                  label="Gerenciar simulados"
+                  onClick={() => router.push("/simulados")}
+                />
 
                 <ActionButton
                   label="Ver agenda"
@@ -828,7 +847,7 @@ function KPI({
 }) {
   return (
     <div
-      className={`rounded-[26px] p-6 shadow-lg ${
+      className={`min-w-0 overflow-hidden rounded-[20px] p-4 shadow-lg shadow-slate-200/70 sm:p-5 ${
         destaque
           ? "bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-white"
           : alerta
@@ -837,7 +856,7 @@ function KPI({
       }`}
     >
       <p
-        className={`text-sm font-bold ${
+        className={`break-words text-xs font-black sm:text-sm ${
           destaque
             ? "text-[#C9CED6]"
             : alerta
@@ -848,7 +867,7 @@ function KPI({
         {titulo}
       </p>
 
-      <p className="mt-4 text-3xl font-black">{valor}</p>
+      <p className="mt-3 break-words text-xl font-black leading-tight sm:text-2xl lg:text-3xl">{valor}</p>
     </div>
   );
 }
@@ -861,13 +880,13 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-[30px] border border-gray-200 bg-white shadow-lg">
-      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-6">
-        <h3 className="text-2xl font-black text-[#050816]">{titulo}</h3>
+    <section className="min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
+      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
+        <h3 className="break-words text-lg font-black text-[#050816] sm:text-xl">{titulo}</h3>
       </div>
 
-      <div className="p-6">{children}</div>
-    </div>
+      <div className="min-w-0 p-4 sm:p-5">{children}</div>
+    </section>
   );
 }
 
@@ -883,21 +902,21 @@ function EmptyState({
   onClick?: () => void;
 }) {
   return (
-    <div className="rounded-[26px] bg-[#f9fafb] p-8 text-center">
-      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[24px] bg-white text-4xl shadow-sm">
+    <div className="min-w-0 rounded-[22px] bg-[#f9fafb] p-4 text-center sm:p-6">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[20px] bg-white text-2xl shadow-sm sm:h-16 sm:w-16 sm:text-3xl">
         ✦
       </div>
 
-      <h3 className="mt-5 text-xl font-black text-[#08163F]">{titulo}</h3>
+      <h3 className="mt-4 break-words text-base font-black text-[#08163F] sm:text-lg">{titulo}</h3>
 
-      <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-relaxed text-gray-500">
+      <p className="mx-auto mt-2 max-w-md break-words text-sm font-semibold leading-relaxed text-gray-500">
         {texto}
       </p>
 
       {botao && onClick && (
         <button
           onClick={onClick}
-          className="mt-6 rounded-2xl bg-white px-6 py-3 font-black text-[#08163F] shadow-sm transition hover:shadow-md"
+          className="mt-5 rounded-2xl bg-white px-5 py-2.5 text-sm font-black text-[#08163F] shadow-sm transition hover:shadow-md"
         >
           {botao} →
         </button>
@@ -916,7 +935,7 @@ function ActionButton({
   return (
     <button
       onClick={onClick}
-      className="rounded-2xl bg-[#f9fafb] p-5 text-left font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+      className="min-w-0 rounded-2xl bg-[#f9fafb] p-4 text-left text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
     >
       {label} →
     </button>
@@ -925,12 +944,12 @@ function ActionButton({
 
 function ResumoBox({ titulo, valor }: { titulo: string; valor: string }) {
   return (
-    <div className="rounded-2xl bg-[#f9fafb] p-5">
+    <div className="min-w-0 rounded-2xl bg-[#f9fafb] p-4">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
         {titulo}
       </p>
 
-      <p className="mt-2 text-2xl font-black text-[#08163F]">{valor}</p>
+      <p className="mt-2 break-words text-xl font-black text-[#08163F]">{valor}</p>
     </div>
   );
 }

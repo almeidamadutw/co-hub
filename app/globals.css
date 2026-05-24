@@ -78,3 +78,95 @@ body {
     @apply text-xs font-black uppercase tracking-[0.18em] text-slate-400;
   }
 }
+
+/* CEO Club - densidade compacta global */
+html {
+  font-size: 14px;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+/* Sem @apply responsivo, para não quebrar Tailwind/Turbopack */
+.ceo-content {
+  padding: 1rem;
+}
+
+.ceo-stack {
+  max-width: 1440px;
+}
+
+.ceo-hero {
+  margin-bottom: 1rem;
+  border-radius: 22px;
+  padding: 1rem;
+}
+
+.ceo-title {
+  font-size: 1.25rem;
+  line-height: 1.15;
+}
+
+.ceo-subtitle {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+}
+
+.ceo-card {
+  border-radius: 20px;
+  padding: 1rem;
+}
+
+.ceo-card-flat {
+  border-radius: 22px;
+}
+
+.ceo-grid-4 {
+  gap: 0.75rem;
+}
+
+.ceo-field {
+  border-radius: 1rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+}
+
+.ceo-muted-label {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+@media (min-width: 640px) {
+  .ceo-content {
+    padding: 1.25rem;
+  }
+
+  .ceo-hero {
+    padding: 1.25rem;
+  }
+
+  .ceo-title {
+    font-size: 1.5rem;
+  }
+
+  .ceo-card {
+    padding: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .ceo-content {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .ceo-hero {
+    border-radius: 26px;
+    padding: 1.5rem;
+  }
+
+  .ceo-title {
+    font-size: 1.875rem;
+  }
+}

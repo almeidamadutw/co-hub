@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import MentoradoLoading from "@/components/MentoradoLoading";
 
 export default function MentoradoPage() {
   const router = useRouter();
@@ -10,9 +11,5 @@ export default function MentoradoPage() {
     router.replace("/mentorado/dashboard");
   }, [router]);
 
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-      Redirecionando para a área do mentorado...
-    </main>
-  );
+  return <MentoradoLoading mensagem="Redirecionando para a área do mentorado..." />;
 }

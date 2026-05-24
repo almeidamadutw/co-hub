@@ -2,9 +2,10 @@
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, usuarioTemPermissao, User } from "@/utils/auth";
+import MentoradoSidebar from "@/components/MentoradoSidebar";
+import MentoradoLoading from "@/components/MentoradoLoading";
 
 type StatusCobranca = "Pago" | "Pendente" | "Atrasado" | "Cancelado";
 
@@ -228,64 +229,53 @@ export default function FinanceiroMentoradoPage() {
   }, [resumo.totalContratado, resumo.pago]);
 
   if (!usuario || carregando) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        <div className="rounded-[28px] bg-white px-8 py-6 text-center shadow-xl shadow-slate-200">
-          <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">
-            CEO Club
-          </p>
-          <p className="mt-2 text-xl font-black text-[#08163F]">
-            Carregando financeiro...
-          </p>
-        </div>
-      </main>
-    );
+    return <MentoradoLoading mensagem="Carregando financeiro..." />;
   }
 
   return (
-    <main className="flex min-h-screen bg-[#f3f5f8] text-[#08163F]">
-      <Sidebar nome={usuario.nome} role={usuario.role} />
+    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+      <MentoradoSidebar nome={perfil?.nome || usuario.nome} />
 
-      <section className="relative min-w-0 flex-1 overflow-x-hidden p-4 sm:p-5 md:p-6 lg:p-8">
+      <section className="relative min-w-0 flex-1 overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#12317C]/15 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-slate-300/30 blur-3xl" />
 
-        <div className="relative z-10 mx-auto w-full max-w-[1600px]">
-          <section className="mb-5 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:mb-6 sm:rounded-[30px] sm:p-6 lg:mb-8 lg:rounded-[34px] lg:p-8">
-              <div className="flex flex-wrap items-start justify-between gap-6">
+        <div className="relative z-10 mx-auto w-full max-w-[1440px]">
+          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:p-5 lg:rounded-[26px] lg:p-6">
+            <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div>
                 <p className="mb-3 text-xs font-black uppercase tracking-[0.32em] text-[#C9CED6]">
                   Financeiro
                 </p>
 
-                <h1 className="max-w-4xl text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
+                <h1 className="max-w-4xl break-words text-xl font-black leading-tight sm:text-2xl lg:text-3xl">
                   Minha área financeira
                 </h1>
 
-                <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-[#D9DEE7] sm:mt-3 sm:text-base">
+                <p className="mt-2 max-w-2xl break-words text-sm font-medium leading-6 text-[#D9DEE7]">
                   Acompanhe suas parcelas, vencimentos e histórico de pagamentos
                   da mentoria.
                 </p>
 
                 {perfil && (
-                  <div className="mt-5 flex flex-wrap gap-3">
-                    <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-black text-blue-100">
+                  <div className="mt-4 flex flex-wrap gap-2 sm:gap-3">
+                    <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-black text-blue-100 sm:text-sm">
                       {perfil.codigo_inscricao || "Sem código"}
                     </span>
 
-                    <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-black text-blue-100">
+                    <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-black text-blue-100 sm:text-sm">
                       {perfil.nome}
                     </span>
                   </div>
                 )}
               </div>
 
-              <div className="w-full max-w-sm rounded-[22px] border border-white/15 bg-white/10 p-4 backdrop-blur-md sm:rounded-[26px] sm:p-5">
+              <div className="w-full max-w-sm rounded-[20px] border border-white/15 bg-white/10 p-4 backdrop-blur-md">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-100">
                   Próximo vencimento
                 </p>
 
-                <p className="mt-2 text-2xl font-black sm:text-3xl">
+                <p className="mt-2 break-words text-xl font-black leading-tight sm:text-2xl">
                   {resumo.proximoVencimento
                     ? formatarData(resumo.proximoVencimento.data_vencimento)
                     : "—"}
@@ -299,13 +289,13 @@ export default function FinanceiroMentoradoPage() {
                     : "Nenhuma parcela em aberto"}
                 </p>
 
-                <div className="mt-5">
+                <div className="mt-4">
                   <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.16em] text-blue-100">
                     <span>Progresso pago</span>
                     <span>{progressoPagamento}%</span>
                   </div>
 
-                  <div className="mt-2 h-3 overflow-hidden rounded-full bg-white/15">
+                  <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/15">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-white via-slate-200 to-slate-400 transition-all"
                       style={{ width: `${progressoPagamento}%` }}
@@ -315,7 +305,7 @@ export default function FinanceiroMentoradoPage() {
               </div>
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:mt-8 lg:grid-cols-3">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <MiniInfo
                 titulo="Parcelas"
                 valor={`${resumo.quantidadePagas}/${resumo.quantidadeTotal}`}
@@ -342,7 +332,7 @@ export default function FinanceiroMentoradoPage() {
             </div>
           )}
 
-          <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4 sm:mb-6">
+          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <ResumoCard
               titulo="Total contratado"
               valor={formatarMoeda(resumo.totalContratado)}
@@ -363,36 +353,36 @@ export default function FinanceiroMentoradoPage() {
             />
           </section>
 
-          <section className="mb-5 rounded-[22px] border border-white/50 bg-white/85 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:mb-6 sm:rounded-[28px] sm:p-5 lg:p-6">
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]">
+          <section className="mb-4 min-w-0 rounded-[20px] border border-white/50 bg-white/85 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5">
+            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)]">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
                   Parcelas
                 </p>
 
-                <h2 className="mt-1 text-2xl font-black text-[#08163F]">
+                <h2 className="mt-1 break-words text-xl font-black text-[#08163F] sm:text-2xl">
                   Meus lançamentos
                 </h2>
 
-                <p className="mt-2 text-sm font-semibold text-slate-500">
+                <p className="mt-2 break-words text-sm font-semibold leading-6 text-slate-500">
                   Consulte vencimentos, valores e informações registradas pela
 equipe.
                 </p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_180px_180px]">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_160px_160px]">
                 <input
                   type="text"
                   placeholder="Buscar por cobrança, status ou forma de pagamento"
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-[#08163F] outline-none placeholder:text-slate-400 focus:border-[#12317C]"
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#08163F] outline-none placeholder:text-slate-400 focus:border-[#12317C]"
                 />
 
                 <select
                   value={filtroStatus}
                   onChange={(e) => setFiltroStatus(e.target.value as FiltroStatus)}
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#08163F] outline-none focus:border-[#12317C]"
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-[#08163F] outline-none focus:border-[#12317C]"
                 >
                   {statusOptions.map((status) => (
                     <option key={status} value={status}>
@@ -408,7 +398,7 @@ equipe.
                       e.target.value as FiltroFormaPagamento
                     )
                   }
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#08163F] outline-none focus:border-[#12317C]"
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-[#08163F] outline-none focus:border-[#12317C]"
                 >
                   {formaPagamentoOptions.map((forma) => (
                     <option key={forma} value={forma}>
@@ -420,9 +410,9 @@ equipe.
             </div>
           </section>
 
-          <section className="mb-6 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.45fr)]">
-            <section className="overflow-x-auto rounded-[22px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[30px]">
-              <div className="hidden min-w-[920px] grid-cols-[1fr_0.55fr_0.65fr_0.65fr_0.7fr_0.65fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 font-semibold text-white md:grid">
+          <section className="mb-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)]">
+            <section className="min-w-0 overflow-x-auto rounded-[20px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[24px]">
+              <div className="hidden min-w-[860px] grid-cols-[1fr_0.5fr_0.6fr_0.6fr_0.65fr_0.6fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-3 text-xs font-black uppercase tracking-[0.12em] text-white md:grid">
                 <span>Cobrança</span>
                 <span>Parcela</span>
                 <span>Valor</span>
@@ -442,14 +432,14 @@ equipe.
                       key={item.id}
                       type="button"
                       onClick={() => setCobrancaSelecionada(item)}
-                      className="grid w-full min-w-[920px] gap-3 p-4 text-left text-sm transition hover:bg-slate-50 md:grid-cols-[1fr_0.55fr_0.65fr_0.65fr_0.7fr_0.65fr] md:items-center"
+                      className="grid w-full min-w-[860px] gap-3 p-3 text-left text-sm transition hover:bg-slate-50 md:grid-cols-[1fr_0.5fr_0.6fr_0.6fr_0.65fr_0.6fr] md:items-center"
                     >
                       <span>
-                        <strong className="block text-[#08163F]">
+                        <strong className="block break-words text-[#08163F]">
                           {item.titulo}
                         </strong>
 
-                        <small className="text-xs text-slate-400">
+                        <small className="break-words text-xs text-slate-400">
                           {item.descricao || "Sem descrição"}
                         </small>
                       </span>
@@ -479,16 +469,16 @@ equipe.
               )}
             </section>
 
-            <aside className="rounded-[22px] border border-white/50 bg-white/85 p-4 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[30px] sm:p-5 lg:p-6">
+            <aside className="min-w-0 rounded-[20px] border border-white/50 bg-white/85 p-4 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[24px] sm:p-5">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
                 Pagamento
               </p>
 
-              <h3 className="mt-2 text-2xl font-black text-[#08163F]">
+              <h3 className="mt-2 break-words text-xl font-black text-[#08163F] sm:text-2xl">
                 Orientações
               </h3>
 
-              <div className="mt-5 space-y-4 text-sm font-semibold leading-6 text-slate-600">
+              <div className="mt-4 space-y-3 break-words text-sm font-semibold leading-6 text-slate-600">
                 <p>
                   Os pagamentos e baixas são acompanhados pela equipe da
                   mentoria. Caso já tenha pago uma parcela, envie o comprovante
@@ -516,17 +506,17 @@ equipe.
           onClick={() => setCobrancaSelecionada(null)}
         >
           <div
-            className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-[24px] bg-white shadow-2xl sm:rounded-[34px]"
+            className="relative flex max-h-[92vh] w-full max-w-[min(96vw,44rem)] flex-col overflow-hidden rounded-[24px] bg-white shadow-2xl sm:rounded-[30px]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 z-10 bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white sm:p-7">
+            <div className="sticky top-0 z-10 bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
                     Detalhes da parcela
                   </p>
 
-                  <h2 className="mt-3 text-2xl font-black sm:text-3xl">
+                  <h2 className="mt-2 break-words text-xl font-black leading-tight sm:text-2xl">
                     {cobrancaSelecionada.titulo}
                   </h2>
 
@@ -546,12 +536,12 @@ equipe.
                 </button>
               </div>
 
-              <div className="mt-5">
+              <div className="mt-4">
                 <StatusBadge status={cobrancaSelecionada.status} />
               </div>
             </div>
 
-            <div className="overflow-y-auto p-5 sm:p-7">
+            <div className="overflow-y-auto p-5 sm:p-6">
               <div className="grid gap-4 md:grid-cols-2">
                 <InfoBox
                   label="Valor da parcela"
@@ -587,7 +577,7 @@ equipe.
                   value={<StatusBadge status={cobrancaSelecionada.status} />}
                 />
 
-                <div className="rounded-2xl bg-[#f9fafb] p-5 md:col-span-2">
+                <div className="rounded-2xl bg-[#f9fafb] p-4 md:col-span-2">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
                     Informações
                   </p>
@@ -606,7 +596,7 @@ equipe.
                 <button
                   type="button"
                   onClick={() => setCobrancaSelecionada(null)}
-                  className="rounded-2xl bg-[#08163F] px-5 py-4 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                  className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
                 >
                   Entendi
                 </button>
@@ -614,7 +604,7 @@ equipe.
                 <button
                   type="button"
                   onClick={() => setCobrancaSelecionada(null)}
-                  className="ml-auto rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-[#08163F] transition hover:bg-slate-50"
+                  className="ml-auto rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-[#08163F] transition hover:bg-slate-50"
                 >
                   Fechar
                 </button>
@@ -640,7 +630,7 @@ function ResumoCard({
 }) {
   return (
     <div
-      className={`rounded-[22px] border border-white/50 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5 lg:p-6 ${
+      className={`min-w-0 overflow-hidden rounded-[20px] border border-white/50 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5 ${
         destaque
           ? "bg-[#071A55] text-white"
           : alerta
@@ -649,14 +639,14 @@ function ResumoCard({
       }`}
     >
       <h2
-        className={`text-sm font-black ${
+        className={`break-words text-xs font-black sm:text-sm ${
           destaque ? "text-blue-100" : alerta ? "text-red-600" : "text-slate-500"
         }`}
       >
         {titulo}
       </h2>
 
-      <p className="mt-3 break-words text-2xl font-black sm:text-3xl">{valor}</p>
+      <p className="mt-3 break-words text-lg font-black leading-tight sm:text-xl lg:text-2xl">{valor}</p>
     </div>
   );
 }
@@ -671,12 +661,12 @@ function MiniInfo({
   texto: string;
 }) {
   return (
-    <div className="rounded-2xl bg-white/10 p-3 backdrop-blur-sm sm:p-4">
+    <div className="min-w-0 rounded-2xl bg-white/10 p-3 backdrop-blur-sm">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">
         {titulo}
       </p>
-      <p className="mt-2 break-words text-xl font-black text-white sm:text-2xl">{valor}</p>
-      <p className="mt-1 text-xs font-bold text-blue-100">{texto}</p>
+      <p className="mt-2 break-words text-lg font-black text-white sm:text-xl">{valor}</p>
+      <p className="mt-1 break-words text-xs font-bold text-blue-100">{texto}</p>
     </div>
   );
 }
@@ -702,12 +692,12 @@ function StatusBadge({ status }: { status: string }) {
 
 function InfoBox({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="rounded-2xl bg-[#f9fafb] p-5">
+    <div className="min-w-0 rounded-2xl bg-[#f9fafb] p-4">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
         {label}
       </p>
 
-      <p className="mt-2 break-words text-lg font-black text-[#08163F]">
+      <p className="mt-2 break-words text-base font-black text-[#08163F]">
         {value}
       </p>
     </div>

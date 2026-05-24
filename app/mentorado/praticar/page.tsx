@@ -2,31 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import MentoradoSidebar from "@/components/MentoradoSidebar";
+import MentoradoLoading from "@/components/MentoradoLoading";
+import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
-import {
-  gerarId,
-  ResultadoSimulado,
-  Simulado,
-  useSimulados,
-} from "@/utils/useSimulados";
+import { useModulosSupabase } from "@/utils/useModulosSupabase";
 
-function getMentoradoId(user: User) {
-  return user.email || user.nome;
-}
-
-export default function PraticarPage() {
+export default function MentoradoProgressoPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [simuladoSelecionadoId, setSimuladoSelecionadoId] = useState("");
-  const [respostasAtuais, setRespostasAtuais] = useState<Record<string, string>>(
-    {}
-  );
-  const [resultadoAtual, setResultadoAtual] =
-    useState<ResultadoSimulado | null>(null);
+  const [mentoradoId, setMentoradoId] = useState("");
+  const [aulasConcluidas, setAulasConcluidas] = useState<string[]>([]);
+  const [carregandoProgresso, setCarregandoProgresso] = useState(true);
+  const [erro, setErro] = useState("");
 
-  const { carregando, simuladosAtivos, resultados, setResultados } =
-    useSimulados();
+  const { carregando, modulos } = useModulosSupabase();
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -37,436 +28,465 @@ export default function PraticarPage() {
     }
 
     if (user.role === "mentor") {
-  router.replace("/dashboard");
-  return;
-}
+      router.replace("/dashboard");
+      return;
+    }
 
-if (user.role !== "mentorado") {
-  logoutUsuario();
-  router.replace("/login");
-  return;
-}
+    if (user.role !== "mentorado") {
+      logoutUsuario();
+      router.replace("/login");
+      return;
+    }
 
     setUsuario(user);
   }, [router]);
 
   useEffect(() => {
-    if (carregando || simuladosAtivos.length === 0) return;
+    if (!usuario) return;
 
-    setSimuladoSelecionadoId((atual) => atual || simuladosAtivos[0].id);
-  }, [carregando, simuladosAtivos]);
+    async function carregarPerfilEProgresso() {
+      setCarregandoProgresso(true);
+      setErro("");
 
-  const simuladoSelecionado = useMemo<Simulado | null>(() => {
-    return (
-      simuladosAtivos.find(
-        (simulado) => simulado.id === simuladoSelecionadoId
-      ) ??
-      simuladosAtivos[0] ??
-      null
-    );
-  }, [simuladosAtivos, simuladoSelecionadoId]);
+      const usuarioId = (usuario as User & { id?: string })?.id;
 
-  const resultadosDoUsuario = useMemo(() => {
-    if (!usuario) return [];
+      if (!usuarioId) {
+        setErro("Não foi possível identificar o usuário logado.");
+        setCarregandoProgresso(false);
+        return;
+      }
 
-    return resultados.filter(
-      (resultado) => resultado.mentoradoId === getMentoradoId(usuario)
-    );
-  }, [resultados, usuario]);
+      const { data: perfil, error: erroPerfil } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", usuarioId)
+        .eq("role", "mentorado")
+        .maybeSingle();
 
-  const ultimoResultadoSimulado = useMemo(() => {
-    if (!simuladoSelecionado || !usuario) return null;
+      if (erroPerfil) {
+        setErro(erroPerfil.message);
+        setCarregandoProgresso(false);
+        return;
+      }
 
-    return (
-      resultados
-        .filter(
-          (resultado) =>
-            resultado.mentoradoId === getMentoradoId(usuario) &&
-            resultado.simuladoId === simuladoSelecionado.id
-        )
-        .sort(
-          (a, b) =>
-            new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime()
-        )[0] ?? null
-    );
-  }, [resultados, simuladoSelecionado, usuario]);
+      if (!perfil?.id) {
+        setErro("Não foi possível identificar o perfil do mentorado.");
+        setCarregandoProgresso(false);
+        return;
+      }
 
-  function selecionarSimulado(simuladoId: string) {
-    setSimuladoSelecionadoId(simuladoId);
-    setRespostasAtuais({});
-    setResultadoAtual(null);
-  }
+      const idPerfil = perfil.id;
 
-  function responderQuestao(questaoId: string, alternativaId: string) {
-    setRespostasAtuais((estadoAtual) => ({
-      ...estadoAtual,
-      [questaoId]: alternativaId,
-    }));
-  }
+      setMentoradoId(idPerfil);
 
-  function finalizarSimulado() {
-    if (!simuladoSelecionado || !usuario) return;
+      const { data, error } = await supabase
+        .from("progresso_aulas")
+        .select("aula_id")
+        .eq("mentorado_id", idPerfil)
+        .eq("concluida", true);
 
-    if (simuladoSelecionado.questoes.length === 0) return;
+      if (error) {
+        setErro(error.message);
+        setCarregandoProgresso(false);
+        return;
+      }
 
-    const todasRespondidas = simuladoSelecionado.questoes.every(
-      (questao) => respostasAtuais[questao.id]
-    );
-
-    if (!todasRespondidas) {
-      alert("Responda todas as questões antes de finalizar.");
-      return;
+      setAulasConcluidas((data ?? []).map((item) => item.aula_id));
+      setCarregandoProgresso(false);
     }
 
-    const acertos = simuladoSelecionado.questoes.filter((questao: any) => {
-  const respostaMarcada = respostasAtuais[questao.id];
+    carregarPerfilEProgresso();
+  }, [usuario]);
 
-  if (questao.respostaCorretaId) {
-    return respostaMarcada === questao.respostaCorretaId;
-  }
+  const modulosDisponiveis = useMemo(() => {
+    return modulos
+      .filter((modulo) => modulo.ativo)
+      .map((modulo) => ({
+        ...modulo,
+        aulas: modulo.aulas.filter((aula) => aula.ativo),
+      }));
+  }, [modulos]);
 
-  if (Array.isArray(questao.respostasCorretas)) {
-    const indiceMarcado = questao.alternativas.findIndex(
-      (alternativa: any) => alternativa.id === respostaMarcada
-    );
+  const aulasDisponiveis = useMemo(() => {
+    return modulosDisponiveis.flatMap((modulo) => modulo.aulas);
+  }, [modulosDisponiveis]);
 
-    return questao.respostasCorretas.includes(indiceMarcado);
-  }
+  const totalAulas = aulasDisponiveis.length;
+  const totalConcluidas = aulasConcluidas.length;
 
-  return false;
-}).length;
+  const progressoGeral = useMemo(() => {
+    if (totalAulas === 0) return 0;
+    return Math.round((totalConcluidas / totalAulas) * 100);
+  }, [totalAulas, totalConcluidas]);
 
-    const total = simuladoSelecionado.questoes.length;
-    const percentual = Math.round((acertos / total) * 100);
+  const modulosComProgresso = useMemo(() => {
+    return modulosDisponiveis.map((modulo) => {
+      const totalAulasModulo = modulo.aulas.length;
 
-    const resultado: ResultadoSimulado = {
-      id: gerarId("resultado"),
-      simuladoId: simuladoSelecionado.id,
-      simuladoTitulo: simuladoSelecionado.titulo,
-      mentoradoId: getMentoradoId(usuario),
-      mentoradoNome: usuario.nome,
-      respostas: simuladoSelecionado.questoes.map((questao) => ({
-        questaoId: questao.id,
-        alternativaId: respostasAtuais[questao.id],
-      })),
-      acertos,
-      total,
-      percentual,
-      criadoEm: new Date().toISOString(),
-    };
+      const aulasConcluidasModulo = modulo.aulas.filter((aula) =>
+        aulasConcluidas.includes(aula.id)
+      ).length;
 
-    setResultados((estadoAtual) => [resultado, ...estadoAtual]);
-    setResultadoAtual(resultado);
-  }
+      const percentual =
+        totalAulasModulo === 0
+          ? 0
+          : Math.round((aulasConcluidasModulo / totalAulasModulo) * 100);
+
+      const status =
+        totalAulasModulo === 0
+          ? "Sem aulas"
+          : percentual === 100
+          ? "Concluído"
+          : percentual > 0
+          ? "Em andamento"
+          : "Não iniciado";
+
+      return {
+        ...modulo,
+        totalAulasModulo,
+        aulasConcluidasModulo,
+        percentual,
+        status,
+      };
+    });
+  }, [modulosDisponiveis, aulasConcluidas]);
+
+  const modulosConcluidos = modulosComProgresso.filter(
+    (modulo) => modulo.percentual === 100 && modulo.totalAulasModulo > 0
+  ).length;
+
+  const modulosEmAndamento = modulosComProgresso.filter(
+    (modulo) => modulo.percentual > 0 && modulo.percentual < 100
+  ).length;
+
+  const modulosNaoIniciados = modulosComProgresso.filter(
+    (modulo) => modulo.percentual === 0 && modulo.totalAulasModulo > 0
+  ).length;
 
   function sair() {
     logoutUsuario();
     router.replace("/login");
   }
 
-  if (!usuario || carregando) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        Carregando simulados...
-      </main>
-    );
+  if (!usuario || carregando || carregandoProgresso) {
+    return <MentoradoLoading mensagem="Carregando progresso..." />;
   }
 
   return (
-    <main className="min-h-screen bg-[#f3f5f8] text-[#08163F]">
-      <header className="sticky top-0 z-20 flex h-[88px] items-center justify-between border-b border-slate-100 bg-white/85 px-6 backdrop-blur-xl lg:px-9">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push("/mentorado/dashboard")}
-            className="rounded-2xl bg-[#f3f5f8] px-4 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
-          >
-            ← Voltar
-          </button>
+    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+      <MentoradoSidebar nome={usuario.nome} />
 
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-slate-400">
-              Área do mentorado
-            </p>
-            <h1 className="text-xl font-black md:text-2xl">
-              Praticar conhecimentos
-            </h1>
-          </div>
-        </div>
+      <section className="relative min-w-0 flex-1 overflow-x-hidden">
+          <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                onClick={() => router.push("/mentorado/dashboard")}
+                className="rounded-xl bg-[#f3f5f8] px-3 py-2 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md sm:text-sm"
+              >
+                ← Voltar
+              </button>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/mentorado/suporte")}
-            className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-sm"
-          >
-            Suporte
-          </button>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 sm:text-xs">
+                  Evolução CEO Club
+                </p>
 
-          <button
-            onClick={sair}
-            className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg"
-          >
-            Sair
-          </button>
-        </div>
-      </header>
-
-      <div className="px-6 py-10 lg:px-9">
-        <section className="relative overflow-hidden rounded-[2.2rem] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-9 text-white shadow-2xl shadow-[#07122F]/20">
-          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-24 left-12 h-56 w-56 rounded-full bg-blue-400/20 blur-3xl" />
-
-          <div className="relative grid gap-8 xl:grid-cols-[1.2fr_0.8fr] xl:items-center">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.32em] text-blue-200">
-                Simulados CEO Club
-              </p>
-
-              <h2 className="mt-4 max-w-4xl text-4xl font-black leading-tight">
-                Pratique o conteúdo e acompanhe sua evolução.
-              </h2>
-
-              <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-blue-100">
-                Responda os simulados liberados pela mentora e veja seu
-                desempenho em cada prática.
-              </p>
+                <h2 className="truncate text-base font-black sm:text-lg md:text-xl">
+                  Meu progresso
+                </h2>
+              </div>
             </div>
 
-            <div className="grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/10 p-6 backdrop-blur-md">
-              <Metric
-                titulo="Simulados disponíveis"
-                valor={String(simuladosAtivos.length)}
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+              <button
+                onClick={() => router.push("/mentorado/suporte")}
+                className="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-[#08163F] shadow-sm sm:text-sm"
+              >
+                Suporte
+              </button>
+
+              <button
+                onClick={sair}
+                className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-black text-white shadow-lg sm:text-sm"
+              >
+                Sair
+              </button>
+            </div>
+          </header>
+
+          <div className="relative min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+            {erro && (
+              <div className="mb-6 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+                {erro}
+              </div>
+            )}
+
+            <section className="min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-2xl shadow-[#07122F]/20 sm:p-5 lg:rounded-[26px] lg:p-6">
+              <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] xl:items-center">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.35em] text-blue-200">
+                    Progresso geral
+                  </p>
+
+                  <h1 className="mt-3 break-words text-4xl font-black sm:text-5xl lg:text-6xl">
+                    {progressoGeral}%
+                  </h1>
+
+                  <p className="mt-3 max-w-2xl break-words text-sm font-bold leading-6 text-blue-100">
+                    Você concluiu {totalConcluidas} de {totalAulas} aulas
+                    disponíveis na jornada do CEO Club.
+                  </p>
+
+                  <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/15">
+                    <div
+                      className="h-full rounded-full bg-white transition-all"
+                      style={{ width: `${progressoGeral}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid min-w-0 gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                  <HeroMetric
+                    titulo="Concluídos"
+                    valor={String(modulosConcluidos)}
+                  />
+
+                  <HeroMetric
+                    titulo="Em andamento"
+                    valor={String(modulosEmAndamento)}
+                  />
+
+                  <HeroMetric
+                    titulo="Não iniciados"
+                    valor={String(modulosNaoIniciados)}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <ResumoCard
+                titulo="Aulas concluídas"
+                valor={`${totalConcluidas}/${totalAulas}`}
+                texto="Total de aulas finalizadas."
+                destaque
               />
 
-              <div className="grid grid-cols-2 gap-4">
-                <MiniMetric
-                  titulo="Respostas"
-                  valor={String(resultadosDoUsuario.length)}
-                />
+              <ResumoCard
+                titulo="Módulos concluídos"
+                valor={String(modulosConcluidos)}
+                texto="Módulos totalmente finalizados."
+              />
 
-                <MiniMetric
-                  titulo="Última nota"
-                  valor={
-                    resultadosDoUsuario[0]
-                      ? `${resultadosDoUsuario[0].percentual}%`
-                      : "—"
-                  }
-                />
-              </div>
-            </div>
-          </div>
-        </section>
+              <ResumoCard
+                titulo="Em andamento"
+                valor={String(modulosEmAndamento)}
+                texto="Módulos já iniciados."
+              />
 
-        {simuladosAtivos.length === 0 ? (
-          <section className="mt-8 rounded-[2rem] border border-dashed border-slate-200 bg-white p-10 text-center shadow-xl shadow-slate-200/70">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-[#f3f5f8] text-3xl">
-              ✦
-            </div>
-
-            <h2 className="mt-5 text-2xl font-black">
-              Nenhum simulado disponível ainda
-            </h2>
-
-            <p className="mx-auto mt-3 max-w-xl text-sm font-semibold leading-6 text-slate-500">
-              Assim que a mentora publicar um simulado, ele aparecerá aqui.
-            </p>
-          </section>
-        ) : (
-          <section className="mt-8 grid gap-8 xl:grid-cols-[380px_1fr]">
-            <aside className="rounded-[2rem] bg-white p-5 shadow-xl shadow-slate-200/70">
-              <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
-                Simulados liberados
-              </p>
-
-              <div className="mt-5 space-y-4">
-                {simuladosAtivos.map((simulado) => {
-                  const ativo = simuladoSelecionado?.id === simulado.id;
-
-                  const ultimoResultado = resultadosDoUsuario.find(
-                    (resultado) => resultado.simuladoId === simulado.id
-                  );
-
-                  return (
-                    <button
-                      key={simulado.id}
-                      type="button"
-                      onClick={() => selecionarSimulado(simulado.id)}
-                      className={`w-full rounded-[1.5rem] p-5 text-left transition ${
-                        ativo
-                          ? "bg-[#EEF2FF] text-[#08163F]"
-                          : "bg-[#f9fafb] text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                        {simulado.moduloTitulo || "Simulado"}
-                      </p>
-
-                      <h3 className="mt-2 text-lg font-black">
-                        {simulado.titulo}
-                      </h3>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500">
-                          {simulado.questoes.length} questões
-                        </span>
-
-                        {ultimoResultado && (
-                          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
-                            {ultimoResultado.percentual}%
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </aside>
-
-            <section className="rounded-[2rem] bg-white p-7 shadow-xl shadow-slate-200/70">
-              {simuladoSelecionado && (
-                <>
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
-                        Prática selecionada
-                      </p>
-
-                      <h2 className="mt-1 text-3xl font-black">
-                        {simuladoSelecionado.titulo}
-                      </h2>
-
-                      {simuladoSelecionado.descricao && (
-                        <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
-                          {simuladoSelecionado.descricao}
-                        </p>
-                      )}
-                    </div>
-
-                    {ultimoResultadoSimulado && !resultadoAtual && (
-                      <div className="rounded-2xl bg-emerald-50 px-5 py-4 text-emerald-700">
-                        <p className="text-xs font-black uppercase tracking-[0.18em]">
-                          Último resultado
-                        </p>
-
-                        <strong className="mt-1 block text-2xl font-black">
-                          {ultimoResultadoSimulado.percentual}%
-                        </strong>
-                      </div>
-                    )}
-                  </div>
-
-                  {resultadoAtual ? (
-                    <div className="mt-8 rounded-[2rem] bg-[#f9fafb] p-8 text-center">
-                      <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
-                        Resultado
-                      </p>
-
-                      <h3 className="mt-3 text-5xl font-black text-[#08163F]">
-                        {resultadoAtual.percentual}%
-                      </h3>
-
-                      <p className="mt-3 text-sm font-bold text-slate-500">
-                        Você acertou {resultadoAtual.acertos} de{" "}
-                        {resultadoAtual.total} questões.
-                      </p>
-
-                      <button
-                        onClick={() => {
-                          setResultadoAtual(null);
-                          setRespostasAtuais({});
-                        }}
-                        className="mt-6 rounded-2xl bg-[#08163F] px-6 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
-                      >
-                        Refazer simulado
-                      </button>
-                    </div>
-                  ) : simuladoSelecionado.questoes.length === 0 ? (
-                    <div className="mt-8 rounded-[1.8rem] border border-dashed border-slate-200 bg-[#f9fafb] p-10 text-center">
-                      <p className="text-xl font-black">
-                        Este simulado ainda não possui questões.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mt-8 space-y-6">
-                      {simuladoSelecionado.questoes.map((questao, index) => (
-                        <article
-                          key={questao.id}
-                          className="rounded-[1.7rem] border border-slate-100 bg-[#f9fafb] p-6"
-                        >
-                          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                            Questão {index + 1}
-                          </p>
-
-                          <h3 className="mt-2 text-xl font-black">
-                            {questao.enunciado}
-                          </h3>
-
-                          <div className="mt-5 grid gap-3">
-                            {questao.alternativas.map((alternativa) => {
-                              const marcada =
-                                respostasAtuais[questao.id] === alternativa.id;
-
-                              return (
-                                <button
-                                  key={alternativa.id}
-                                  type="button"
-                                  onClick={() =>
-                                    responderQuestao(
-                                      questao.id,
-                                      alternativa.id
-                                    )
-                                  }
-                                  className={`rounded-2xl p-4 text-left text-sm font-bold transition ${
-                                    marcada
-                                      ? "bg-[#08163F] text-white"
-                                      : "bg-white text-slate-600 hover:bg-[#EEF2FF]"
-                                  }`}
-                                >
-                                  {alternativa.id}. {alternativa.texto}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </article>
-                      ))}
-
-                      <button
-                        onClick={finalizarSimulado}
-                        className="rounded-2xl bg-[#08163F] px-6 py-4 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
-                      >
-                        Finalizar simulado
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
+              <ResumoCard
+                titulo="A iniciar"
+                valor={String(modulosNaoIniciados)}
+                texto="Módulos ainda não começados."
+              />
             </section>
-          </section>
-        )}
-      </div>
+
+            <section className="mt-4 min-w-0 rounded-[22px] bg-white p-4 shadow-xl shadow-slate-200/70 sm:rounded-[24px] sm:p-5 lg:p-6">
+              <div className="flex min-w-0 flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.28em] text-slate-400">
+                    Jornada por módulos
+                  </p>
+
+                  <h2 className="mt-2 break-words text-xl font-black text-[#08163F] sm:text-2xl lg:text-3xl">
+                    Acompanhe sua evolução
+                  </h2>
+
+                  <p className="mt-2 max-w-2xl break-words text-sm font-semibold leading-6 text-slate-500">
+                    Cada módulo mostra quantas aulas você já concluiu e o que
+                    ainda falta finalizar.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => router.push("/mentorado/modulos")}
+                  className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
+                >
+                  Continuar estudando →
+                </button>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {modulosComProgresso.length === 0 ? (
+                  <div className="rounded-[22px] bg-[#f9fafb] p-5 text-center sm:p-6">
+                    <p className="break-words text-lg font-black text-[#08163F] sm:text-xl">
+                      Nenhum módulo disponível ainda
+                    </p>
+
+                    <p className="mt-2 text-sm font-semibold text-slate-500">
+                      Assim que os módulos forem cadastrados, seu progresso
+                      aparecerá aqui.
+                    </p>
+                  </div>
+                ) : (
+                  modulosComProgresso.map((modulo) => (
+                    <ModuloProgressoCard key={modulo.id} modulo={modulo} />
+                  ))
+                )}
+              </div>
+            </section>
+          </div>
+      </section>
     </main>
   );
 }
 
-function Metric({ titulo, valor }: { titulo: string; valor: string }) {
+function HeroMetric({ titulo, valor }: { titulo: string; valor: string }) {
   return (
-    <div className="rounded-2xl bg-white/10 px-4 py-4">
-      <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">
+    <div className="min-w-0 rounded-[20px] bg-white/10 p-4 backdrop-blur-sm">
+      <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-200">
         {titulo}
       </p>
 
-      <strong className="mt-2 block text-3xl font-black">{valor}</strong>
+      <p className="mt-2 break-words text-2xl font-black text-white sm:text-3xl">{valor}</p>
     </div>
   );
 }
 
-function MiniMetric({ titulo, valor }: { titulo: string; valor: string }) {
+function ResumoCard({
+  titulo,
+  valor,
+  texto,
+  destaque,
+}: {
+  titulo: string;
+  valor: string;
+  texto: string;
+  destaque?: boolean;
+}) {
   return (
-    <div className="rounded-2xl bg-white/10 px-4 py-4">
-      <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">
+    <article
+      className={`min-w-0 overflow-hidden rounded-[20px] p-4 shadow-xl shadow-slate-200/70 sm:p-5 ${
+        destaque ? "bg-[#071A55] text-white" : "bg-white text-[#08163F]"
+      }`}
+    >
+      <p
+        className={`break-words text-xs font-black sm:text-sm ${
+          destaque ? "text-blue-100" : "text-slate-500"
+        }`}
+      >
         {titulo}
       </p>
 
-      <strong className="mt-2 block text-2xl font-black">{valor}</strong>
-    </div>
+      <strong className="mt-3 block break-words text-2xl font-black sm:text-3xl lg:text-4xl">{valor}</strong>
+
+      <p
+        className={`mt-2 break-words text-sm font-semibold leading-6 ${
+          destaque ? "text-blue-100" : "text-slate-500"
+        }`}
+      >
+        {texto}
+      </p>
+    </article>
   );
 }
+
+function ModuloProgressoCard({
+  modulo,
+}: {
+  modulo: {
+  id: string;
+  titulo: string;
+  descricao: string | null;
+  ordem: number | null;
+  aulas: {
+    id: string;
+    titulo: string;
+    ordem: number | null;
+    duracao: string | null;
+    video_url: string | null;
+  }[];
+  totalAulasModulo: number;
+  aulasConcluidasModulo: number;
+  percentual: number;
+  status: string;
+};
+}) {
+  const statusClasse =
+    modulo.status === "Concluído"
+      ? "bg-emerald-50 text-emerald-700"
+      : modulo.status === "Em andamento"
+      ? "bg-amber-50 text-amber-700"
+      : modulo.status === "Não iniciado"
+      ? "bg-slate-100 text-slate-600"
+      : "bg-[#EEF2FF] text-[#08163F]";
+
+  return (
+    <article className="min-w-0 rounded-[20px] border border-slate-100 bg-[#f9fafb] p-4 sm:p-5">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <span className="rounded-full bg-[#08163F] px-3 py-1.5 text-[11px] font-black text-white sm:text-xs">
+              Módulo {modulo.ordem ?? "—"}
+            </span>
+
+            <span className={`rounded-full px-3 py-1.5 text-[11px] font-black sm:text-xs ${statusClasse}`}>
+              {modulo.status}
+            </span>
+          </div>
+
+          <h3 className="mt-3 break-words text-lg font-black text-[#08163F] sm:text-xl">
+            {modulo.titulo}
+          </h3>
+
+          <p className="mt-2 max-w-3xl break-words text-sm font-semibold leading-6 text-slate-500">
+            {modulo.descricao || "Sem descrição cadastrada."}
+          </p>
+        </div>
+
+        <div className="min-w-0 text-left sm:text-right">
+          <p className="break-words text-2xl font-black text-[#08163F] sm:text-3xl">
+            {modulo.percentual}%
+          </p>
+
+          <p className="mt-1 text-sm font-black text-slate-400">
+            {modulo.aulasConcluidasModulo}/{modulo.totalAulasModulo} aulas
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-200">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C]"
+          style={{ width: `${modulo.percentual}%` }}
+        />
+      </div>
+
+      {modulo.aulas.length > 0 && (
+        <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-2">
+          {modulo.aulas.map((aula) => (
+            <div
+              key={aula.id}
+              className="min-w-0 rounded-2xl bg-white p-3 ring-1 ring-slate-100 sm:p-4"
+            >
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Aula {aula.ordem ?? "—"}
+              </p>
+
+              <p className="mt-2 break-words font-black text-[#08163F]">{aula.titulo}</p>
+
+              <p className="mt-1 text-xs font-bold text-slate-400">
+                {aula.duracao
+                  ? `▶ ${aula.duracao}`
+                  : aula.video_url
+                  ? "Vídeo disponível"
+                  : "Sem vídeo"}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
