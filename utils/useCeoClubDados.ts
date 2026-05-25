@@ -1,165 +1,56 @@
 "use client";
 
-import { useMemo } from "react";
-import { useLocalStorage } from "@/utils/useLocalStorage";
-import { CEOCLUB_KEYS } from "@/utils/ceoclubKeys";
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/utils/supabase";
 
-export type ArquivoAula = {
+export type ModuloCeoClub = {
   id: string;
-  nome: string;
-  url: string;
-};
-
-export type AulaModulo = {
-  id: string;
-  titulo: string;
-  descricao: string;
-  objetivo?: string;
-  duracao?: string;
-  ordem: number;
-  videoUrl: string;
-  arquivos?: ArquivoAula[];
-};
-
-export type ModuloMentoria = {
-  id: string;
-  titulo: string;
-  descricao: string;
-  ordem: number;
-  aulas: AulaModulo[];
-  criadoEm: string;
-};
-
-export type EventoAgenda = {
-  id: number;
-  mentoradoId: string;
-  mentoradoCodigo: string;
-  mentorado: string;
-  mentoradoEmail: string;
-  data: string;
-  horario: string;
-  tipo: "Mentoria" | "Módulo" | "Reunião";
-  status: "Confirmada" | "Aguardando" | "Concluída" | "Cancelada";
-  observacao: string;
-};
-
-export type Simulado = {
-  id: string;
-  titulo: string;
-  descricao?: string;
-  moduloId?: string;
-  questoes?: unknown[];
-  criadoEm?: string;
-};
-
-export type RegistroFinanceiro = {
-  id: string;
-  mentoradoId: string;
-  mentorado: string;
-  descricao: string;
-  valor: number;
-  status: "Pago" | "Pendente" | "Atrasado";
-  vencimento: string;
+  titulo: string | null;
+  nome_premium: string | null;
+  nome_explicativo: string | null;
+  ordem: number | null;
 };
 
 export function useCeoClubDados() {
-  const [modulos, setModulos, carregouModulos] = useLocalStorage<
-    ModuloMentoria[]
-  >(CEOCLUB_KEYS.modulos, []);
+  const [modulos, setModulos] = useState<ModuloCeoClub[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
 
-  const [agenda, setAgenda, carregouAgenda] = useLocalStorage<EventoAgenda[]>(
-    CEOCLUB_KEYS.agenda,
-    []
-  );
+  const carregarDados = useCallback(async () => {
+    try {
+      setCarregando(true);
+      setErro("");
 
-  const [aulasConcluidas, setAulasConcluidas, carregouAulasConcluidas] =
-    useLocalStorage<string[]>(CEOCLUB_KEYS.aulasConcluidas, []);
+      const { data, error } = await supabase
+        .from("modulos")
+        .select("id, titulo, nome_premium, nome_explicativo, ordem")
+        .order("ordem", { ascending: true });
 
-  const [simulados, setSimulados, carregouSimulados] = useLocalStorage<
-    Simulado[]
-  >(CEOCLUB_KEYS.simulados, []);
+      if (error) {
+        throw new Error(error.message);
+      }
 
-  const [financeiro, setFinanceiro, carregouFinanceiro] = useLocalStorage<
-    RegistroFinanceiro[]
-  >(CEOCLUB_KEYS.financeiro, []);
+      setModulos((data ?? []) as ModuloCeoClub[]);
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar os módulos."
+      );
+      setModulos([]);
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
 
-  const modulosOrdenados = useMemo(() => {
-    return [...modulos]
-      .sort((a, b) => a.ordem - b.ordem)
-      .map((modulo) => ({
-        ...modulo,
-        aulas: [...modulo.aulas].sort((a, b) => a.ordem - b.ordem),
-      }));
-  }, [modulos]);
-
-  const todasAsAulas = useMemo(() => {
-    return modulosOrdenados.flatMap((modulo) =>
-      modulo.aulas.map((aula) => ({
-        ...aula,
-        moduloId: modulo.id,
-        moduloTitulo: modulo.titulo,
-      }))
-    );
-  }, [modulosOrdenados]);
-
-  const aulasComVideo = useMemo(() => {
-    return todasAsAulas.filter((aula) => aula.videoUrl).length;
-  }, [todasAsAulas]);
-
-  const aulasConcluidasValidas = useMemo(() => {
-    const idsAulas = new Set(todasAsAulas.map((aula) => aula.id));
-
-    return aulasConcluidas.filter((aulaId) => idsAulas.has(aulaId));
-  }, [aulasConcluidas, todasAsAulas]);
-
-  const progressoGeral = useMemo(() => {
-    if (todasAsAulas.length === 0) return 0;
-
-    return Math.round(
-      (aulasConcluidasValidas.length / todasAsAulas.length) * 100
-    );
-  }, [aulasConcluidasValidas.length, todasAsAulas.length]);
-
-  const agendaConfirmada = useMemo(() => {
-    return agenda.filter((evento) => evento.status === "Confirmada");
-  }, [agenda]);
-
-  const pendenciasFinanceiras = useMemo(() => {
-    return financeiro.filter(
-      (item) => item.status === "Pendente" || item.status === "Atrasado"
-    );
-  }, [financeiro]);
-
-  const carregando =
-    !carregouModulos ||
-    !carregouAgenda ||
-    !carregouAulasConcluidas ||
-    !carregouSimulados ||
-    !carregouFinanceiro;
+  useEffect(() => {
+    carregarDados();
+  }, [carregarDados]);
 
   return {
+    modulos,
     carregando,
-
-    modulos: modulosOrdenados,
-    setModulos,
-
-    aulas: todasAsAulas,
-    aulasComVideo,
-
-    agenda,
-    setAgenda,
-    agendaConfirmada,
-
-    aulasConcluidas: aulasConcluidasValidas,
-    setAulasConcluidas,
-
-    progressoGeral,
-
-    simulados,
-    setSimulados,
-
-    financeiro,
-    setFinanceiro,
-    pendenciasFinanceiras,
+    erro,
+    carregarDados,
   };
 }

@@ -3,233 +3,206 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
-import { CEOCLUB_KEYS } from "@/utils/ceoclubKeys";
+import { getUsuarioLogado, usuarioTemPermissao, User } from "@/utils/auth";
+import { useCeoClubDados } from "@/utils/useCeoClubDados";
+import {
+  AlternativaSupabase,
+  PerguntaSupabase,
+  SimuladoSupabase,
+  StatusSimulado,
+  TipoPergunta,
+  TipoSimulado,
+  useSimuladosSupabase,
+} from "@/utils/useSimuladosSupabase";
 
-type StatusSimulado = "Rascunho" | "Publicado" | "Bloqueado";
-
-type TipoPergunta =
-  | "multipla-escolha"
-  | "checkbox"
-  | "verdadeiro-falso"
-  | "dissertativa"
-  | "escala"
-  | "envio-arquivo";
-
-type Alternativa = {
-  id: string;
-  texto: string;
-  imagem?: string | null;
+type FormSimulado = {
+  titulo: string;
+  descricao: string;
+  instrucoes: string;
+  moduloId: string;
+  tipo: TipoSimulado;
+  status: StatusSimulado;
+  tempoLimiteMinutos: string;
+  permitirRefazer: boolean;
+  mostrarResultado: boolean;
+  mostrarGabarito: boolean;
+  exigirTodasRespostas: boolean;
+  limiteTentativas: string;
 };
 
-type Questao = {
-  id: string;
+type FormPergunta = {
   tipo: TipoPergunta;
   enunciado: string;
   descricao: string;
-  imagem?: string | null;
   obrigatoria: boolean;
-  pontos: number;
-  alternativas: Alternativa[];
-  respostasCorretas: number[];
-  explicacao: string;
-  escala?: {
-    minimo: number;
-    maximo: number;
-    rotuloMinimo: string;
-    rotuloMaximo: string;
-  };
+  pontos: string;
+  escalaMin: string;
+  escalaMax: string;
 };
 
-type Simulado = {
-  id: string;
-  titulo: string;
-  modulo: string;
+type FormAlternativa = {
+  texto: string;
+  correta: boolean;
+};
+
+const perguntaInicial: FormPergunta = {
+  tipo: "multipla_escolha",
+  enunciado: "",
+  descricao: "",
+  obrigatoria: true,
+  pontos: "1",
+  escalaMin: "1",
+  escalaMax: "5",
+};
+
+const alternativaInicial: FormAlternativa = {
+  texto: "",
+  correta: false,
+};
+
+const tiposPergunta: {
+  value: TipoPergunta;
+  label: string;
   descricao: string;
-  publicadoPor: string;
-  status: StatusSimulado;
-  tempoEstimado: string;
-  dataCriacao: string;
-  mentorados: number;
-  questoes: Questao[];
-  ativo?: boolean;
-  moduloId?: string;
-  moduloTitulo?: string;
-  criadoEm?: string;
-  atualizadoEm?: string;
-};
-
-const STORAGE_KEY = CEOCLUB_KEYS.simulados;
-
-const tiposPergunta: { label: string; value: TipoPergunta; descricao: string }[] =
-  [
-    {
-      label: "Múltipla escolha",
-      value: "multipla-escolha",
-      descricao: "Uma resposta correta entre várias opções.",
-    },
-    {
-      label: "Caixas de seleção",
-      value: "checkbox",
-      descricao: "Uma ou mais respostas corretas.",
-    },
-    {
-      label: "Verdadeiro ou falso",
-      value: "verdadeiro-falso",
-      descricao: "Escolha rápida entre verdadeiro e falso.",
-    },
-    {
-      label: "Resposta discursiva",
-      value: "dissertativa",
-      descricao: "Resposta aberta para análise do mentor.",
-    },
-    {
-      label: "Escala",
-      value: "escala",
-      descricao: "Resposta em escala numérica.",
-    },
-    {
-      label: "Envio de arquivo",
-      value: "envio-arquivo",
-      descricao: "Para pedir imagem, PDF ou documento.",
-    },
-  ];
-
-const modulosDisponiveis = [
-  "Comece aqui",
-  "Posicionamento",
-  "Vendas",
-  "Marketing",
-  "Fechamento",
-  "Gestão",
+}[] = [
+  {
+    value: "multipla_escolha",
+    label: "Múltipla escolha",
+    descricao: "Uma alternativa correta para medir domínio objetivo.",
+  },
+  {
+    value: "caixa_selecao",
+    label: "Caixa de seleção",
+    descricao: "Uma ou mais alternativas corretas para perguntas compostas.",
+  },
+  {
+    value: "resposta_curta",
+    label: "Resposta curta",
+    descricao: "Resposta aberta breve, ideal para conceitos e decisões.",
+  },
+  {
+    value: "resposta_longa",
+    label: "Resposta longa",
+    descricao: "Campo aberto para reflexão, plano de ação ou análise.",
+  },
+  {
+    value: "escala",
+    label: "Escala",
+    descricao: "Nota numérica, útil para autoavaliação e diagnóstico.",
+  },
+  {
+    value: "sim_nao",
+    label: "Sim / Não",
+    descricao: "Resposta objetiva para checar execução ou prontidão.",
+  },
+  {
+    value: "upload",
+    label: "Upload",
+    descricao: "Entrega de arquivo, evidência ou comprovante da atividade.",
+  },
 ];
 
-function criarAlternativasIniciais(): Alternativa[] {
-  return [
-    { id: crypto.randomUUID(), texto: "", imagem: null },
-    { id: crypto.randomUUID(), texto: "", imagem: null },
-    { id: crypto.randomUUID(), texto: "", imagem: null },
-    { id: crypto.randomUUID(), texto: "", imagem: null },
-  ];
-}
+const tiposSimulado: { value: TipoSimulado; label: string }[] = [
+  { value: "treino", label: "Treino livre" },
+  { value: "avaliacao", label: "Avaliação" },
+  { value: "diagnostico", label: "Diagnóstico" },
+  { value: "atividade", label: "Atividade prática" },
+];
 
-function normalizarQuestao(questao: any): Questao {
-  if (questao.enunciado && questao.tipo) {
-    return {
-      ...questao,
-      descricao: questao.descricao ?? "",
-      imagem: questao.imagem ?? null,
-      obrigatoria: questao.obrigatoria ?? true,
-      pontos: questao.pontos ?? 1,
-      alternativas: questao.alternativas ?? criarAlternativasIniciais(),
-      respostasCorretas: questao.respostasCorretas ?? [],
-      explicacao: questao.explicacao ?? "",
-    } as Questao;
-  }
+const fieldClass =
+  "w-full rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-3 text-sm font-bold text-[#08163F] shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10";
 
-  const alternativasNormalizadas =
-    questao.alternativas?.map((alternativa: any, index: number) => ({
-      id: alternativa.id ?? String(index + 1),
-      texto: alternativa.texto ?? alternativa ?? "",
-      imagem: alternativa.imagem ?? null,
-    })) ?? criarAlternativasIniciais();
+const textareaClass = `${fieldClass} resize-y leading-6`;
 
-  const respostaCorretaId = questao.respostaCorretaId ?? questao.correta ?? "1";
+const selectClass =
+  "w-full cursor-pointer rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-3 text-sm font-bold text-[#08163F] shadow-sm outline-none transition focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10";
 
-  const indiceCorreto = alternativasNormalizadas.findIndex(
-    (alternativa: Alternativa) => alternativa.id === String(respostaCorretaId)
-  );
+const glassPanelClass =
+  "rounded-[28px] border border-white/70 bg-white/90 shadow-2xl shadow-slate-200/80 backdrop-blur-xl";
 
-  return {
-    id: questao.id ?? crypto.randomUUID(),
-    tipo: "multipla-escolha",
-    enunciado: questao.enunciado ?? questao.pergunta ?? "Pergunta sem título",
-    descricao: questao.descricao ?? "",
-    imagem: questao.imagem ?? null,
-    obrigatoria: questao.obrigatoria ?? true,
-    pontos: questao.pontos ?? 1,
-    alternativas: alternativasNormalizadas,
-    respostasCorretas: indiceCorreto >= 0 ? [indiceCorreto] : [],
-    explicacao: questao.explicacao ?? "",
-  };
-}
-
-function normalizarSimulado(simulado: any): Simulado {
-  const questoes = (simulado.questoes ?? []).map(normalizarQuestao);
-
-  const status: StatusSimulado =
-    simulado.status ??
-    (simulado.ativo
-      ? "Publicado"
-      : questoes.length >= 30
-      ? "Rascunho"
-      : "Bloqueado");
-
-  return {
-    ...simulado,
-    id: simulado.id ?? crypto.randomUUID(),
-    titulo: simulado.titulo ?? "Simulado sem título",
-    modulo: simulado.modulo ?? simulado.moduloTitulo ?? "Sem módulo",
-    descricao: simulado.descricao ?? "",
-    publicadoPor: simulado.publicadoPor ?? "Mentor",
-    status,
-    tempoEstimado: simulado.tempoEstimado ?? "30 min",
-    dataCriacao:
-      simulado.dataCriacao ??
-      simulado.criadoEm ??
-      simulado.data ??
-      new Date().toISOString(),
-    mentorados: simulado.mentorados ?? 0,
-    ativo: simulado.ativo ?? status === "Publicado",
-    moduloId: simulado.moduloId ?? "",
-    moduloTitulo: simulado.moduloTitulo ?? simulado.modulo ?? "Sem módulo",
-    criadoEm:
-      simulado.criadoEm ??
-      simulado.dataCriacao ??
-      simulado.data ??
-      new Date().toISOString(),
-    atualizadoEm: simulado.atualizadoEm ?? new Date().toISOString(),
-    questoes,
-  };
-}
-
-export default function EditarSimuladoPage() {
+export default function SimuladoEditorPage() {
   const router = useRouter();
   const params = useParams();
-
   const simuladoId = String(params.id);
 
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [simulados, setSimulados] = useState<Simulado[]>([]);
-  const [simulado, setSimulado] = useState<Simulado | null>(null);
-
-  const [erro, setErro] = useState("");
-  const [sucesso, setSucesso] = useState("");
-
-  const [titulo, setTitulo] = useState("");
-  const [modulo, setModulo] = useState("Posicionamento");
-  const [descricao, setDescricao] = useState("");
-  const [tempoEstimado, setTempoEstimado] = useState("30 min");
-
-  const [questaoEditandoId, setQuestaoEditandoId] = useState<string | null>(
+  const [formSimulado, setFormSimulado] = useState<FormSimulado | null>(null);
+  const [formPergunta, setFormPergunta] =
+    useState<FormPergunta>(perguntaInicial);
+  const [perguntaEditandoId, setPerguntaEditandoId] = useState<string | null>(
     null
   );
-  const [tipoPergunta, setTipoPergunta] =
-    useState<TipoPergunta>("multipla-escolha");
-  const [enunciado, setEnunciado] = useState("");
-  const [descricaoPergunta, setDescricaoPergunta] = useState("");
-  const [imagemPergunta, setImagemPergunta] = useState<string | null>(null);
-  const [obrigatoria, setObrigatoria] = useState(true);
-  const [pontos, setPontos] = useState(1);
-  const [alternativas, setAlternativas] = useState<Alternativa[]>(
-    criarAlternativasIniciais()
+  const [formAlternativas, setFormAlternativas] = useState<
+    Record<string, FormAlternativa>
+  >({});
+  const [salvando, setSalvando] = useState(false);
+  const [erroLocal, setErroLocal] = useState("");
+  const [aba, setAba] = useState<"estrutura" | "respostas" | "configuracoes">(
+    "estrutura"
   );
-  const [respostasCorretas, setRespostasCorretas] = useState<number[]>([]);
-  const [explicacao, setExplicacao] = useState("");
-  const [escalaMin, setEscalaMin] = useState(1);
-  const [escalaMax, setEscalaMax] = useState(5);
-  const [rotuloMinimo, setRotuloMinimo] = useState("Pouco");
-  const [rotuloMaximo, setRotuloMaximo] = useState("Muito");
+
+  const { modulos, carregando: carregandoDados } = useCeoClubDados();
+
+  const {
+    carregando,
+    erro,
+    setErro,
+    simulados,
+    tentativas,
+    respostas,
+    carregarTentativas,
+    carregarRespostas,
+    atualizarSimulado,
+    atualizarStatusSimulado,
+    excluirSimulado,
+    criarPergunta,
+    atualizarPergunta,
+    excluirPergunta,
+    criarAlternativa,
+    atualizarAlternativa,
+    excluirAlternativa,
+  } = useSimuladosSupabase();
+
+  const simulado = useMemo(() => {
+    return simulados.find((item) => item.id === simuladoId) ?? null;
+  }, [simulados, simuladoId]);
+
+  const tentativasDoSimulado = useMemo(() => {
+    return tentativas.filter((tentativa) => tentativa.simulado_id === simuladoId);
+  }, [tentativas, simuladoId]);
+
+  const resumo = useMemo(() => {
+    const totalPerguntas = simulado?.perguntas.length ?? 0;
+
+    const totalPontos =
+      simulado?.perguntas.reduce(
+        (total, pergunta) => total + Number(pergunta.pontos || 0),
+        0
+      ) ?? 0;
+
+    const media =
+      tentativasDoSimulado.length === 0
+        ? 0
+        : Math.round(
+            tentativasDoSimulado.reduce(
+              (total, tentativa) => total + Number(tentativa.percentual || 0),
+              0
+            ) / tentativasDoSimulado.length
+          );
+
+    const objetivas =
+      simulado?.perguntas.filter((pergunta) =>
+        ["multipla_escolha", "caixa_selecao", "sim_nao"].includes(pergunta.tipo)
+      ).length ?? 0;
+
+    return {
+      totalPerguntas,
+      totalPontos,
+      tentativas: tentativasDoSimulado.length,
+      media,
+      objetivas,
+    };
+  }, [simulado, tentativasDoSimulado]);
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -239,441 +212,401 @@ export default function EditarSimuladoPage() {
       return;
     }
 
-    if (user.role === "mentorado") {
-      router.replace("/mentorado/dashboard");
-      return;
-    }
-
-    if (user.role !== "mentor") {
-      logoutUsuario();
-      router.replace("/login");
+    if (!usuarioTemPermissao(user, ["mentor"])) {
+      router.replace(
+        user.role === "mentorado" ? "/mentorado/dashboard" : "/login"
+      );
       return;
     }
 
     setUsuario(user);
+  }, [router]);
 
-    const dadosSalvos = localStorage.getItem(STORAGE_KEY);
-    const listaBruta = dadosSalvos ? JSON.parse(dadosSalvos) : [];
-    const listaNormalizada = listaBruta.map(normalizarSimulado);
+  useEffect(() => {
+    if (!usuario) return;
+    carregarTentativas();
+  }, [usuario, carregarTentativas]);
 
-    setSimulados(listaNormalizada);
-
-    const encontrado =
-      listaNormalizada.find((item: Simulado) => item.id === simuladoId) ?? null;
-
-    setSimulado(encontrado);
-
-    if (encontrado) {
-      setTitulo(encontrado.titulo);
-      setModulo(encontrado.modulo);
-      setDescricao(encontrado.descricao);
-      setTempoEstimado(encontrado.tempoEstimado);
-    }
-  }, [router, simuladoId]);
-
-  const podePublicar = useMemo(() => {
-    return (simulado?.questoes.length ?? 0) >= 30;
-  }, [simulado]);
-
-  const progressoPublicacao = useMemo(() => {
-    if (!simulado) return 0;
-    return Math.min(Math.round((simulado.questoes.length / 30) * 100), 100);
-  }, [simulado]);
-
-  function persistir(listaAtualizada: Simulado[], simuladoAtualizado: Simulado) {
-    const agora = new Date().toISOString();
-
-    const listaSincronizada = listaAtualizada.map((item: Simulado) => ({
-      ...item,
-      ativo: item.status === "Publicado",
-      moduloId: item.moduloId ?? "",
-      moduloTitulo: item.modulo ?? item.moduloTitulo ?? "",
-      criadoEm: item.criadoEm ?? item.dataCriacao ?? agora,
-      atualizadoEm: agora,
-    }));
-
-    const simuladoSincronizado: Simulado = {
-      ...simuladoAtualizado,
-      ativo: simuladoAtualizado.status === "Publicado",
-      moduloId: simuladoAtualizado.moduloId ?? "",
-      moduloTitulo: simuladoAtualizado.modulo,
-      criadoEm:
-        simuladoAtualizado.criadoEm ??
-        simuladoAtualizado.dataCriacao ??
-        agora,
-      atualizadoEm: agora,
-    };
-
-    setSimulados(listaSincronizada);
-    setSimulado(simuladoSincronizado);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(listaSincronizada));
-  }
-
-  function calcularStatus(
-    questoesAtualizadas: Questao[],
-    statusAtual: StatusSimulado
-  ) {
-    if (statusAtual === "Publicado" && questoesAtualizadas.length >= 30) {
-      return "Publicado";
-    }
-
-    return questoesAtualizadas.length >= 30 ? "Rascunho" : "Bloqueado";
-  }
-
-  function sair() {
-    logoutUsuario();
-    router.replace("/login");
-  }
-
-  function salvarDadosGerais(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setErro("");
-    setSucesso("");
-
+  useEffect(() => {
     if (!simulado) return;
 
-    if (!titulo.trim() || !descricao.trim()) {
-      setErro("Preencha título e descrição do simulado.");
-      return;
-    }
-
-    const atualizado: Simulado = {
-      ...simulado,
-      titulo: titulo.trim(),
-      modulo,
-      descricao: descricao.trim(),
-      tempoEstimado,
-    };
-
-    const listaAtualizada = simulados.map((item) =>
-      item.id === atualizado.id ? atualizado : item
-    );
-
-    persistir(listaAtualizada, atualizado);
-    setSucesso("Dados gerais salvos.");
-  }
-
-  function lerImagem(arquivo: File, callback: (resultado: string) => void) {
-    if (!arquivo.type.startsWith("image/")) {
-      setErro("Selecione apenas arquivos de imagem.");
-      return;
-    }
-
-    const leitor = new FileReader();
-
-    leitor.onload = () => {
-      callback(leitor.result as string);
-    };
-
-    leitor.readAsDataURL(arquivo);
-  }
-
-  function alterarImagemPergunta(e: React.ChangeEvent<HTMLInputElement>) {
-    const arquivo = e.target.files?.[0];
-    if (!arquivo) return;
-
-    lerImagem(arquivo, setImagemPergunta);
-  }
-
-  function alterarImagemAlternativa(
-    index: number,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
-    const arquivo = e.target.files?.[0];
-    if (!arquivo) return;
-
-    lerImagem(arquivo, (resultado) => {
-      setAlternativas((atuais) =>
-        atuais.map((alternativa, i) =>
-          i === index ? { ...alternativa, imagem: resultado } : alternativa
-        )
-      );
+    setFormSimulado({
+      titulo: simulado.titulo,
+      descricao: simulado.descricao ?? "",
+      instrucoes: simulado.instrucoes ?? "",
+      moduloId: simulado.modulo_id ?? "",
+      tipo: simulado.tipo,
+      status: simulado.status,
+      tempoLimiteMinutos: simulado.tempo_limite_minutos
+        ? String(simulado.tempo_limite_minutos)
+        : "",
+      permitirRefazer: simulado.permitir_refazer,
+      mostrarResultado: simulado.mostrar_resultado,
+      mostrarGabarito: simulado.mostrar_gabarito,
+      exigirTodasRespostas: simulado.exigir_todas_respostas,
+      limiteTentativas: simulado.limite_tentativas
+        ? String(simulado.limite_tentativas)
+        : "",
     });
-  }
+  }, [simulado]);
 
-  function mudarTipoPergunta(novoTipo: TipoPergunta) {
-    setTipoPergunta(novoTipo);
-    setRespostasCorretas([]);
+  useEffect(() => {
+    const tentativaId = tentativasDoSimulado[0]?.id;
 
-    if (novoTipo === "verdadeiro-falso") {
-      setAlternativas([
-        { id: crypto.randomUUID(), texto: "Verdadeiro", imagem: null },
-        { id: crypto.randomUUID(), texto: "Falso", imagem: null },
-      ]);
-      return;
+    if (tentativaId) {
+      carregarRespostas(tentativaId);
     }
+  }, [tentativasDoSimulado, carregarRespostas]);
 
-    if (novoTipo === "multipla-escolha" || novoTipo === "checkbox") {
-      setAlternativas(criarAlternativasIniciais());
-      return;
-    }
-
-    setAlternativas([]);
-  }
-
-  function atualizarTextoAlternativa(index: number, texto: string) {
-    setAlternativas((atuais) =>
-      atuais.map((alternativa, i) =>
-        i === index ? { ...alternativa, texto } : alternativa
-      )
+  function nomeModuloAtual(item: SimuladoSupabase) {
+    return (
+      item.modulos?.nome_premium ||
+      item.modulos?.nome_explicativo ||
+      item.modulos?.titulo ||
+      "Sem módulo vinculado"
     );
   }
 
-  function adicionarAlternativa() {
-    setAlternativas((atuais) => [
-      ...atuais,
-      { id: crypto.randomUUID(), texto: "", imagem: null },
-    ]);
-  }
-
-  function removerAlternativa(index: number) {
-    setAlternativas((atuais) => atuais.filter((_, i) => i !== index));
-    setRespostasCorretas((atuais) =>
-      atuais
-        .filter((resposta) => resposta !== index)
-        .map((resposta) => (resposta > index ? resposta - 1 : resposta))
+  function nomeModuloSelect(modulo: any) {
+    return (
+      modulo.nome_premium ||
+      modulo.nome_explicativo ||
+      modulo.titulo ||
+      "Módulo sem nome"
     );
   }
 
-  function selecionarRespostaCorreta(index: number) {
-    if (tipoPergunta === "checkbox") {
-      setRespostasCorretas((atuais) =>
-        atuais.includes(index)
-          ? atuais.filter((item) => item !== index)
-          : [...atuais, index]
-      );
-      return;
-    }
-
-    setRespostasCorretas([index]);
+  function resetPergunta() {
+    setPerguntaEditandoId(null);
+    setFormPergunta(perguntaInicial);
   }
 
-  function limparFormularioPergunta() {
-    setQuestaoEditandoId(null);
-    setTipoPergunta("multipla-escolha");
-    setEnunciado("");
-    setDescricaoPergunta("");
-    setImagemPergunta(null);
-    setObrigatoria(true);
-    setPontos(1);
-    setAlternativas(criarAlternativasIniciais());
-    setRespostasCorretas([]);
-    setExplicacao("");
-    setEscalaMin(1);
-    setEscalaMax(5);
-    setRotuloMinimo("Pouco");
-    setRotuloMaximo("Muito");
+  function preencherPergunta(pergunta: PerguntaSupabase) {
+    setPerguntaEditandoId(pergunta.id);
+
+    setFormPergunta({
+      tipo: pergunta.tipo,
+      enunciado: pergunta.enunciado,
+      descricao: pergunta.descricao ?? "",
+      obrigatoria: pergunta.obrigatoria,
+      pontos: String(pergunta.pontos ?? 1),
+      escalaMin: String(pergunta.escala_min ?? 1),
+      escalaMax: String(pergunta.escala_max ?? 5),
+    });
+
+    setAba("estrutura");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function validarPergunta() {
-    if (!enunciado.trim()) {
-      return "Digite o enunciado da pergunta.";
-    }
-
-    if (
-      tipoPergunta === "multipla-escolha" ||
-      tipoPergunta === "checkbox" ||
-      tipoPergunta === "verdadeiro-falso"
-    ) {
-      const alternativasValidas = alternativas.filter(
-        (alternativa) => alternativa.texto.trim() || alternativa.imagem
-      );
-
-      if (alternativasValidas.length < 2) {
-        return "Cadastre pelo menos duas alternativas.";
-      }
-
-      if (respostasCorretas.length === 0) {
-        return "Marque pelo menos uma resposta correta.";
-      }
-    }
-
-    if (tipoPergunta === "escala" && escalaMin >= escalaMax) {
-      return "Na escala, o valor mínimo precisa ser menor que o máximo.";
-    }
-
-    return "";
-  }
-
-  function salvarPergunta(e: React.FormEvent<HTMLFormElement>) {
+  async function salvarDadosGerais(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!simulado || !formSimulado) return;
+
     setErro("");
-    setSucesso("");
+    setErroLocal("");
 
-    if (!simulado) return;
-
-    const mensagemErro = validarPergunta();
-
-    if (mensagemErro) {
-      setErro(mensagemErro);
+    if (!formSimulado.titulo.trim()) {
+      setErroLocal("Informe o título do simulado.");
       return;
     }
 
-    const novaQuestao: Questao = {
-      id: questaoEditandoId ?? crypto.randomUUID(),
-      tipo: tipoPergunta,
-      enunciado: enunciado.trim(),
-      descricao: descricaoPergunta.trim(),
-      imagem: imagemPergunta,
-      obrigatoria,
-      pontos,
-      alternativas,
-      respostasCorretas,
-      explicacao: explicacao.trim(),
-      escala:
-        tipoPergunta === "escala"
-          ? {
-              minimo: escalaMin,
-              maximo: escalaMax,
-              rotuloMinimo,
-              rotuloMaximo,
-            }
-          : undefined,
-    };
+    try {
+      setSalvando(true);
 
-    const questoesAtualizadas = questaoEditandoId
-      ? simulado.questoes.map((questao) =>
-          questao.id === questaoEditandoId ? novaQuestao : questao
-        )
-      : [...simulado.questoes, novaQuestao];
-
-    const atualizado: Simulado = {
-      ...simulado,
-      questoes: questoesAtualizadas,
-      status: calcularStatus(questoesAtualizadas, simulado.status),
-    };
-
-    const listaAtualizada = simulados.map((item) =>
-      item.id === atualizado.id ? atualizado : item
-    );
-
-    persistir(listaAtualizada, atualizado);
-    limparFormularioPergunta();
-    setSucesso(
-      questaoEditandoId ? "Pergunta atualizada." : "Pergunta adicionada."
-    );
+      await atualizarSimulado(simulado.id, {
+        titulo: formSimulado.titulo,
+        descricao: formSimulado.descricao,
+        instrucoes: formSimulado.instrucoes,
+        moduloId: formSimulado.moduloId || null,
+        tipo: formSimulado.tipo,
+        status: formSimulado.status,
+        tempoLimiteMinutos: formSimulado.tempoLimiteMinutos
+          ? Number(formSimulado.tempoLimiteMinutos)
+          : null,
+        permitirRefazer: formSimulado.permitirRefazer,
+        mostrarResultado: formSimulado.mostrarResultado,
+        mostrarGabarito: formSimulado.mostrarGabarito,
+        exigirTodasRespostas: formSimulado.exigirTodasRespostas,
+        limiteTentativas: formSimulado.limiteTentativas
+          ? Number(formSimulado.limiteTentativas)
+          : null,
+        criadoPor: simulado.criado_por,
+      });
+    } catch (error) {
+      setErroLocal(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar os dados do simulado."
+      );
+    } finally {
+      setSalvando(false);
+    }
   }
 
-  function editarPergunta(questao: Questao) {
-    setQuestaoEditandoId(questao.id);
-    setTipoPergunta(questao.tipo);
-    setEnunciado(questao.enunciado);
-    setDescricaoPergunta(questao.descricao);
-    setImagemPergunta(questao.imagem ?? null);
-    setObrigatoria(questao.obrigatoria);
-    setPontos(questao.pontos);
-    setAlternativas(questao.alternativas ?? []);
-    setRespostasCorretas(questao.respostasCorretas ?? []);
-    setExplicacao(questao.explicacao ?? "");
-    setEscalaMin(questao.escala?.minimo ?? 1);
-    setEscalaMax(questao.escala?.maximo ?? 5);
-    setRotuloMinimo(questao.escala?.rotuloMinimo ?? "Pouco");
-    setRotuloMaximo(questao.escala?.rotuloMaximo ?? "Muito");
+  async function salvarPergunta(e: React.FormEvent) {
+    e.preventDefault();
 
-    window.scrollTo({ top: 520, behavior: "smooth" });
-  }
-
-  function duplicarPergunta(questao: Questao) {
     if (!simulado) return;
 
-    const copia: Questao = {
-      ...questao,
-      id: crypto.randomUUID(),
-      enunciado: `${questao.enunciado} (cópia)`,
-      alternativas: questao.alternativas.map((alternativa) => ({
-        ...alternativa,
-        id: crypto.randomUUID(),
-      })),
-    };
+    setErro("");
+    setErroLocal("");
 
-    const questoesAtualizadas = [...simulado.questoes, copia];
+    if (!formPergunta.enunciado.trim()) {
+      setErroLocal("Informe o enunciado da pergunta.");
+      return;
+    }
 
-    const atualizado: Simulado = {
-      ...simulado,
-      questoes: questoesAtualizadas,
-      status: calcularStatus(questoesAtualizadas, simulado.status),
-    };
+    try {
+      setSalvando(true);
 
-    const listaAtualizada = simulados.map((item) =>
-      item.id === atualizado.id ? atualizado : item
-    );
+      const payload = {
+        simuladoId: simulado.id,
+        ordem: perguntaEditandoId
+          ? simulado.perguntas.find(
+              (pergunta) => pergunta.id === perguntaEditandoId
+            )?.ordem ?? simulado.perguntas.length + 1
+          : simulado.perguntas.length + 1,
+        tipo: formPergunta.tipo,
+        enunciado: formPergunta.enunciado,
+        descricao: formPergunta.descricao,
+        obrigatoria: formPergunta.obrigatoria,
+        pontos: Number(formPergunta.pontos || 1),
+        escalaMin: Number(formPergunta.escalaMin || 1),
+        escalaMax: Number(formPergunta.escalaMax || 5),
+      };
 
-    persistir(listaAtualizada, atualizado);
-    setSucesso("Pergunta duplicada.");
+      if (perguntaEditandoId) {
+        await atualizarPergunta(perguntaEditandoId, payload);
+      } else {
+        await criarPergunta(payload);
+      }
+
+      resetPergunta();
+    } catch (error) {
+      setErroLocal(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar a pergunta."
+      );
+    } finally {
+      setSalvando(false);
+    }
   }
 
-  function excluirPergunta(id: string) {
-    if (!simulado) return;
+  async function salvarAlternativa(pergunta: PerguntaSupabase) {
+    const form = formAlternativas[pergunta.id] ?? alternativaInicial;
 
-    const confirmar = confirm("Excluir esta pergunta?");
+    setErro("");
+    setErroLocal("");
+
+    if (!form.texto.trim()) {
+      setErroLocal("Informe o texto da alternativa.");
+      return;
+    }
+
+    try {
+      setSalvando(true);
+
+      await criarAlternativa({
+        perguntaId: pergunta.id,
+        texto: form.texto,
+        ordem: pergunta.alternativas.length + 1,
+        correta: form.correta,
+      });
+
+      setFormAlternativas({
+        ...formAlternativas,
+        [pergunta.id]: alternativaInicial,
+      });
+    } catch (error) {
+      setErroLocal(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar a alternativa."
+      );
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function marcarAlternativaCorreta(
+    pergunta: PerguntaSupabase,
+    alternativa: AlternativaSupabase
+  ) {
+    try {
+      setErro("");
+      setErroLocal("");
+
+      if (pergunta.tipo === "multipla_escolha" || pergunta.tipo === "sim_nao") {
+        await Promise.all(
+          pergunta.alternativas.map((item) =>
+            atualizarAlternativa(item.id, {
+              perguntaId: pergunta.id,
+              texto: item.texto,
+              ordem: item.ordem,
+              correta: item.id === alternativa.id ? !alternativa.correta : false,
+            })
+          )
+        );
+
+        return;
+      }
+
+      await atualizarAlternativa(alternativa.id, {
+        perguntaId: pergunta.id,
+        texto: alternativa.texto,
+        ordem: alternativa.ordem,
+        correta: !alternativa.correta,
+      });
+    } catch (error) {
+      setErroLocal(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível atualizar a alternativa correta."
+      );
+    }
+  }
+
+  async function criarAlternativasSimNao(pergunta: PerguntaSupabase) {
+    if (pergunta.alternativas.length > 0) return;
+
+    try {
+      setSalvando(true);
+
+      await criarAlternativa({
+        perguntaId: pergunta.id,
+        texto: "Sim",
+        ordem: 1,
+        correta: true,
+      });
+
+      await criarAlternativa({
+        perguntaId: pergunta.id,
+        texto: "Não",
+        ordem: 2,
+        correta: false,
+      });
+    } catch (error) {
+      setErroLocal(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível criar alternativas Sim/Não."
+      );
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function confirmarExcluirPergunta(pergunta: PerguntaSupabase) {
+    const confirmar = window.confirm(
+      `Deseja excluir a pergunta "${pergunta.enunciado}"?`
+    );
+
     if (!confirmar) return;
 
-    const questoesAtualizadas = simulado.questoes.filter(
-      (questao) => questao.id !== id
-    );
+    try {
+      setErro("");
+      setErroLocal("");
+      await excluirPergunta(pergunta.id);
 
-    const atualizado: Simulado = {
-      ...simulado,
-      questoes: questoesAtualizadas,
-      status: calcularStatus(questoesAtualizadas, simulado.status),
-    };
-
-    const listaAtualizada = simulados.map((item) =>
-      item.id === atualizado.id ? atualizado : item
-    );
-
-    persistir(listaAtualizada, atualizado);
-    setSucesso("Pergunta excluída.");
+      if (perguntaEditandoId === pergunta.id) {
+        resetPergunta();
+      }
+    } catch (error) {
+      setErroLocal(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível excluir a pergunta."
+      );
+    }
   }
 
-  function publicarSimulado() {
-    setErro("");
-    setSucesso("");
+  async function confirmarExcluirAlternativa(alternativa: AlternativaSupabase) {
+    const confirmar = window.confirm(
+      `Deseja excluir a alternativa "${alternativa.texto}"?`
+    );
 
+    if (!confirmar) return;
+
+    try {
+      setErro("");
+      setErroLocal("");
+      await excluirAlternativa(alternativa.id);
+    } catch (error) {
+      setErroLocal(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível excluir a alternativa."
+      );
+    }
+  }
+
+  async function publicar(status: StatusSimulado) {
     if (!simulado) return;
 
-    if (simulado.questoes.length < 30) {
-      setErro(
-        `Este simulado tem ${simulado.questoes.length} perguntas. Para publicar, precisa ter no mínimo 30.`
+    try {
+      setErro("");
+      setErroLocal("");
+      await atualizarStatusSimulado(simulado.id, status);
+    } catch (error) {
+      setErroLocal(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível atualizar o status."
       );
-      return;
     }
+  }
 
-    const atualizado: Simulado = {
-      ...simulado,
-      status: "Publicado",
-    };
+  async function confirmarExcluirSimulado() {
+    if (!simulado) return;
 
-    const listaAtualizada = simulados.map((item) =>
-      item.id === atualizado.id ? atualizado : item
+    const confirmar = window.confirm(
+      `Deseja excluir o simulado "${simulado.titulo}"? Essa ação remove perguntas, alternativas e respostas.`
     );
 
-    persistir(listaAtualizada, atualizado);
-    setSucesso("Simulado publicado com sucesso.");
+    if (!confirmar) return;
+
+    try {
+      await excluirSimulado(simulado.id);
+      router.push("/simulados");
+    } catch (error) {
+      setErroLocal(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível excluir o simulado."
+      );
+    }
   }
 
-  if (!usuario) {
-    return <MentorLoading mensagem="Carregando edição..." />;
+  if (!usuario || carregando || carregandoDados) {
+    return <MentorLoading mensagem="Carregando editor do simulado..." />;
   }
 
-  if (!simulado) {
+  if (!simulado || !formSimulado) {
     return (
       <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
         <Sidebar nome={usuario.nome} role={usuario.role} />
 
         <section className="relative flex min-w-0 flex-1 items-center justify-center overflow-x-hidden p-4 sm:p-6">
-          <div className="w-full max-w-lg rounded-[24px] bg-white p-6 text-center shadow-xl shadow-slate-200/70 sm:p-8">
-            <h1 className="break-words text-2xl font-black sm:text-3xl">
+          <div className="w-full max-w-lg rounded-[28px] border border-white/70 bg-white/95 p-6 text-center shadow-2xl shadow-slate-200/80 sm:p-8">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#08163F] text-xl text-white">
+              ✦
+            </div>
+
+            <h1 className="mt-5 break-words text-2xl font-black sm:text-3xl">
               Simulado não encontrado
             </h1>
 
             <p className="mt-3 break-words text-sm font-semibold leading-6 text-gray-500">
-              Esse simulado não existe ou foi removido.
+              Esse simulado não existe, foi removido ou o ID da URL não veio do
+              banco de simulados.
             </p>
 
             <button
+              type="button"
               onClick={() => router.push("/simulados")}
-              className="mt-6 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white"
+              className="mt-6 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
             >
               Voltar para simulados
             </button>
@@ -688,168 +621,325 @@ export default function EditarSimuladoPage() {
       <Sidebar nome={usuario.nome} role={usuario.role} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="sticky top-0 z-20 flex min-h-[68px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <button
+              type="button"
               onClick={() => router.push("/simulados")}
-              className="rounded-xl bg-[#f3f5f8] px-3 py-2 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md sm:text-sm"
+              className="rounded-2xl bg-[#f3f5f8] px-3 py-2 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md sm:text-sm"
             >
               ← Voltar
             </button>
 
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
-                Editor de simulado
+                Editor avançado
               </p>
 
-              <h1 className="truncate text-base font-black sm:text-lg md:text-xl">{simulado.titulo}</h1>
+              <h1 className="truncate text-base font-black sm:text-lg md:text-xl">
+                {simulado.titulo}
+              </h1>
             </div>
           </div>
 
-          <button
-            onClick={sair}
-            className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 sm:text-sm"
-          >
-            Sair
-          </button>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {simulado.status !== "publicado" && (
+              <button
+                type="button"
+                onClick={() => publicar("publicado")}
+                className="rounded-2xl bg-emerald-600 px-4 py-2.5 text-xs font-black text-white shadow-lg shadow-emerald-900/10 transition hover:-translate-y-0.5 hover:brightness-110 sm:text-sm"
+              >
+                Publicar
+              </button>
+            )}
+
+            {simulado.status === "publicado" && (
+              <button
+                type="button"
+                onClick={() => publicar("rascunho")}
+                className="rounded-2xl bg-slate-100 px-4 py-2.5 text-xs font-black text-[#08163F] shadow-sm transition hover:bg-white sm:text-sm"
+              >
+                Rascunho
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={confirmarExcluirSimulado}
+              className="rounded-2xl bg-red-50 px-4 py-2.5 text-xs font-black text-red-600 transition hover:bg-red-100 sm:text-sm"
+            >
+              Excluir
+            </button>
+          </div>
         </header>
 
         <div className="relative min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px] lg:p-6">
-            <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
-                  {simulado.modulo}
+          <section className="relative mb-4 min-w-0 overflow-hidden rounded-[30px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-2xl shadow-[#07122F]/20 sm:p-6 lg:p-7">
+            <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -bottom-24 left-10 h-64 w-64 rounded-full bg-blue-400/20 blur-3xl" />
+
+            <div className="relative grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(330px,0.9fr)] xl:items-center">
+              <div className="min-w-0">
+                <div className="flex flex-wrap gap-2">
+                  <StatusBadge status={simulado.status} />
+                  <TipoBadge tipo={simulado.tipo} />
+
+                  <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-black text-blue-100 ring-1 ring-white/10">
+                    {nomeModuloAtual(simulado)}
+                  </span>
+                </div>
+
+                <p className="mt-5 text-[10px] font-black uppercase tracking-[0.28em] text-blue-200 sm:text-xs">
+                  Estrutura da prática
                 </p>
 
-                <h2 className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
-                  Construtor de perguntas
+                <h2 className="mt-3 break-words text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
+                  {simulado.titulo}
                 </h2>
 
-                <p className="mt-2 max-w-2xl break-words text-sm font-semibold leading-6 text-[#D9DEE7]">
-                  Monte o simulado como um formulário completo. Use múltipla
-                  escolha, caixas de seleção, escala, resposta discursiva, envio
-                  de arquivo e imagens.
+                <p className="mt-4 max-w-3xl break-words text-sm font-semibold leading-7 text-blue-100">
+                  Construa perguntas, defina regras e acompanhe a evolução do
+                  mentorado com uma experiência prática, objetiva e premium.
                 </p>
               </div>
 
-              <div className="min-w-0 rounded-[20px] bg-white/10 p-4 backdrop-blur-sm">
-                <p className="text-sm font-bold text-[#C9CED6]">
-                  Perguntas cadastradas
-                </p>
-
-                <p className="mt-2 break-words text-2xl font-black sm:text-3xl">
-                  {simulado.questoes.length}/30
-                </p>
+              <div className="grid min-w-0 gap-3 rounded-[26px] border border-white/10 bg-white/10 p-4 backdrop-blur-md sm:grid-cols-2">
+                <Metric titulo="Perguntas" valor={String(resumo.totalPerguntas)} />
+                <Metric titulo="Pontos" valor={String(resumo.totalPontos)} />
+                <Metric titulo="Objetivas" valor={String(resumo.objetivas)} />
+                <Metric titulo="Média" valor={`${resumo.media}%`} />
               </div>
             </div>
           </section>
 
-          {erro && (
-            <div className="mb-4 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
-              {erro}
+          {(erro || erroLocal) && (
+            <div className="mb-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
+              {erroLocal || erro}
             </div>
           )}
 
-          {sucesso && (
-            <div className="mb-4 rounded-2xl bg-green-50 p-4 text-sm font-bold text-green-700">
-              {sucesso}
-            </div>
-          )}
+          <div className="mb-4 flex flex-wrap gap-2">
+            <TabButton ativo={aba === "estrutura"} onClick={() => setAba("estrutura")}>
+              Estrutura
+            </TabButton>
 
-          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <KPI titulo="Status" valor={simulado.status} destaque />
-            <KPI titulo="Perguntas" valor={simulado.questoes.length} />
-            <KPI titulo="Mínimo" valor="30" />
-            <KPI
-              titulo="Publicação"
-              valor={podePublicar ? "Liberada" : "Bloqueada"}
-              alerta={!podePublicar}
-            />
-          </section>
+            <TabButton
+              ativo={aba === "configuracoes"}
+              onClick={() => setAba("configuracoes")}
+            >
+              Configurações
+            </TabButton>
 
-          <section className="mb-4 min-w-0 rounded-[20px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-bold text-gray-500">
-                Progresso para publicação
-              </p>
+            <TabButton ativo={aba === "respostas"} onClick={() => setAba("respostas")}>
+              Respostas
+            </TabButton>
+          </div>
 
-              <p className="text-sm font-black text-[#08163F]">
-                {progressoPublicacao}%
-              </p>
-            </div>
-
-            <div className="h-3 overflow-hidden rounded-full bg-gray-100">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] via-[#12317C] to-[#07122F]"
-                style={{ width: `${progressoPublicacao}%` }}
-              />
-            </div>
-          </section>
-
-          <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
-            <div className="min-w-0 space-y-4">
-              <Card titulo="Configurações do simulado">
-                <form onSubmit={salvarDadosGerais} className="space-y-3">
+          {aba === "configuracoes" && (
+            <Card titulo="Configurações do simulado" subtitulo="Ajuste as regras, o módulo e as informações que o mentorado verá.">
+              <form onSubmit={salvarDadosGerais} className="space-y-4">
+                <div className="grid min-w-0 gap-4 md:grid-cols-2">
                   <Campo label="Título">
                     <input
-                      value={titulo}
-                      onChange={(e) => setTitulo(e.target.value)}
-                      className="input-ceo"
+                      value={formSimulado.titulo}
+                      onChange={(e) =>
+                        setFormSimulado({
+                          ...formSimulado,
+                          titulo: e.target.value,
+                        })
+                      }
+                      className={fieldClass}
                     />
                   </Campo>
 
-                  <div className="grid min-w-0 gap-3 md:grid-cols-2">
-                    <Campo label="Módulo">
-                      <select
-                        value={modulo}
-                        onChange={(e) => setModulo(e.target.value)}
-                        className="input-ceo"
-                      >
-                        {modulosDisponiveis.map((item) => (
-                          <option key={item}>{item}</option>
-                        ))}
-                      </select>
-                    </Campo>
+                  <Campo label="Módulo">
+                    <select
+                      value={formSimulado.moduloId}
+                      onChange={(e) =>
+                        setFormSimulado({
+                          ...formSimulado,
+                          moduloId: e.target.value,
+                        })
+                      }
+                      className={selectClass}
+                    >
+                      <option value="">Sem módulo</option>
 
-                    <Campo label="Tempo estimado">
-                      <input
-                        value={tempoEstimado}
-                        onChange={(e) => setTempoEstimado(e.target.value)}
-                        className="input-ceo"
-                      />
-                    </Campo>
-                  </div>
+                      {modulos.map((modulo: any) => (
+                        <option key={modulo.id} value={modulo.id}>
+                          {nomeModuloSelect(modulo)}
+                        </option>
+                      ))}
+                    </select>
+                  </Campo>
 
-                  <Campo label="Descrição para o mentorado">
+                  <Campo label="Modo">
+                    <select
+                      value={formSimulado.tipo}
+                      onChange={(e) =>
+                        setFormSimulado({
+                          ...formSimulado,
+                          tipo: e.target.value as TipoSimulado,
+                        })
+                      }
+                      className={selectClass}
+                    >
+                      {tiposSimulado.map((tipo) => (
+                        <option key={tipo.value} value={tipo.value}>
+                          {tipo.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Campo>
+
+                  <Campo label="Status">
+                    <select
+                      value={formSimulado.status}
+                      onChange={(e) =>
+                        setFormSimulado({
+                          ...formSimulado,
+                          status: e.target.value as StatusSimulado,
+                        })
+                      }
+                      className={selectClass}
+                    >
+                      <option value="rascunho">Rascunho</option>
+                      <option value="publicado">Publicado</option>
+                      <option value="arquivado">Arquivado</option>
+                    </select>
+                  </Campo>
+
+                  <Campo label="Descrição">
                     <textarea
-                      value={descricao}
-                      onChange={(e) => setDescricao(e.target.value)}
-                      rows={4}
-                      className="input-ceo resize-none"
+                      value={formSimulado.descricao}
+                      onChange={(e) =>
+                        setFormSimulado({
+                          ...formSimulado,
+                          descricao: e.target.value,
+                        })
+                      }
+                      className={`${textareaClass} min-h-[96px]`}
                     />
                   </Campo>
 
-                  <button
-                    type="submit"
-                    className="rounded-2xl bg-[#08163F] px-5 py-2.5 text-sm font-black text-white shadow-lg transition hover:brightness-110"
-                  >
-                    Salvar configurações
-                  </button>
-                </form>
-              </Card>
+                  <Campo label="Instruções">
+                    <textarea
+                      value={formSimulado.instrucoes}
+                      onChange={(e) =>
+                        setFormSimulado({
+                          ...formSimulado,
+                          instrucoes: e.target.value,
+                        })
+                      }
+                      className={`${textareaClass} min-h-[96px]`}
+                    />
+                  </Campo>
 
+                  <Campo label="Tempo limite em minutos">
+                    <input
+                      type="number"
+                      min={0}
+                      value={formSimulado.tempoLimiteMinutos}
+                      onChange={(e) =>
+                        setFormSimulado({
+                          ...formSimulado,
+                          tempoLimiteMinutos: e.target.value,
+                        })
+                      }
+                      className={fieldClass}
+                    />
+                  </Campo>
+
+                  <Campo label="Limite de tentativas">
+                    <input
+                      type="number"
+                      min={0}
+                      value={formSimulado.limiteTentativas}
+                      onChange={(e) =>
+                        setFormSimulado({
+                          ...formSimulado,
+                          limiteTentativas: e.target.value,
+                        })
+                      }
+                      className={fieldClass}
+                    />
+                  </Campo>
+                </div>
+
+                <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <Toggle
+                    label="Permitir refazer"
+                    checked={formSimulado.permitirRefazer}
+                    onChange={(checked) =>
+                      setFormSimulado({
+                        ...formSimulado,
+                        permitirRefazer: checked,
+                      })
+                    }
+                  />
+
+                  <Toggle
+                    label="Mostrar resultado"
+                    checked={formSimulado.mostrarResultado}
+                    onChange={(checked) =>
+                      setFormSimulado({
+                        ...formSimulado,
+                        mostrarResultado: checked,
+                      })
+                    }
+                  />
+
+                  <Toggle
+                    label="Mostrar gabarito"
+                    checked={formSimulado.mostrarGabarito}
+                    onChange={(checked) =>
+                      setFormSimulado({
+                        ...formSimulado,
+                        mostrarGabarito: checked,
+                      })
+                    }
+                  />
+
+                  <Toggle
+                    label="Exigir obrigatórias"
+                    checked={formSimulado.exigirTodasRespostas}
+                    onChange={(checked) =>
+                      setFormSimulado({
+                        ...formSimulado,
+                        exigirTodasRespostas: checked,
+                      })
+                    }
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={salvando}
+                  className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#08163F]/20 transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {salvando ? "Salvando..." : "Salvar configurações"}
+                </button>
+              </form>
+            </Card>
+          )}
+
+          {aba === "estrutura" && (
+            <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
               <Card
-                titulo={questaoEditandoId ? "Editar pergunta" : "Nova pergunta"}
+                titulo={perguntaEditandoId ? "Editar pergunta" : "Nova pergunta"}
+                subtitulo="Crie perguntas com pontuação, obrigatoriedade e alternativas."
               >
-                <form onSubmit={salvarPergunta} className="space-y-3">
+                <form onSubmit={salvarPergunta} className="space-y-4">
                   <Campo label="Tipo de pergunta">
                     <select
-                      value={tipoPergunta}
+                      value={formPergunta.tipo}
                       onChange={(e) =>
-                        mudarTipoPergunta(e.target.value as TipoPergunta)
+                        setFormPergunta({
+                          ...formPergunta,
+                          tipo: e.target.value as TipoPergunta,
+                        })
                       }
-                      className="input-ceo"
+                      className={selectClass}
                     >
                       {tiposPergunta.map((tipo) => (
                         <option key={tipo.value} value={tipo.value}>
@@ -859,485 +949,472 @@ export default function EditarSimuladoPage() {
                     </select>
                   </Campo>
 
-                  <div className="min-w-0 rounded-2xl bg-[#EEF2FF] p-3 sm:p-4">
-                    <p className="text-sm font-bold text-[#08163F]">
-                      {
-                        tiposPergunta.find(
-                          (tipo) => tipo.value === tipoPergunta
-                        )?.descricao
-                      }
-                    </p>
-                  </div>
-
                   <Campo label="Enunciado">
                     <textarea
-                      value={enunciado}
-                      onChange={(e) => setEnunciado(e.target.value)}
-                      placeholder="Digite a pergunta..."
-                      rows={3}
-                      className="input-ceo resize-none"
+                      value={formPergunta.enunciado}
+                      onChange={(e) =>
+                        setFormPergunta({
+                          ...formPergunta,
+                          enunciado: e.target.value,
+                        })
+                      }
+                      placeholder="Digite a pergunta"
+                      className={`${textareaClass} min-h-[110px]`}
                     />
                   </Campo>
 
-                  <Campo label="Descrição ou instrução adicional">
+                  <Campo label="Descrição / apoio">
                     <textarea
-                      value={descricaoPergunta}
-                      onChange={(e) => setDescricaoPergunta(e.target.value)}
-                      placeholder="Ex: analise o cenário abaixo antes de responder..."
-                      rows={2}
-                      className="input-ceo resize-none"
+                      value={formPergunta.descricao}
+                      onChange={(e) =>
+                        setFormPergunta({
+                          ...formPergunta,
+                          descricao: e.target.value,
+                        })
+                      }
+                      placeholder="Texto de apoio opcional"
+                      className={`${textareaClass} min-h-[86px]`}
                     />
                   </Campo>
-
-                  <div className="min-w-0 rounded-[20px] bg-[#f9fafb] p-4">
-                    <p className="text-sm font-black text-gray-500">
-                      Imagem da pergunta
-                    </p>
-
-                    {imagemPergunta && (
-                      <img
-                        src={imagemPergunta}
-                        alt="Imagem da pergunta"
-                        className="mt-3 max-h-52 rounded-2xl object-cover"
-                      />
-                    )}
-
-                    <div className="mt-3 flex flex-wrap gap-2 sm:gap-3">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={alterarImagemPergunta}
-                        className="input-ceo"
-                      />
-
-                      {imagemPergunta && (
-                        <button
-                          type="button"
-                          onClick={() => setImagemPergunta(null)}
-                          className="rounded-2xl bg-red-50 px-4 py-2.5 text-sm font-black text-red-700 transition hover:bg-red-100"
-                        >
-                          Remover imagem
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {(tipoPergunta === "multipla-escolha" ||
-                    tipoPergunta === "checkbox" ||
-                    tipoPergunta === "verdadeiro-falso") && (
-                    <div className="space-y-3 rounded-[20px] bg-[#f9fafb] p-4">
-                      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h3 className="break-words text-lg font-black text-[#08163F]">
-                            Alternativas
-                          </h3>
-
-                          <p className="mt-1 text-sm font-semibold text-gray-500">
-                            Marque a resposta correta. No tipo checkbox, pode
-                            marcar mais de uma.
-                          </p>
-                        </div>
-
-                        {tipoPergunta !== "verdadeiro-falso" && (
-                          <button
-                            type="button"
-                            onClick={adicionarAlternativa}
-                            className="rounded-2xl bg-white px-4 py-2.5 text-xs font-black text-[#08163F] shadow-sm transition hover:shadow-md sm:text-sm"
-                          >
-                            + Alternativa
-                          </button>
-                        )}
-                      </div>
-
-                      {alternativas.map((alternativa, index) => {
-                        const marcada = respostasCorretas.includes(index);
-
-                        return (
-                          <div
-                            key={alternativa.id}
-                            className="rounded-2xl bg-white p-3 shadow-sm sm:p-4"
-                          >
-                            <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-start">
-                              <button
-                                type="button"
-                                onClick={() => selecionarRespostaCorreta(index)}
-                                className={`mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black transition ${
-                                  marcada
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-gray-100 text-gray-500"
-                                }`}
-                              >
-                                {marcada
-                                  ? "✓"
-                                  : String.fromCharCode(65 + index)}
-                              </button>
-
-                              <div className="flex-1 space-y-3">
-                                <input
-                                  value={alternativa.texto}
-                                  onChange={(e) =>
-                                    atualizarTextoAlternativa(
-                                      index,
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder={`Alternativa ${String.fromCharCode(
-                                    65 + index
-                                  )}`}
-                                  className="input-ceo"
-                                />
-
-                                {alternativa.imagem && (
-                                  <img
-                                    src={alternativa.imagem}
-                                    alt="Imagem da alternativa"
-                                    className="max-h-48 rounded-2xl object-cover"
-                                  />
-                                )}
-
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) =>
-                                    alterarImagemAlternativa(index, e)
-                                  }
-                                  className="input-ceo"
-                                />
-                              </div>
-
-                              {tipoPergunta !== "verdadeiro-falso" &&
-                                alternativas.length > 2 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => removerAlternativa(index)}
-                                    className="rounded-2xl bg-red-50 px-4 py-2.5 text-xs font-black text-red-700 transition hover:bg-red-100 sm:text-sm"
-                                  >
-                                    Remover
-                                  </button>
-                                )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {tipoPergunta === "escala" && (
-                    <div className="min-w-0 rounded-[20px] bg-[#f9fafb] p-4">
-                      <h3 className="break-words text-lg font-black text-[#08163F]">
-                        Configuração da escala
-                      </h3>
-
-                      <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-2">
-                        <Campo label="Valor mínimo">
-                          <input
-                            type="number"
-                            value={escalaMin}
-                            onChange={(e) =>
-                              setEscalaMin(Number(e.target.value))
-                            }
-                            className="input-ceo"
-                          />
-                        </Campo>
-
-                        <Campo label="Valor máximo">
-                          <input
-                            type="number"
-                            value={escalaMax}
-                            onChange={(e) =>
-                              setEscalaMax(Number(e.target.value))
-                            }
-                            className="input-ceo"
-                          />
-                        </Campo>
-
-                        <Campo label="Rótulo mínimo">
-                          <input
-                            value={rotuloMinimo}
-                            onChange={(e) => setRotuloMinimo(e.target.value)}
-                            className="input-ceo"
-                          />
-                        </Campo>
-
-                        <Campo label="Rótulo máximo">
-                          <input
-                            value={rotuloMaximo}
-                            onChange={(e) => setRotuloMaximo(e.target.value)}
-                            className="input-ceo"
-                          />
-                        </Campo>
-                      </div>
-                    </div>
-                  )}
-
-                  {tipoPergunta === "envio-arquivo" && (
-                    <div className="min-w-0 rounded-2xl bg-yellow-50 p-4">
-                      <p className="font-black text-yellow-800">
-                        Pergunta de envio de arquivo
-                      </p>
-
-                      <p className="mt-2 text-sm font-bold leading-relaxed text-yellow-700">
-                        No protótipo, essa pergunta apenas registra que o
-                        mentorado deverá anexar um arquivo. Na versão real, ela
-                        será integrada com upload em storage.
-                      </p>
-                    </div>
-                  )}
-
-                  {tipoPergunta !== "escala" &&
-                    tipoPergunta !== "envio-arquivo" && (
-                      <Campo label="Explicação após responder">
-                        <textarea
-                          value={explicacao}
-                          onChange={(e) => setExplicacao(e.target.value)}
-                          placeholder="Explique por que a resposta correta faz sentido..."
-                          rows={4}
-                          className="input-ceo resize-none"
-                        />
-                      </Campo>
-                    )}
 
                   <div className="grid min-w-0 gap-3 md:grid-cols-2">
-                    <Campo label="Pontuação">
+                    <Campo label="Pontos">
                       <input
                         type="number"
                         min={0}
-                        value={pontos}
-                        onChange={(e) => setPontos(Number(e.target.value))}
-                        className="input-ceo"
+                        step="0.5"
+                        value={formPergunta.pontos}
+                        onChange={(e) =>
+                          setFormPergunta({
+                            ...formPergunta,
+                            pontos: e.target.value,
+                          })
+                        }
+                        className={fieldClass}
                       />
                     </Campo>
 
-                    <Campo label="Obrigatória">
-                      <select
-                        value={obrigatoria ? "sim" : "nao"}
-                        onChange={(e) =>
-                          setObrigatoria(e.target.value === "sim")
-                        }
-                        className="input-ceo"
-                      >
-                        <option value="sim">Sim</option>
-                        <option value="nao">Não</option>
-                      </select>
-                    </Campo>
+                    <Toggle
+                      label="Obrigatória"
+                      checked={formPergunta.obrigatoria}
+                      onChange={(checked) =>
+                        setFormPergunta({
+                          ...formPergunta,
+                          obrigatoria: checked,
+                        })
+                      }
+                    />
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap gap-2">
+                  {formPergunta.tipo === "escala" && (
+                    <div className="grid min-w-0 gap-3 md:grid-cols-2">
+                      <Campo label="Escala mínima">
+                        <input
+                          type="number"
+                          value={formPergunta.escalaMin}
+                          onChange={(e) =>
+                            setFormPergunta({
+                              ...formPergunta,
+                              escalaMin: e.target.value,
+                            })
+                          }
+                          className={fieldClass}
+                        />
+                      </Campo>
+
+                      <Campo label="Escala máxima">
+                        <input
+                          type="number"
+                          value={formPergunta.escalaMax}
+                          onChange={(e) =>
+                            setFormPergunta({
+                              ...formPergunta,
+                              escalaMax: e.target.value,
+                            })
+                          }
+                          className={fieldClass}
+                        />
+                      </Campo>
+                    </div>
+                  )}
+
+                  <div className="rounded-[24px] border border-blue-100 bg-gradient-to-br from-[#F8FAFF] to-white p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                      Como funciona
+                    </p>
+
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                      {tiposPergunta.find(
+                        (tipo) => tipo.value === formPergunta.tipo
+                      )?.descricao ?? "Configure a pergunta conforme a atividade."}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
                     <button
                       type="submit"
-                      className="rounded-2xl bg-[#08163F] px-5 py-2.5 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                      disabled={salvando}
+                      className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#08163F]/20 transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {questaoEditandoId
+                      {salvando
+                        ? "Salvando..."
+                        : perguntaEditandoId
                         ? "Salvar pergunta"
                         : "Adicionar pergunta"}
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={limparFormularioPergunta}
-                      className="rounded-2xl bg-[#f3f5f8] px-5 py-2.5 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
-                    >
-                      Limpar
-                    </button>
+                    {perguntaEditandoId && (
+                      <button
+                        type="button"
+                        onClick={resetPergunta}
+                        className="rounded-2xl bg-[#f3f5f8] px-5 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+                      >
+                        Cancelar edição
+                      </button>
+                    )}
                   </div>
                 </form>
               </Card>
 
-              <Card titulo="Perguntas cadastradas">
-                {simulado.questoes.length === 0 ? (
-                  <div className="rounded-2xl bg-[#f9fafb] p-4 text-center sm:p-5">
-                    <p className="font-black text-[#08163F]">
-                      Nenhuma pergunta cadastrada ainda.
-                    </p>
-
-                    <p className="mt-2 text-sm font-semibold text-gray-500">
-                      Use o construtor acima para montar o simulado.
-                    </p>
-                  </div>
+              <div className="min-w-0 space-y-4">
+                {simulado.perguntas.length === 0 ? (
+                  <Card titulo="Perguntas cadastradas" subtitulo="As perguntas aparecem aqui em ordem de criação.">
+                    <div className="rounded-[24px] border border-dashed border-slate-200 bg-[#f9fafb] p-7 text-center">
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm">
+                        ✦
+                      </div>
+                      <p className="mt-4 text-lg font-black">
+                        Nenhuma pergunta ainda
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-slate-500">
+                        Comece criando a primeira pergunta do simulado.
+                      </p>
+                    </div>
+                  </Card>
                 ) : (
-                  <div className="space-y-3">
-                    {simulado.questoes.map((questao, index) => (
-                      <div
-                        key={questao.id}
-                        className="min-w-0 rounded-2xl bg-[#f9fafb] p-4"
-                      >
-                        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                          <div>
-                            <div className="mb-3 flex flex-wrap gap-2">
-                              <span className="rounded-full bg-[#08163F] px-3 py-1 text-xs font-black text-white">
-                                Pergunta {index + 1}
-                              </span>
+                  simulado.perguntas.map((pergunta, index) => (
+                    <PerguntaCard
+                      key={pergunta.id}
+                      pergunta={pergunta}
+                      index={index}
+                      formAlternativa={
+                        formAlternativas[pergunta.id] ?? alternativaInicial
+                      }
+                      setFormAlternativa={(form) =>
+                        setFormAlternativas({
+                          ...formAlternativas,
+                          [pergunta.id]: form,
+                        })
+                      }
+                      onSalvarAlternativa={() => salvarAlternativa(pergunta)}
+                      onEditar={() => preencherPergunta(pergunta)}
+                      onExcluir={() => confirmarExcluirPergunta(pergunta)}
+                      onMarcarCorreta={(alternativa) =>
+                        marcarAlternativaCorreta(pergunta, alternativa)
+                      }
+                      onExcluirAlternativa={confirmarExcluirAlternativa}
+                      onCriarSimNao={() => criarAlternativasSimNao(pergunta)}
+                    />
+                  ))
+                )}
+              </div>
+            </section>
+          )}
 
-                              <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-xs font-black text-[#08163F]">
-                                {labelTipoPergunta(questao.tipo)}
-                              </span>
+          {aba === "respostas" && (
+            <Card titulo="Respostas e tentativas" subtitulo="Acompanhe o desempenho das respostas enviadas pelo mentorado.">
+              {tentativasDoSimulado.length === 0 ? (
+                <div className="rounded-[24px] border border-dashed border-slate-200 bg-[#f9fafb] p-7 text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm">
+                    ◌
+                  </div>
+                  <p className="mt-4 text-lg font-black">Nenhuma tentativa enviada</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-500">
+                    Quando um mentorado responder, o histórico aparece aqui.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {tentativasDoSimulado.map((tentativa) => (
+                    <article
+                      key={tentativa.id}
+                      className="rounded-[24px] border border-slate-100 bg-[#f9fafb] p-4"
+                    >
+                      <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                            Tentativa
+                          </p>
 
-                              {questao.obrigatoria && (
-                                <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-700">
-                                  Obrigatória
-                                </span>
-                              )}
-                            </div>
+                          <h3 className="mt-1 break-words text-lg font-black text-[#08163F]">
+                            {tentativa.percentual}% de aproveitamento
+                          </h3>
 
-                            <h3 className="break-words font-black text-[#08163F]">
-                              {questao.enunciado}
-                            </h3>
-
-                            {questao.imagem && (
-                              <img
-                                src={questao.imagem}
-                                alt="Imagem da pergunta"
-                                className="mt-4 max-h-52 rounded-2xl object-cover"
-                              />
-                            )}
-
-                            <p className="mt-3 text-sm font-semibold text-gray-500">
-                              Pontos: {questao.pontos}
-                            </p>
-                          </div>
-
-                          <div className="flex shrink-0 flex-wrap gap-2">
-                            <button
-                              onClick={() => editarPergunta(questao)}
-                              className="rounded-xl bg-white px-3 py-2 text-xs font-black text-[#08163F] shadow-sm transition hover:shadow-md sm:text-sm"
-                            >
-                              Editar
-                            </button>
-
-                            <button
-                              onClick={() => duplicarPergunta(questao)}
-                              className="rounded-xl bg-white px-3 py-2 text-xs font-black text-[#08163F] shadow-sm transition hover:shadow-md sm:text-sm"
-                            >
-                              Duplicar
-                            </button>
-
-                            <button
-                              onClick={() => excluirPergunta(questao.id)}
-                              className="rounded-2xl bg-red-50 px-4 py-2.5 text-xs font-black text-red-700 transition hover:bg-red-100 sm:text-sm"
-                            >
-                              Excluir
-                            </button>
-                          </div>
+                          <p className="mt-1 text-sm font-semibold text-slate-500">
+                            Enviado em{" "}
+                            {tentativa.enviado_em
+                              ? formatarDataHora(tentativa.enviado_em)
+                              : "não enviado"}
+                          </p>
                         </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <InfoMini label="Acertos" value={String(tentativa.acertos)} />
+                          <InfoMini
+                            label="Pontos"
+                            value={String(tentativa.total_pontos)}
+                          />
+                          <InfoMini label="Status" value={tentativa.status} />
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+
+              {respostas.length > 0 && (
+                <div className="mt-5 rounded-[24px] bg-[#f9fafb] p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                    Respostas da tentativa mais recente carregada
+                  </p>
+
+                  <div className="mt-3 space-y-2">
+                    {respostas.map((resposta) => (
+                      <div
+                        key={resposta.id}
+                        className="rounded-2xl bg-white p-3 text-sm font-semibold text-slate-600 shadow-sm"
+                      >
+                        <p className="break-words">
+                          Pergunta: {resposta.pergunta_id}
+                        </p>
+
+                        <p className="mt-1 break-words">
+                          Resposta:{" "}
+                          {resposta.resposta_texto ||
+                            resposta.resposta_numero ||
+                            resposta.alternativa_id ||
+                            resposta.alternativas_ids?.join(", ") ||
+                            resposta.arquivo_url ||
+                            "—"}
+                        </p>
                       </div>
                     ))}
                   </div>
-                )}
-              </Card>
-            </div>
-
-            <aside className="min-w-0 space-y-4">
-              <Card titulo="Publicação">
-                <div
-                  className={`min-w-0 rounded-2xl p-4 ${
-                    podePublicar ? "bg-green-50" : "bg-red-50"
-                  }`}
-                >
-                  <p
-                    className={`font-black ${
-                      podePublicar ? "text-green-700" : "text-red-700"
-                    }`}
-                  >
-                    {podePublicar
-                      ? "Este simulado pode ser publicado."
-                      : "Este simulado ainda não pode ser publicado."}
-                  </p>
-
-                  <p className="mt-2 text-sm font-bold leading-relaxed text-gray-600">
-                    Perguntas atuais: {simulado.questoes.length}. Mínimo para
-                    publicação: 30.
-                  </p>
-
-                  <button
-                    onClick={publicarSimulado}
-                    className="mt-4 w-full rounded-2xl bg-[#08163F] px-5 py-2.5 text-sm font-black text-white shadow-lg transition hover:brightness-110"
-                  >
-                    Publicar simulado
-                  </button>
                 </div>
-              </Card>
-
-              <Card titulo="Prévia rápida">
-                <div className="min-w-0 rounded-[20px] bg-[#f9fafb] p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.22em] text-gray-400">
-                    {modulo}
-                  </p>
-
-                  <h3 className="mt-2 break-words text-lg font-black text-[#08163F] sm:text-xl">
-                    {titulo || "Título do simulado"}
-                  </h3>
-
-                  <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
-                    {descricao || "Descrição do simulado para o mentorado."}
-                  </p>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <MiniInfo
-                      label="Perguntas"
-                      value={simulado.questoes.length}
-                    />
-                    <MiniInfo label="Tempo" value={tempoEstimado} />
-                  </div>
-                </div>
-              </Card>
-
-              <Card titulo="Boas práticas">
-                <div className="space-y-3">
-                  <Regra
-                    numero="1"
-                    texto="Misture questões fáceis, médias e difíceis."
-                  />
-                  <Regra
-                    numero="2"
-                    texto="Use imagens quando o contexto visual ajudar."
-                  />
-                  <Regra
-                    numero="3"
-                    texto="Sempre explique a resposta correta."
-                  />
-                  <Regra
-                    numero="4"
-                    texto="Evite alternativas ambíguas ou parecidas demais."
-                  />
-                </div>
-              </Card>
-            </aside>
-          </section>
+              )}
+            </Card>
+          )}
         </div>
       </section>
-
-      <style jsx global>{`
-        .input-ceo {
-          width: 100%;
-          border-radius: 1rem;
-          border: 1px solid #e5e7eb;
-          background: #f9fafb;
-          padding: 0.75rem 0.9rem;
-          font-size: 0.875rem;
-          font-weight: 700;
-          color: #08163f;
-          outline: none;
-          transition: 0.2s ease;
-        }
-
-        .input-ceo::placeholder {
-          color: #9ca3af;
-        }
-
-        .input-ceo:focus {
-          border-color: #12317c;
-          box-shadow: 0 0 0 4px rgba(18, 49, 124, 0.1);
-          background: white;
-        }
-      `}</style>
     </main>
+  );
+}
+
+function PerguntaCard({
+  pergunta,
+  index,
+  formAlternativa,
+  setFormAlternativa,
+  onSalvarAlternativa,
+  onEditar,
+  onExcluir,
+  onMarcarCorreta,
+  onExcluirAlternativa,
+  onCriarSimNao,
+}: {
+  pergunta: PerguntaSupabase;
+  index: number;
+  formAlternativa: FormAlternativa;
+  setFormAlternativa: (form: FormAlternativa) => void;
+  onSalvarAlternativa: () => void;
+  onEditar: () => void;
+  onExcluir: () => void;
+  onMarcarCorreta: (alternativa: AlternativaSupabase) => void;
+  onExcluirAlternativa: (alternativa: AlternativaSupabase) => void;
+  onCriarSimNao: () => void;
+}) {
+  const usaAlternativas =
+    pergunta.tipo === "multipla_escolha" ||
+    pergunta.tipo === "caixa_selecao" ||
+    pergunta.tipo === "sim_nao";
+
+  return (
+    <article className="min-w-0 overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-2xl shadow-slate-200/80">
+      <div className="border-b border-slate-100 bg-gradient-to-br from-[#F8FAFF] via-white to-white p-4 sm:p-5">
+        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full bg-[#08163F] px-3 py-1.5 text-xs font-black text-white">
+                Pergunta {index + 1}
+              </span>
+
+              <span className="rounded-full bg-[#EEF2FF] px-3 py-1.5 text-xs font-black text-[#08163F]">
+                {labelTipoPergunta(pergunta.tipo)}
+              </span>
+
+              <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">
+                {pergunta.pontos} ponto(s)
+              </span>
+
+              {pergunta.obrigatoria && (
+                <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700">
+                  Obrigatória
+                </span>
+              )}
+            </div>
+
+            <h3 className="mt-3 break-words text-lg font-black text-[#08163F] sm:text-xl">
+              {pergunta.enunciado}
+            </h3>
+
+            {pergunta.descricao && (
+              <p className="mt-2 break-words text-sm font-semibold leading-6 text-slate-500">
+                {pergunta.descricao}
+              </p>
+            )}
+
+            {pergunta.tipo === "escala" && (
+              <p className="mt-2 text-sm font-bold text-slate-500">
+                Escala de {pergunta.escala_min ?? 1} até{" "}
+                {pergunta.escala_max ?? 5}
+              </p>
+            )}
+          </div>
+
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onEditar}
+              className="rounded-2xl bg-[#EEF2FF] px-4 py-2.5 text-xs font-black text-[#08163F] transition hover:bg-blue-100"
+            >
+              Editar
+            </button>
+
+            <button
+              type="button"
+              onClick={onExcluir}
+              className="rounded-2xl bg-red-50 px-4 py-2.5 text-xs font-black text-red-600 transition hover:bg-red-100"
+            >
+              Excluir
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 sm:p-5">
+        {!usaAlternativas && pergunta.tipo !== "sim_nao" && (
+          <div className="rounded-[24px] border border-slate-100 bg-[#f9fafb] p-4 text-sm font-semibold text-slate-500">
+            {pergunta.tipo === "resposta_curta" &&
+              "O mentorado responderá em um campo curto."}
+            {pergunta.tipo === "resposta_longa" &&
+              "O mentorado responderá em um campo de texto longo."}
+            {pergunta.tipo === "escala" &&
+              "O mentorado escolherá uma nota dentro da escala configurada."}
+            {pergunta.tipo === "upload" &&
+              "O mentorado poderá enviar um link/arquivo da atividade."}
+          </div>
+        )}
+
+        {pergunta.tipo === "sim_nao" && pergunta.alternativas.length === 0 && (
+          <button
+            type="button"
+            onClick={onCriarSimNao}
+            className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#08163F]/20"
+          >
+            Criar alternativas Sim / Não
+          </button>
+        )}
+
+        {usaAlternativas && (
+          <div className="space-y-3">
+            {pergunta.alternativas.length > 0 && (
+              <div className="space-y-2">
+                {pergunta.alternativas.map((alternativa) => (
+                  <div
+                    key={alternativa.id}
+                    className={`flex min-w-0 flex-col gap-2 rounded-[22px] border p-3 sm:flex-row sm:items-center sm:justify-between ${
+                      alternativa.correta
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-slate-100 bg-[#f9fafb] text-slate-600"
+                    }`}
+                  >
+                    <p className="break-words text-sm font-black">
+                      {alternativa.texto}
+                    </p>
+
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onMarcarCorreta(alternativa)}
+                        className="rounded-2xl bg-white px-3 py-2 text-xs font-black text-[#08163F] shadow-sm"
+                      >
+                        {alternativa.correta ? "Correta ✓" : "Marcar correta"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onExcluirAlternativa(alternativa)}
+                        className="rounded-2xl bg-red-50 px-3 py-2 text-xs font-black text-red-600"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {pergunta.tipo !== "sim_nao" && (
+              <div className="rounded-[24px] border border-slate-100 bg-[#f9fafb] p-4">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  Nova alternativa
+                </p>
+
+                <div className="mt-3 grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_170px_120px]">
+                  <input
+                    value={formAlternativa.texto}
+                    onChange={(e) =>
+                      setFormAlternativa({
+                        ...formAlternativa,
+                        texto: e.target.value,
+                      })
+                    }
+                    placeholder="Texto da alternativa"
+                    className={fieldClass}
+                  />
+
+                  <Toggle
+                    label="Correta"
+                    checked={formAlternativa.correta}
+                    onChange={(checked) =>
+                      setFormAlternativa({
+                        ...formAlternativa,
+                        correta: checked,
+                      })
+                    }
+                  />
+
+                  <button
+                    type="button"
+                    onClick={onSalvarAlternativa}
+                    className="rounded-2xl bg-[#08163F] px-4 py-3 text-sm font-black text-white shadow-lg shadow-[#08163F]/20"
+                  >
+                    Adicionar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </article>
   );
 }
 
 function MentorLoading({ mensagem }: { mensagem: string }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] px-4 text-[#08163F]">
-      <div className="w-full max-w-sm rounded-[24px] border border-white/60 bg-white/90 p-6 text-center shadow-xl shadow-slate-200/70 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-[28px] border border-white/60 bg-white/90 p-6 text-center shadow-2xl shadow-slate-200/80 backdrop-blur-sm">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-xs font-black text-white shadow-lg">
           CEO
         </div>
@@ -1358,50 +1435,35 @@ function MentorLoading({ mensagem }: { mensagem: string }) {
   );
 }
 
-function labelTipoPergunta(tipo: TipoPergunta) {
-  const mapa: Record<TipoPergunta, string> = {
-    "multipla-escolha": "Múltipla escolha",
-    checkbox: "Caixas de seleção",
-    "verdadeiro-falso": "Verdadeiro ou falso",
-    dissertativa: "Discursiva",
-    escala: "Escala",
-    "envio-arquivo": "Envio de arquivo",
-  };
-
-  return mapa[tipo];
-}
-
-function KPI({
+function Card({
   titulo,
-  valor,
-  destaque,
-  alerta,
+  subtitulo,
+  children,
 }: {
   titulo: string;
-  valor: React.ReactNode;
-  destaque?: boolean;
-  alerta?: boolean;
+  subtitulo?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div
-      className={`min-w-0 overflow-hidden rounded-[20px] p-4 shadow-lg shadow-slate-200/70 sm:p-5 ${
-        destaque
-          ? "bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-white"
-          : alerta
-          ? "bg-red-50 text-red-800"
-          : "bg-white text-[#08163F]"
-      }`}
-    >
-      <p
-        className={`break-words text-xs font-black sm:text-sm ${
-          destaque ? "text-[#C9CED6]" : alerta ? "text-red-500" : "text-gray-500"
-        }`}
-      >
-        {titulo}
-      </p>
+    <section className={`${glassPanelClass} min-w-0 overflow-hidden p-5 lg:p-6`}>
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
+          CEO Club
+        </p>
 
-      <p className="mt-3 break-words text-2xl font-black leading-tight sm:text-3xl">{valor}</p>
-    </div>
+        <h2 className="break-words text-xl font-black text-[#08163F] sm:text-2xl">
+          {titulo}
+        </h2>
+
+        {subtitulo && (
+          <p className="max-w-2xl break-words text-sm font-semibold leading-6 text-slate-500">
+            {subtitulo}
+          </p>
+        )}
+      </div>
+
+      <div className="mt-5 min-w-0">{children}</div>
+    </section>
   );
 }
 
@@ -1414,49 +1476,144 @@ function Campo({
 }) {
   return (
     <label className="min-w-0">
-      <span className="break-words text-sm font-black text-gray-500">{label}</span>
-      <div className="mt-2">{children}</div>
+      <span className="mb-2 block break-words text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </span>
+
+      {children}
     </label>
   );
 }
 
-function MiniInfo({ label, value }: { label: string; value: React.ReactNode }) {
+function Toggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
   return (
-    <div className="rounded-2xl bg-white p-3 shadow-sm sm:p-4">
-      <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">
+    <label className="flex min-w-0 cursor-pointer items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-[#f9fafb] p-3">
+      <span className="break-words text-sm font-black text-[#08163F]">
         {label}
-      </p>
-      <p className="mt-1 break-words font-black text-[#08163F]">{value}</p>
-    </div>
+      </span>
+
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-5 w-5 shrink-0 accent-[#08163F]"
+      />
+    </label>
   );
 }
 
-function Card({
-  titulo,
+function TabButton({
+  ativo,
+  onClick,
   children,
 }: {
-  titulo: string;
+  ativo: boolean;
+  onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <section className="min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
-      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
-        <h3 className="break-words text-lg font-black text-[#050816] sm:text-xl">{titulo}</h3>
-      </div>
-
-      <div className="min-w-0 p-4 sm:p-5">{children}</div>
-    </section>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl px-5 py-3 text-sm font-black transition ${
+        ativo
+          ? "bg-[#08163F] text-white shadow-lg shadow-[#08163F]/20"
+          : "bg-white text-[#08163F] shadow-sm hover:shadow-md"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
-function Regra({ numero, texto }: { numero: string; texto: string }) {
+function Metric({ titulo, valor }: { titulo: string; valor: string }) {
   return (
-    <div className="flex min-w-0 gap-3 rounded-2xl bg-[#f9fafb] p-3 sm:p-4">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#08163F] text-sm font-black text-white">
-        {numero}
-      </div>
+    <div className="min-w-0 rounded-2xl bg-white/10 p-3 ring-1 ring-white/10">
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-100">
+        {titulo}
+      </p>
 
-      <p className="break-words text-sm font-bold leading-relaxed text-gray-600">{texto}</p>
+      <p className="mt-2 break-words text-xl font-black text-white">{valor}</p>
     </div>
   );
+}
+
+function InfoMini({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-2xl bg-white p-3 shadow-sm">
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-1 break-words text-sm font-black text-[#08163F]">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: StatusSimulado }) {
+  const classe =
+    status === "publicado"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+      : status === "arquivado"
+      ? "bg-slate-100 text-slate-600 ring-slate-200"
+      : "bg-amber-50 text-amber-700 ring-amber-100";
+
+  const label =
+    status === "publicado"
+      ? "Publicado"
+      : status === "arquivado"
+      ? "Arquivado"
+      : "Rascunho";
+
+  return (
+    <span
+      className={`rounded-full px-3 py-1.5 text-xs font-black ring-1 ${classe}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function TipoBadge({ tipo }: { tipo: TipoSimulado }) {
+  const label = tiposSimulado.find((item) => item.value === tipo)?.label ?? tipo;
+
+  return (
+    <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-black text-blue-100 ring-1 ring-white/10">
+      {label}
+    </span>
+  );
+}
+
+function labelTipoPergunta(tipo: TipoPergunta) {
+  const labels: Record<TipoPergunta, string> = {
+    multipla_escolha: "Múltipla escolha",
+    caixa_selecao: "Caixa de seleção",
+    resposta_curta: "Resposta curta",
+    resposta_longa: "Resposta longa",
+    escala: "Escala",
+    sim_nao: "Sim / Não",
+    upload: "Upload",
+  };
+
+  return labels[tipo];
+}
+
+function formatarDataHora(data: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(data));
 }
