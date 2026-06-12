@@ -208,7 +208,7 @@ export default function ModulosPage() {
       return;
     }
 
-    if (!usuarioTemPermissao(usuarioLogado, ["mentor", "modulos"])) {
+    if (!usuarioTemPermissao(usuarioLogado, ["mentor"])) {
       router.push(
         usuarioLogado.role === "mentorado" ? "/mentorado/dashboard" : "/login"
       );
