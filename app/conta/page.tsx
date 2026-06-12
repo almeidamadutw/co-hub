@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
-import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import { getUsuarioLogado, logoutUsuario } from "@/utils/auth";
+import type { User } from "@/utils/auth";
 import Sidebar from "@/components/Sidebar";
 
 type PerfilUsuario = {

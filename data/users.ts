@@ -1,28 +1,39 @@
 export type UserRole =
   | "mentor"
   | "mentorado"
-  | "modulos"
   | "financeiro"
-  | "progresso";
+  | "suporte";
 
 export type User = {
+  id: string;
   nome: string;
   email: string;
-  senha: string;
   role: UserRole;
 };
 
-export const fakeUsers: User[] = [
+export const users: User[] = [
   {
-    nome: "Luciana Paula Santos Rocha",
-    email: "luadmin@ceoclub.com",
-    senha: "123456",
+    id: "mentor-ceo-club",
+    nome: "Mentor CEO Club",
+    email: "mentor@ceoclubmentoria.com.br",
     role: "mentor",
   },
   {
-    nome: "Aluno Teste",
-    email: "mentorado@ceoclub.com",
-    senha: "123456",
+    id: "mentorado-ceo-club",
+    nome: "Mentorado CEO Club",
+    email: "mentorado@ceoclubmentoria.com.br",
     role: "mentorado",
+  },
+  {
+    id: "financeiro-ceo-club",
+    nome: "Financeiro CEO Club",
+    email: "financeiro@ceoclubmentoria.com.br",
+    role: "financeiro",
+  },
+  {
+    id: "suporte-ceo-club",
+    nome: "Suporte CEO Club",
+    email: "suporte@ceoclubmentoria.com.br",
+    role: "suporte",
   },
 ];
