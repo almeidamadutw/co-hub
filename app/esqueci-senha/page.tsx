@@ -10,6 +10,10 @@ type PerfilRecuperacao = {
   email: string | null;
   role: string | null;
   trocas_senha: number | null;
+  total_resets_senha: number | null;
+  total_solicitacoes_senha: number | null;
+  ultima_troca_senha: string | null;
+  ultima_solicitacao_senha: string | null;
 };
 
 export default function EsqueciSenhaPage() {
@@ -23,6 +27,25 @@ export default function EsqueciSenhaPage() {
     const timer = setTimeout(() => setAnimar(true), 80);
     return () => clearTimeout(timer);
   }, []);
+
+  async function registrarSolicitacaoSenha(
+    perfil: PerfilRecuperacao,
+    agora: string
+  ) {
+    const totalSolicitacoes = Number(perfil.total_solicitacoes_senha ?? 0);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        total_solicitacoes_senha: totalSolicitacoes + 1,
+        ultima_solicitacao_senha: agora,
+      })
+      .eq("id", perfil.id);
+
+    if (error) {
+      console.error("Erro ao registrar solicitação de senha:", error);
+    }
+  }
 
   async function handleEnviarRecuperacao(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -41,7 +64,9 @@ export default function EsqueciSenhaPage() {
 
     const { data: perfil, error: perfilError } = await supabase
       .from("profiles")
-      .select("id, nome, email, role, trocas_senha")
+      .select(
+        "id, nome, email, role, trocas_senha, total_resets_senha, total_solicitacoes_senha, ultima_troca_senha, ultima_solicitacao_senha"
+      )
       .ilike("email", emailNormalizado)
       .maybeSingle<PerfilRecuperacao>();
 
@@ -61,7 +86,11 @@ export default function EsqueciSenhaPage() {
       return;
     }
 
+    const agora = new Date().toISOString();
     const quantidadeTrocas = Number(perfil.trocas_senha ?? 0);
+    const totalResets = Number(perfil.total_resets_senha ?? 0);
+
+    await registrarSolicitacaoSenha(perfil, agora);
 
     if (quantidadeTrocas >= 1) {
       const { error: ticketError } = await supabase
@@ -121,11 +150,13 @@ export default function EsqueciSenhaPage() {
       .from("profiles")
       .update({
         trocas_senha: quantidadeTrocas + 1,
+        total_resets_senha: totalResets + 1,
+        ultima_troca_senha: agora,
       })
       .eq("id", perfil.id);
 
     if (updateError) {
-      console.error("Erro ao atualizar quantidade de trocas de senha:", updateError);
+      console.error("Erro ao atualizar histórico de senha:", updateError);
     }
 
     setLoading(false);
