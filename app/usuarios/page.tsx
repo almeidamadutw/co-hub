@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, User } from "@/utils/auth";
-import Sidebar from "@/components/Sidebar";
 
 type Perfil = {
   id: string;
@@ -16,6 +16,26 @@ type Perfil = {
   codigo_inscricao: string | null;
   created_at: string | null;
   updated_at: string | null;
+};
+
+type NovoUsuarioForm = {
+  nome: string;
+  email: string;
+  telefone: string;
+  role: string;
+  status: string;
+  codigo_inscricao: string;
+  senha: string;
+};
+
+const novoUsuarioInicial: NovoUsuarioForm = {
+  nome: "",
+  email: "",
+  telefone: "",
+  role: "mentorado",
+  status: "ativo",
+  codigo_inscricao: "",
+  senha: "",
 };
 
 const roles = [
@@ -44,6 +64,11 @@ export default function UsuariosPage() {
 
   const [carregando, setCarregando] = useState(true);
   const [salvandoId, setSalvandoId] = useState<string | null>(null);
+  const [criandoUsuario, setCriandoUsuario] = useState(false);
+  const [mostrarNovoUsuario, setMostrarNovoUsuario] = useState(false);
+  const [novoUsuario, setNovoUsuario] =
+    useState<NovoUsuarioForm>(novoUsuarioInicial);
+
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
 
@@ -159,6 +184,17 @@ export default function UsuariosPage() {
     }).format(new Date(data));
   }
 
+  function formatarRole(role: string | null) {
+    const roleAtual = normalizar(role);
+
+    if (roleAtual === "mentor") return "Mentor";
+    if (roleAtual === "mentorado") return "Mentorado";
+    if (roleAtual === "financeiro") return "Financeiro";
+    if (roleAtual === "suporte") return "Suporte";
+
+    return "Sem role";
+  }
+
   function formatarStatus(status: string | null) {
     const statusAtual = normalizar(status);
 
@@ -171,6 +207,16 @@ export default function UsuariosPage() {
     return "Sem status";
   }
 
+  function atualizarCampoNovoUsuario(campo: keyof NovoUsuarioForm, valor: string) {
+    setNovoUsuario((estadoAtual) => ({
+      ...estadoAtual,
+      [campo]: valor,
+    }));
+
+    setErro("");
+    setMensagem("");
+  }
+
   function atualizarCampoLocal(
     perfilId: string,
     campo: "role" | "status",
@@ -181,6 +227,123 @@ export default function UsuariosPage() {
         perfil.id === perfilId ? { ...perfil, [campo]: valor } : perfil
       )
     );
+  }
+
+  async function criarUsuario(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    setErro("");
+    setMensagem("");
+
+    const nome = novoUsuario.nome.trim();
+    const email = novoUsuario.email.trim().toLowerCase();
+    const telefone = novoUsuario.telefone.trim();
+    const role = novoUsuario.role.trim().toLowerCase();
+    const status = novoUsuario.status.trim().toLowerCase();
+    const codigoInscricao = novoUsuario.codigo_inscricao.trim();
+    const senha = novoUsuario.senha.trim();
+
+    if (!nome || !email || !senha || !role || !status) {
+      setErro("Preencha nome, e-mail, senha, role e status para criar o usuário.");
+      return;
+    }
+
+    if (senha.length < 6) {
+      setErro("A senha temporária precisa ter pelo menos 6 caracteres.");
+      return;
+    }
+
+    const rolePermitida = roles.some((item) => item.value === role);
+    const statusPermitido = statusOpcoes.some((item) => item.value === status);
+
+    if (!rolePermitida) {
+      setErro("Selecione uma role válida.");
+      return;
+    }
+
+    if (!statusPermitido) {
+      setErro("Selecione um status válido.");
+      return;
+    }
+
+    const confirmar = window.confirm(
+      `Deseja criar o acesso para ${nome} com o e-mail ${email}?`
+    );
+
+    if (!confirmar) return;
+
+    setCriandoUsuario(true);
+
+    const { data: sessaoAtual } = await supabase.auth.getSession();
+    const sessaoAnterior = sessaoAtual.session;
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password: senha,
+        options: {
+          data: {
+            nome,
+            role,
+          },
+        },
+      });
+
+      if (authError) {
+        throw new Error(authError.message);
+      }
+
+      if (!authData.user?.id) {
+        throw new Error("Usuário criado sem ID de autenticação retornado.");
+      }
+
+      if (sessaoAnterior?.access_token && sessaoAnterior?.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: sessaoAnterior.access_token,
+          refresh_token: sessaoAnterior.refresh_token,
+        });
+      }
+
+      const { error: profileError } = await supabase.from("profiles").upsert(
+        {
+          id: authData.user.id,
+          nome,
+          email,
+          telefone: telefone || null,
+          role,
+          status,
+          codigo_inscricao: codigoInscricao || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
+
+      if (profileError) {
+        throw new Error(
+          `O acesso foi criado no Auth, mas o perfil não foi salvo: ${profileError.message}`
+        );
+      }
+
+      setMensagem("Usuário criado com sucesso.");
+      setNovoUsuario(novoUsuarioInicial);
+      setMostrarNovoUsuario(false);
+      await carregarUsuarios();
+    } catch (error) {
+      if (sessaoAnterior?.access_token && sessaoAnterior?.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: sessaoAnterior.access_token,
+          refresh_token: sessaoAnterior.refresh_token,
+        });
+      }
+
+      setErro(
+        error instanceof Error
+          ? `Não foi possível criar o usuário: ${error.message}`
+          : "Não foi possível criar o usuário."
+      );
+    } finally {
+      setCriandoUsuario(false);
+    }
   }
 
   async function salvarPerfil(perfil: Perfil) {
@@ -271,17 +434,27 @@ export default function UsuariosPage() {
             </h1>
           </div>
 
-          <button
-            type="button"
-            onClick={() => router.push("/dashboard")}
-            className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 sm:text-sm"
-          >
-            Voltar ao dashboard
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setMostrarNovoUsuario((estadoAtual) => !estadoAtual)}
+              className="rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-[#08163F] shadow-lg transition hover:brightness-95 sm:text-sm"
+            >
+              {mostrarNovoUsuario ? "Fechar cadastro" : "Novo usuário"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard")}
+              className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 sm:text-sm"
+            >
+              Voltar ao dashboard
+            </button>
+          </div>
         </header>
 
         <section className="mx-auto w-full max-w-[1280px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <div className="mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white shadow-xl lg:rounded-[26px] lg:p-6">
+          <div className="mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-xl lg:rounded-[26px] lg:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
               Gestão de acesso
             </p>
@@ -291,8 +464,8 @@ export default function UsuariosPage() {
             </h2>
 
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#D9DEE7]">
-              Consulte os perfis cadastrados no Supabase, corrija roles,
-              ajuste status e mantenha os acessos da mentoria organizados.
+              Crie novos acessos, consulte os perfis cadastrados no Supabase,
+              corrija roles, ajuste status e mantenha os acessos organizados.
             </p>
           </div>
 
@@ -306,6 +479,145 @@ export default function UsuariosPage() {
             <div className="mb-4 rounded-2xl bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-700">
               {mensagem}
             </div>
+          )}
+
+          {mostrarNovoUsuario && (
+            <form
+              onSubmit={criarUsuario}
+              className="mb-4 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5"
+            >
+              <div className="mb-4">
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-gray-400">
+                  Novo acesso
+                </p>
+
+                <h3 className="mt-2 text-xl font-black text-[#08163F]">
+                  Criar usuário
+                </h3>
+
+                <p className="mt-2 text-sm font-semibold leading-6 text-gray-500">
+                  Crie o acesso no Supabase Auth e já cadastre o perfil na
+                  tabela profiles.
+                </p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <CampoUsuario label="Nome">
+                  <input
+                    value={novoUsuario.nome}
+                    onChange={(e) =>
+                      atualizarCampoNovoUsuario("nome", e.target.value)
+                    }
+                    placeholder="Nome completo"
+                    className="input-usuario"
+                  />
+                </CampoUsuario>
+
+                <CampoUsuario label="E-mail">
+                  <input
+                    type="email"
+                    value={novoUsuario.email}
+                    onChange={(e) =>
+                      atualizarCampoNovoUsuario("email", e.target.value)
+                    }
+                    placeholder="email@exemplo.com"
+                    className="input-usuario"
+                  />
+                </CampoUsuario>
+
+                <CampoUsuario label="Telefone">
+                  <input
+                    value={novoUsuario.telefone}
+                    onChange={(e) =>
+                      atualizarCampoNovoUsuario("telefone", e.target.value)
+                    }
+                    placeholder="(00) 00000-0000"
+                    className="input-usuario"
+                  />
+                </CampoUsuario>
+
+                <CampoUsuario label="Código de inscrição">
+                  <input
+                    value={novoUsuario.codigo_inscricao}
+                    onChange={(e) =>
+                      atualizarCampoNovoUsuario(
+                        "codigo_inscricao",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Opcional"
+                    className="input-usuario"
+                  />
+                </CampoUsuario>
+
+                <CampoUsuario label="Role">
+                  <select
+                    value={novoUsuario.role}
+                    onChange={(e) =>
+                      atualizarCampoNovoUsuario("role", e.target.value)
+                    }
+                    className="input-usuario"
+                  >
+                    {roles.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </CampoUsuario>
+
+                <CampoUsuario label="Status">
+                  <select
+                    value={novoUsuario.status}
+                    onChange={(e) =>
+                      atualizarCampoNovoUsuario("status", e.target.value)
+                    }
+                    className="input-usuario"
+                  >
+                    {statusOpcoes.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </CampoUsuario>
+
+                <CampoUsuario label="Senha temporária">
+                  <input
+                    type="password"
+                    value={novoUsuario.senha}
+                    onChange={(e) =>
+                      atualizarCampoNovoUsuario("senha", e.target.value)
+                    }
+                    placeholder="Mínimo 6 caracteres"
+                    className="input-usuario"
+                  />
+                </CampoUsuario>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  disabled={criandoUsuario}
+                  className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {criandoUsuario ? "Criando..." : "Criar usuário"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNovoUsuario(novoUsuarioInicial);
+                    setMostrarNovoUsuario(false);
+                    setErro("");
+                    setMensagem("");
+                  }}
+                  className="rounded-2xl bg-[#f3f5f8] px-5 py-3 text-sm font-black text-[#08163F] transition hover:bg-slate-200"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
           )}
 
           <section className="mb-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -428,6 +740,10 @@ export default function UsuariosPage() {
                             Código: {perfil.codigo_inscricao}
                           </span>
                         )}
+
+                        <span className="rounded-full bg-[#f3f5f8] px-3 py-1 text-xs font-black text-gray-500">
+                          Role atual: {formatarRole(perfil.role)}
+                        </span>
                       </div>
                     </div>
 
@@ -506,7 +822,47 @@ export default function UsuariosPage() {
           </section>
         </section>
       </section>
+
+      <style jsx global>{`
+        .input-usuario {
+          width: 100%;
+          border-radius: 1rem;
+          border: 1px solid #e5e7eb;
+          background: #f9fafb;
+          padding: 0.75rem 1rem;
+          color: #08163f;
+          font-size: 0.875rem;
+          font-weight: 700;
+          outline: none;
+          transition: 0.2s ease;
+        }
+
+        .input-usuario::placeholder {
+          color: #9ca3af;
+        }
+
+        .input-usuario:focus {
+          border-color: #12317c;
+          background: white;
+          box-shadow: 0 0 0 4px rgba(18, 49, 124, 0.1);
+        }
+      `}</style>
     </main>
+  );
+}
+
+function CampoUsuario({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label>
+      <span className="text-sm font-black text-gray-500">{label}</span>
+      <div className="mt-2">{children}</div>
+    </label>
   );
 }
 
