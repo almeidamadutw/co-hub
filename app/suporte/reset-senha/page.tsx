@@ -7,12 +7,13 @@ import { getUsuarioLogado, logoutUsuario } from "@/utils/auth";
 import type { User } from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
 
-type Mentorado = {
+type UsuarioResetSenha = {
   id: string;
   nome: string | null;
   email: string | null;
   telefone: string | null;
   status: string | null;
+  role: string | null;
   trocas_senha: number | null;
   ultima_troca_senha: string | null;
 };
@@ -21,7 +22,7 @@ export default function ResetSenhaSuportePage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [mentorados, setMentorados] = useState<Mentorado[]>([]);
+  const [usuarios, setUsuarios] = useState<UsuarioResetSenha[]>([]);
   const [busca, setBusca] = useState("");
 
   const [carregando, setCarregando] = useState(true);
@@ -46,51 +47,53 @@ export default function ResetSenhaSuportePage() {
       }
 
       setUsuario(user);
-      await carregarMentorados();
+      await carregarUsuarios();
       setCarregando(false);
     }
 
     carregar();
   }, [router]);
 
-  async function carregarMentorados() {
+  async function carregarUsuarios() {
     setErro("");
 
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, nome, email, telefone, status, trocas_senha, ultima_troca_senha"
+        "id, nome, email, telefone, status, role, trocas_senha, ultima_troca_senha"
       )
-      .eq("role", "mentorado")
+      .in("role", ["mentor", "mentorado"])
       .order("nome", { ascending: true });
 
     if (error) {
-      setErro(`Não foi possível carregar os mentorados: ${error.message}`);
+      setErro(`Não foi possível carregar os usuários: ${error.message}`);
       return;
     }
 
-    setMentorados((data || []) as Mentorado[]);
+    setUsuarios((data || []) as UsuarioResetSenha[]);
   }
 
-  const mentoradosFiltrados = useMemo(() => {
+  const usuariosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
 
-    if (!termo) return mentorados;
+    if (!termo) return usuarios;
 
-    return mentorados.filter((mentorado) => {
-      const nome = mentorado.nome?.toLowerCase() || "";
-      const emailMentorado = mentorado.email?.toLowerCase() || "";
-      const telefone = mentorado.telefone?.toLowerCase() || "";
-      const status = mentorado.status?.toLowerCase() || "";
+    return usuarios.filter((item) => {
+      const nome = item.nome?.toLowerCase() || "";
+      const email = item.email?.toLowerCase() || "";
+      const telefone = item.telefone?.toLowerCase() || "";
+      const status = item.status?.toLowerCase() || "";
+      const role = item.role?.toLowerCase() || "";
 
       return (
         nome.includes(termo) ||
-        emailMentorado.includes(termo) ||
+        email.includes(termo) ||
         telefone.includes(termo) ||
-        status.includes(termo)
+        status.includes(termo) ||
+        role.includes(termo)
       );
     });
-  }, [busca, mentorados]);
+  }, [busca, usuarios]);
 
   function formatarData(data: string | null) {
     if (!data) return "Nunca";
@@ -104,31 +107,37 @@ export default function ResetSenhaSuportePage() {
     }).format(new Date(data));
   }
 
-  async function resetarSenhaMentorado(mentorado: Mentorado) {
+  function formatarPerfil(role: string | null) {
+    if (role === "mentor") return "Mentor";
+    if (role === "mentorado") return "Mentorado";
+    return "Usuário";
+  }
+
+  async function resetarSenhaUsuario(item: UsuarioResetSenha) {
     setErro("");
     setMensagem("");
 
-    if (!mentorado.id || !mentorado.email) {
-      setErro("Este mentorado não possui e-mail cadastrado.");
+    if (!item.id || !item.email) {
+      setErro("Este usuário não possui e-mail cadastrado.");
       return;
     }
 
-    const emailNormalizado = mentorado.email.trim().toLowerCase();
+    const emailNormalizado = item.email.trim().toLowerCase();
 
     const confirmar = window.confirm(
       `Deseja resetar a troca de senha e enviar um novo link para ${
-        mentorado.nome || emailNormalizado
+        item.nome || emailNormalizado
       }?`
     );
 
     if (!confirmar) return;
 
-    setResetandoId(mentorado.id);
+    setResetandoId(item.id);
 
     const { error: liberarError } = await supabase.rpc(
       "suporte_liberar_reset_senha",
       {
-        p_profile_id: mentorado.id,
+        p_profile_id: item.id,
       }
     );
 
@@ -152,15 +161,15 @@ export default function ResetSenhaSuportePage() {
     setResetandoId(null);
 
     if (resetError) {
-      setMentorados((listaAtual) =>
-        listaAtual.map((item) =>
-          item.id === mentorado.id
+      setUsuarios((listaAtual) =>
+        listaAtual.map((usuarioAtual) =>
+          usuarioAtual.id === item.id
             ? {
-                ...item,
+                ...usuarioAtual,
                 trocas_senha: 0,
                 ultima_troca_senha: null,
               }
-            : item
+            : usuarioAtual
         )
       );
 
@@ -170,15 +179,15 @@ export default function ResetSenhaSuportePage() {
       return;
     }
 
-    setMentorados((listaAtual) =>
-      listaAtual.map((item) =>
-        item.id === mentorado.id
+    setUsuarios((listaAtual) =>
+      listaAtual.map((usuarioAtual) =>
+        usuarioAtual.id === item.id
           ? {
-              ...item,
+              ...usuarioAtual,
               trocas_senha: 0,
               ultima_troca_senha: null,
             }
-          : item
+          : usuarioAtual
       )
     );
 
@@ -186,7 +195,7 @@ export default function ResetSenhaSuportePage() {
       `Controle de senha resetado, link enviado para ${emailNormalizado} e log registrado.`
     );
 
-    await carregarMentorados();
+    await carregarUsuarios();
   }
 
   if (carregando || !usuario) {
@@ -214,7 +223,7 @@ export default function ResetSenhaSuportePage() {
             </p>
 
             <h1 className="truncate text-base font-black sm:text-lg md:text-xl">
-              Reset de senha dos mentorados
+              Reset de senha de usuários
             </h1>
           </div>
 
@@ -238,9 +247,10 @@ export default function ResetSenhaSuportePage() {
             </h2>
 
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#D9DEE7]">
-              Use esta tela quando um mentorado precisar receber um novo link de
-              redefinição. O sistema zera o controle de primeira troca, envia o
-              e-mail de recuperação e registra a ação nos logs técnicos.
+              Use esta tela quando um mentor ou mentorado precisar receber um
+              novo link de redefinição. O sistema zera o controle de primeira
+              troca, envia o e-mail de recuperação e registra a ação nos logs
+              técnicos.
             </p>
           </div>
 
@@ -259,13 +269,13 @@ export default function ResetSenhaSuportePage() {
           <div className="mb-4 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70">
             <label>
               <span className="text-sm font-black text-gray-500">
-                Buscar mentorado
+                Buscar usuário
               </span>
 
               <input
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                placeholder="Digite nome, e-mail, telefone ou status"
+                placeholder="Digite nome, e-mail, telefone, perfil ou status"
                 className="mt-2 w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-4 py-3 text-sm font-bold text-[#08163F] outline-none transition placeholder:text-gray-400 focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10"
               />
             </label>
@@ -274,56 +284,60 @@ export default function ResetSenhaSuportePage() {
           <section className="overflow-hidden rounded-[22px] bg-white shadow-lg shadow-slate-200/70">
             <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
               <h3 className="text-xl font-black text-[#050816]">
-                Mentorados cadastrados
+                Usuários cadastrados
               </h3>
 
               <p className="mt-1 text-sm font-semibold text-gray-500">
-                {mentoradosFiltrados.length} mentorado(s) encontrado(s)
+                {usuariosFiltrados.length} usuário(s) encontrado(s)
               </p>
             </div>
 
             <div className="divide-y divide-gray-100">
-              {mentoradosFiltrados.length === 0 && (
+              {usuariosFiltrados.length === 0 && (
                 <div className="p-6 text-sm font-bold text-gray-500">
-                  Nenhum mentorado encontrado.
+                  Nenhum usuário encontrado.
                 </div>
               )}
 
-              {mentoradosFiltrados.map((mentorado) => (
+              {usuariosFiltrados.map((item) => (
                 <div
-                  key={mentorado.id}
+                  key={item.id}
                   className="grid gap-4 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_220px]"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h4 className="break-words text-lg font-black text-[#08163F]">
-                        {mentorado.nome || "Mentorado sem nome"}
+                        {item.nome || "Usuário sem nome"}
                       </h4>
 
+                      <span className="rounded-full bg-[#eef2ff] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#12317C]">
+                        {formatarPerfil(item.role)}
+                      </span>
+
                       <span className="rounded-full bg-[#f3f5f8] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-gray-500">
-                        {mentorado.status || "ativo"}
+                        {item.status || "ativo"}
                       </span>
                     </div>
 
                     <p className="mt-2 break-all text-sm font-bold text-gray-500">
-                      {mentorado.email || "E-mail não informado"}
+                      {item.email || "E-mail não informado"}
                     </p>
 
-                    {mentorado.telefone && (
+                    {item.telefone && (
                       <p className="mt-1 text-sm font-bold text-gray-400">
-                        {mentorado.telefone}
+                        {item.telefone}
                       </p>
                     )}
 
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <InfoMini
                         label="Trocas registradas"
-                        value={String(mentorado.trocas_senha ?? 0)}
+                        value={String(item.trocas_senha ?? 0)}
                       />
 
                       <InfoMini
                         label="Última troca"
-                        value={formatarData(mentorado.ultima_troca_senha)}
+                        value={formatarData(item.ultima_troca_senha)}
                       />
                     </div>
                   </div>
@@ -331,11 +345,11 @@ export default function ResetSenhaSuportePage() {
                   <div className="flex items-center xl:justify-end">
                     <button
                       type="button"
-                      onClick={() => resetarSenhaMentorado(mentorado)}
-                      disabled={resetandoId === mentorado.id}
+                      onClick={() => resetarSenhaUsuario(item)}
+                      disabled={resetandoId === item.id}
                       className="w-full rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 xl:w-auto"
                     >
-                      {resetandoId === mentorado.id
+                      {resetandoId === item.id
                         ? "Enviando..."
                         : "Resetar senha"}
                     </button>
