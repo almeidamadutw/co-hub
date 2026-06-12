@@ -4,6 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/utils/supabase";
 
+type PerfilRecuperacao = {
+  id: string;
+  nome: string | null;
+  email: string | null;
+  role: string | null;
+  trocas_senha: number | null;
+};
+
 export default function EsqueciSenhaPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,92 +25,114 @@ export default function EsqueciSenhaPage() {
   }, []);
 
   async function handleEnviarRecuperacao(e: React.FormEvent<HTMLFormElement>) {
-  e.preventDefault();
+    e.preventDefault();
 
-  setLoading(true);
-  setMensagem("");
-  setErro("");
+    setLoading(true);
+    setMensagem("");
+    setErro("");
 
-  const emailNormalizado = email.trim().toLowerCase();
+    const emailNormalizado = email.trim().toLowerCase();
 
-  if (!emailNormalizado) {
-    setLoading(false);
-    setErro("Informe seu e-mail para receber o link de recuperação.");
-    return;
-  }
+    if (!emailNormalizado) {
+      setLoading(false);
+      setErro("Informe seu e-mail para receber o link de recuperação.");
+      return;
+    }
 
-  const { data: perfil, error: perfilError } = await supabase
-    .from("profiles")
-    .select("id, nome, email, role, trocas_senha")
-    .eq("email", emailNormalizado)
-    .maybeSingle();
+    const { data: perfil, error: perfilError } = await supabase
+      .from("profiles")
+      .select("id, nome, email, role, trocas_senha")
+      .ilike("email", emailNormalizado)
+      .maybeSingle<PerfilRecuperacao>();
 
-  if (perfilError) {
-    setLoading(false);
-    setErro("Não foi possível verificar seu cadastro agora. Tente novamente.");
-    return;
-  }
+    if (perfilError) {
+      console.error("Erro ao buscar perfil:", perfilError);
 
-  if (!perfil) {
-    setLoading(false);
-    setMensagem(
-      "Se este e-mail estiver cadastrado no CEO Club, enviaremos um link de recuperação. Verifique também a caixa de spam."
-    );
-    return;
-  }
+      setLoading(false);
+      setErro("Não foi possível verificar seu cadastro agora. Tente novamente.");
+      return;
+    }
 
-  const quantidadeTrocas = perfil.trocas_senha || 0;
-
-  if (quantidadeTrocas >= 1) {
-    const { error: ticketError } = await supabase
-      .from("suporte_tickets")
-      .insert({
-        usuario_id: perfil.id,
-        nome_usuario: perfil.nome,
-        email_usuario: perfil.email,
-        tipo_usuario: perfil.role,
-        categoria: "Alteração de senha",
-        assunto: "Solicitação de nova troca de senha",
-        mensagem:
-          "O usuário tentou alterar a senha novamente. Como esta não é a primeira troca, o sistema bloqueou o envio automático e abriu este ticket para análise do suporte/T.I.",
-        status: "aberto",
-        prioridade: "media",
-        origem: "sistema",
-      });
-
-    setLoading(false);
-
-    if (ticketError) {
-      setErro(
-        "Não foi possível abrir o chamado de suporte agora. Tente novamente em alguns instantes."
+    if (!perfil) {
+      setLoading(false);
+      setMensagem(
+        "Se este e-mail estiver cadastrado no CEO Club, enviaremos um link de recuperação. Verifique também a caixa de spam."
       );
       return;
     }
 
+    const quantidadeTrocas = Number(perfil.trocas_senha ?? 0);
+
+    if (quantidadeTrocas >= 1) {
+      const { error: ticketError } = await supabase
+        .from("suporte_tickets")
+        .insert([
+          {
+            usuario_id: perfil.id,
+            nome_usuario: perfil.nome ?? "Usuário sem nome",
+            email_usuario: perfil.email ?? emailNormalizado,
+            tipo_usuario: perfil.role ?? "mentorado",
+            categoria: "Alteração de senha",
+            assunto: "Solicitação de nova troca de senha",
+            mensagem:
+              "O usuário tentou alterar a senha novamente. Como esta não é a primeira troca, o sistema bloqueou o envio automático e abriu este ticket para análise do suporte/T.I.",
+            status: "aberto",
+            prioridade: "media",
+            origem: "sistema",
+          },
+        ]);
+
+      setLoading(false);
+
+      if (ticketError) {
+        console.error("Erro ao abrir chamado de suporte:", ticketError);
+
+        setErro(
+          "Seu cadastro foi localizado, mas não foi possível abrir o chamado de suporte agora. Tente novamente em alguns instantes."
+        );
+        return;
+      }
+
+      setMensagem(
+        "Você já realizou uma alteração de senha anteriormente. Por segurança, abrimos um chamado para o suporte/T.I. Aguarde o retorno da equipe para continuar."
+      );
+
+      return;
+    }
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      emailNormalizado,
+      {
+        redirectTo: `${window.location.origin}/redefinir-senha`,
+      }
+    );
+
+    if (resetError) {
+      console.error("Erro ao enviar recuperação de senha:", resetError);
+
+      setLoading(false);
+      setErro(
+        "Não foi possível enviar o e-mail de recuperação agora. Tente novamente em alguns instantes."
+      );
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        trocas_senha: quantidadeTrocas + 1,
+      })
+      .eq("id", perfil.id);
+
+    if (updateError) {
+      console.error("Erro ao atualizar quantidade de trocas de senha:", updateError);
+    }
+
+    setLoading(false);
     setMensagem(
-      "Você já realizou uma alteração de senha anteriormente. Por segurança, abrimos um chamado para o suporte/T.I. Aguarde o retorno da equipe para continuar."
+      "Se este e-mail estiver cadastrado no CEO Club, enviaremos um link de recuperação. Verifique também a caixa de spam."
     );
-
-    return;
   }
-
-  const { error } = await supabase.auth.resetPasswordForEmail(emailNormalizado, {
-    redirectTo: `${window.location.origin}/redefinir-senha`,
-  });
-
-  setLoading(false);
-
-  if (error) {
-    setErro(
-      "Não foi possível enviar o e-mail de recuperação agora. Tente novamente em alguns instantes."
-    );
-    return;
-  }
-
-  setMensagem(
-    "Se este e-mail estiver cadastrado no CEO Club, enviaremos um link de recuperação. Verifique também a caixa de spam."
-  );
-}
 
   return (
     <main className="flex min-h-screen items-center justify-center overflow-hidden bg-[#f3f5f8] p-3 sm:p-4">
