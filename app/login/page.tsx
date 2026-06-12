@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/utils/supabase";
+import { getUsuarioLogado, salvarUsuarioLogado } from "@/utils/auth";
 
 type UserRole = "mentor" | "mentorado" | "financeiro" | "suporte";
 
@@ -12,6 +13,7 @@ type UsuarioLogado = {
   nome: string;
   email: string;
   role: UserRole;
+  acesso_suporte?: boolean;
 };
 
 const rolesValidas: UserRole[] = [
@@ -21,6 +23,33 @@ const rolesValidas: UserRole[] = [
   "suporte",
 ];
 
+function redirecionarPorRole(
+  role: UserRole,
+  router: ReturnType<typeof useRouter>
+) {
+  if (role === "mentor") {
+    router.replace("/dashboard");
+    return;
+  }
+
+  if (role === "mentorado") {
+    router.replace("/mentorado/dashboard");
+    return;
+  }
+
+  if (role === "financeiro") {
+    router.replace("/financeiro");
+    return;
+  }
+
+  if (role === "suporte") {
+    router.replace("/suporte");
+    return;
+  }
+
+  router.replace("/login");
+}
+
 export default function LoginPage() {
   const router = useRouter();
 
@@ -29,11 +58,20 @@ export default function LoginPage() {
   const [erro, setErro] = useState("");
   const [animar, setAnimar] = useState(false);
   const [carregando, setCarregando] = useState(false);
+  const [manterConectado, setManterConectado] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimar(true), 80);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    const usuarioSalvo = getUsuarioLogado();
+
+    if (usuarioSalvo && rolesValidas.includes(usuarioSalvo.role)) {
+      redirecionarPorRole(usuarioSalvo.role, router);
+    }
+  }, [router]);
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -66,7 +104,7 @@ export default function LoginPage() {
 
     const { data: perfil, error: perfilError } = await supabase
       .from("profiles")
-      .select("nome, email, role")
+      .select("nome, email, role, acesso_suporte")
       .eq("id", user.id)
       .single();
 
@@ -92,34 +130,13 @@ export default function LoginPage() {
       nome,
       email: perfil.email || user.email || emailNormalizado,
       role,
+      acesso_suporte: Boolean(perfil.acesso_suporte),
     };
 
-    localStorage.removeItem("cohub_user");
-    localStorage.setItem("ceoclub_user", JSON.stringify(usuarioLogado));
+    salvarUsuarioLogado(usuarioLogado, manterConectado);
 
     setCarregando(false);
-
-    if (role === "mentor") {
-      router.replace("/dashboard");
-      return;
-    }
-
-    if (role === "mentorado") {
-      router.replace("/mentorado/dashboard");
-      return;
-    }
-
-    if (role === "financeiro") {
-      router.replace("/financeiro");
-      return;
-    }
-
-    if (role === "suporte") {
-      router.replace("/suporte");
-      return;
-    }
-
-    router.replace("/login");
+    redirecionarPorRole(role, router);
   }
 
   return (
@@ -230,10 +247,21 @@ export default function LoginPage() {
                 />
               </label>
 
-              <div className="flex justify-end">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-xs font-semibold text-[#E5E7EB] backdrop-blur-sm transition hover:bg-white/15">
+                  <input
+                    type="checkbox"
+                    checked={manterConectado}
+                    onChange={(e) => setManterConectado(e.target.checked)}
+                    className="h-4 w-4 shrink-0 accent-[#E5E7EB]"
+                  />
+
+                  <span>Manter conectado</span>
+                </label>
+
                 <Link
                   href="/esqueci-senha"
-                  className="text-xs font-semibold text-[#C9CED6] transition hover:text-white hover:underline"
+                  className="text-right text-xs font-semibold text-[#C9CED6] transition hover:text-white hover:underline"
                 >
                   Esqueci minha senha
                 </Link>

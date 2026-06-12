@@ -6,9 +6,10 @@ import { usePathname, useRouter } from "next/navigation";
 type SidebarProps = {
   nome: string;
   role: string;
+  acessoSuporte?: boolean;
 };
 
-const menusMentora = [
+const menusMentoraBase = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Agenda", href: "/agenda" },
   { label: "Mentorados", href: "/mentorados" },
@@ -20,7 +21,11 @@ const menusMentora = [
   { label: "Minha conta", href: "/conta" },
 ];
 
-export default function Sidebar({ nome, role }: SidebarProps) {
+export default function Sidebar({
+  nome,
+  role,
+  acessoSuporte = false,
+}: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
@@ -28,6 +33,8 @@ export default function Sidebar({ nome, role }: SidebarProps) {
   function sair() {
     localStorage.removeItem("cohub_user");
     localStorage.removeItem("ceoclub_user");
+    sessionStorage.removeItem("cohub_user");
+    sessionStorage.removeItem("ceoclub_user");
     router.replace("/login");
   }
 
@@ -41,6 +48,10 @@ export default function Sidebar({ nome, role }: SidebarProps) {
       return pathname === "/dashboard";
     }
 
+    if (href === "/suporte") {
+      return pathname === "/suporte" || pathname.startsWith("/suporte/");
+    }
+
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
@@ -52,6 +63,14 @@ export default function Sidebar({ nome, role }: SidebarProps) {
   }
 
   const perfilLabel = getPerfilLabel(role);
+
+  const menusMentora = acessoSuporte
+    ? [
+        ...menusMentoraBase.slice(0, -1),
+        { label: "Suporte", href: "/suporte" },
+        menusMentoraBase[menusMentoraBase.length - 1],
+      ]
+    : menusMentoraBase;
 
   return (
     <>
@@ -86,7 +105,10 @@ export default function Sidebar({ nome, role }: SidebarProps) {
             <p className="mt-2 break-words text-base font-semibold text-white">
               {nome}
             </p>
-            <p className="mt-1 text-sm text-[#D9DEE7]">{perfilLabel}</p>
+            <p className="mt-1 text-sm text-[#D9DEE7]">
+              {perfilLabel}
+              {acessoSuporte && role === "mentor" ? " + Suporte" : ""}
+            </p>
           </div>
 
           <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
@@ -161,6 +183,7 @@ export default function Sidebar({ nome, role }: SidebarProps) {
                   <h2 className="truncate text-base font-black">CEO Club</h2>
                   <p className="truncate text-xs font-bold text-[#C9CED6]">
                     {perfilLabel}
+                    {acessoSuporte && role === "mentor" ? " + Suporte" : ""}
                   </p>
                 </div>
               </div>

@@ -9,6 +9,7 @@ export type User = {
   nome: string;
   email: string;
   role: UserRole;
+  acesso_suporte?: boolean;
 };
 
 export const users: User[] = [
