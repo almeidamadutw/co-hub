@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
-import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
-import SuporteSidebar from "@/components/SuporteSidebar";
+import { getUsuarioLogado, User } from "@/utils/auth";
+import Sidebar from "@/components/Sidebar";
 
 type Perfil = {
   id: string;
@@ -33,7 +33,7 @@ const statusOpcoes = [
   { label: "Suspenso", value: "suspenso" },
 ];
 
-export default function SuporteUsuariosPage() {
+export default function UsuariosPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
@@ -56,8 +56,20 @@ export default function SuporteUsuariosPage() {
         return;
       }
 
-      if (user.role !== "suporte") {
-        logoutUsuario();
+      const podeAcessarUsuarios =
+        user.role === "mentor" || user.role === "suporte";
+
+      if (!podeAcessarUsuarios) {
+        if (user.role === "mentorado") {
+          router.replace("/mentorado/dashboard");
+          return;
+        }
+
+        if (user.role === "financeiro") {
+          router.replace("/financeiro");
+          return;
+        }
+
         router.replace("/login");
         return;
       }
@@ -188,8 +200,8 @@ export default function SuporteUsuariosPage() {
       return;
     }
 
-    if (perfil.id === usuario?.id && roleAtual !== "suporte") {
-      setErro("Você não pode remover sua própria permissão de suporte.");
+    if (perfil.id === usuario?.id && roleAtual !== usuario.role) {
+      setErro("Você não pode alterar sua própria permissão de acesso.");
       return;
     }
 
@@ -220,7 +232,7 @@ export default function SuporteUsuariosPage() {
       return;
     }
 
-    setMensagem("Usuário atualizado com sucesso e log registrado.");
+    setMensagem("Usuário atualizado com sucesso.");
     await carregarUsuarios();
   }
 
@@ -239,23 +251,29 @@ export default function SuporteUsuariosPage() {
 
   return (
     <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-      <SuporteSidebar nome={usuario.nome} />
+      <Sidebar
+        nome={usuario.nome}
+        role={usuario.role}
+        acessoSuporte={Boolean(
+          (usuario as User & { acesso_suporte?: boolean }).acesso_suporte
+        )}
+      />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
         <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
-              Suporte técnico
+              Área da mentora
             </p>
 
             <h1 className="truncate text-base font-black sm:text-lg md:text-xl">
-              Usuários e permissões
+              Usuários da mentoria
             </h1>
           </div>
 
           <button
             type="button"
-            onClick={() => router.push("/suporte")}
+            onClick={() => router.push("/dashboard")}
             className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 sm:text-sm"
           >
             Voltar ao dashboard
@@ -265,16 +283,16 @@ export default function SuporteUsuariosPage() {
         <section className="mx-auto w-full max-w-[1280px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
           <div className="mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white shadow-xl lg:rounded-[26px] lg:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
-              Controle de acesso
+              Gestão de acesso
             </p>
 
             <h2 className="mt-2 text-2xl font-black sm:text-3xl">
-              Gerenciamento de usuários
+              Usuários da mentoria
             </h2>
 
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#D9DEE7]">
-              Consulte todos os perfis cadastrados no Supabase, corrija roles,
-              ajuste status e identifique usuários com acesso inconsistente.
+              Consulte os perfis cadastrados no Supabase, corrija roles,
+              ajuste status e mantenha os acessos da mentoria organizados.
             </p>
           </div>
 

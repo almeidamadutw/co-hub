@@ -243,6 +243,9 @@ export default function FinanceiroPage() {
 
     const recebido = cobrancas
       .filter((item) => item.status === "Pago")
+      .filter((item) =>
+        estaNoMesAtual(item.data_pagamento || item.data_vencimento)
+      )
       .reduce((acc, item) => acc + Number(item.valor_parcela || 0), 0);
 
     const aberto = cobrancas
@@ -669,7 +672,13 @@ export default function FinanceiroPage() {
 
   return (
     <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-      <Sidebar nome={usuario.nome} role={usuario.role} />
+      <Sidebar
+        nome={usuario.nome}
+        role={usuario.role}
+        acessoSuporte={Boolean(
+          (usuario as User & { acesso_suporte?: boolean }).acesso_suporte
+        )}
+      />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden p-4 sm:p-5 lg:p-6">
         <div className="pointer-events-none absolute right-[-120px] top-[-120px] h-[360px] w-[360px] rounded-full bg-[#12317C]/10 blur-3xl" />
@@ -729,7 +738,7 @@ export default function FinanceiroPage() {
             />
 
             <ResumoCard
-              titulo="Recebido"
+              titulo="Recebido no mês"
               valor={formatarMoeda(resumo.recebido)}
             />
 
@@ -1639,6 +1648,19 @@ function formatarDataISO(data: Date) {
   const dia = String(data.getDate()).padStart(2, "0");
 
   return `${ano}-${mes}-${dia}`;
+}
+
+
+function estaNoMesAtual(data: string | null | undefined) {
+  if (!data) return false;
+
+  const hoje = new Date();
+  const dataComparada = new Date(`${data}T12:00:00`);
+
+  return (
+    dataComparada.getFullYear() === hoje.getFullYear() &&
+    dataComparada.getMonth() === hoje.getMonth()
+  );
 }
 
 function normalizarTexto(texto: string) {
