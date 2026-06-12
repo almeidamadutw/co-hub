@@ -2,24 +2,21 @@
 
 import { usePathname, useRouter } from "next/navigation";
 
-type SidebarProps = {
+type SuporteSidebarProps = {
   nome: string;
-  role: string;
 };
 
-const menusMentora = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Agenda", href: "/agenda" },
-  { label: "Mentorados", href: "/mentorados" },
-  { label: "Módulos", href: "/modulos" },
-  { label: "Simulados", href: "/simulados" },
-  { label: "Financeiro", href: "/financeiro" },
-  { label: "Relatórios", href: "/relatorios" },
-  { label: "Usuários", href: "/usuarios" },
-  { label: "Minha conta", href: "/conta" },
+const menusSuporte = [
+  { label: "Dashboard", href: "/suporte" },
+  { label: "Tickets", href: "/suporte/tickets" },
+  { label: "Reset de senha", href: "/suporte/reset-senha" },
+  { label: "Usuários", href: "/suporte/usuarios" },
+  { label: "Mentorados", href: "/suporte/mentorados" },
+  { label: "Logs técnicos", href: "/suporte/logs" },
+  { label: "Minha conta", href: "/suporte/conta" },
 ];
 
-export default function Sidebar({ nome, role }: SidebarProps) {
+export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -30,24 +27,15 @@ export default function Sidebar({ nome, role }: SidebarProps) {
   }
 
   function rotaAtiva(href: string) {
-    if (href === "/dashboard") {
-      return pathname === "/dashboard";
+    if (href === "/suporte") {
+      return pathname === "/suporte";
     }
 
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  function getPerfilLabel(roleAtual: string) {
-    if (roleAtual === "mentor") return "Mentora";
-    if (roleAtual === "financeiro") return "Financeiro";
-    if (roleAtual === "suporte") return "Suporte";
-    return "Equipe";
-  }
-
-  const perfilLabel = getPerfilLabel(role);
-
   return (
-    <aside className="relative flex min-h-screen w-[290px] shrink-0 flex-col overflow-hidden border-r border-white/10 bg-gradient-to-b from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-[0_18px_50px_rgba(8,22,63,0.22)]">
+    <aside className="relative flex min-h-screen w-[290px] shrink-0 flex-col overflow-hidden border-r border-white/10 bg-gradient-to-b from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white shadow-[0_18px_50px_rgba(8,22,63,0.22)]">
       <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgba(229,231,235,0.16),transparent)]" />
       <div className="pointer-events-none absolute -left-14 bottom-10 h-36 w-36 rounded-full bg-[radial-gradient(circle,rgba(191,195,201,0.10),transparent)]" />
 
@@ -65,22 +53,27 @@ export default function Sidebar({ nome, role }: SidebarProps) {
             <h1 className="text-lg font-bold leading-tight text-white">
               CEO Club
             </h1>
+
             <p className="text-xs font-medium text-[#C9CED6]">
-              Área da equipe
+              Suporte técnico
             </p>
           </div>
         </div>
 
         <div className="mb-6 rounded-[22px] border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
           <p className="text-xs uppercase tracking-[0.25em] text-[#C9CED6]">
-            Usuária
+            Admin geral
           </p>
-          <p className="mt-2 text-base font-semibold text-white">{nome}</p>
-          <p className="mt-1 text-sm text-[#D9DEE7]">{perfilLabel}</p>
+
+          <p className="mt-2 break-words text-base font-semibold text-white">
+            {nome}
+          </p>
+
+          <p className="mt-1 text-sm text-[#D9DEE7]">Suporte</p>
         </div>
 
         <nav className="space-y-2">
-          {menusMentora.map((item) => {
+          {menusSuporte.map((item) => {
             const ativo = rotaAtiva(item.href);
 
             return (

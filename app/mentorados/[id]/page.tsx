@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import ResetSenhaMentoradoCard from "@/components/ResetSenhaMentoradoCard";
 import {
   CartesianGrid,
   Line,

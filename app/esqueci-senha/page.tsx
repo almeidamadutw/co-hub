@@ -1,126 +1,108 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/utils/supabase";
 
-type UserRole = "mentor" | "mentorado" | "financeiro" | "suporte";
-
-type UsuarioLogado = {
-  id: string;
-  nome: string;
-  email: string;
-  role: UserRole;
-};
-
-const rolesValidas: UserRole[] = [
-  "mentor",
-  "mentorado",
-  "financeiro",
-  "suporte",
-];
-
-export default function LoginPage() {
-  const router = useRouter();
-
+export default function EsqueciSenhaPage() {
   const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
   const [animar, setAnimar] = useState(false);
-  const [carregando, setCarregando] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimar(true), 80);
     return () => clearTimeout(timer);
   }, []);
 
-  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleEnviarRecuperacao(e: React.FormEvent<HTMLFormElement>) {
+  e.preventDefault();
 
-    setErro("");
-    setCarregando(true);
+  setLoading(true);
+  setMensagem("");
+  setErro("");
 
-    const emailNormalizado = email.toLowerCase().trim();
-    const senhaNormalizada = senha.trim();
+  const emailNormalizado = email.trim().toLowerCase();
 
-    if (!emailNormalizado || !senhaNormalizada) {
-      setCarregando(false);
-      setErro("Preencha e-mail e senha para entrar.");
-      return;
-    }
+  if (!emailNormalizado) {
+    setLoading(false);
+    setErro("Informe seu e-mail para receber o link de recuperação.");
+    return;
+  }
 
-    const { data: loginData, error: loginError } =
-      await supabase.auth.signInWithPassword({
-        email: emailNormalizado,
-        password: senhaNormalizada,
+  const { data: perfil, error: perfilError } = await supabase
+    .from("profiles")
+    .select("id, nome, email, role, trocas_senha")
+    .eq("email", emailNormalizado)
+    .maybeSingle();
+
+  if (perfilError) {
+    setLoading(false);
+    setErro("Não foi possível verificar seu cadastro agora. Tente novamente.");
+    return;
+  }
+
+  if (!perfil) {
+    setLoading(false);
+    setMensagem(
+      "Se este e-mail estiver cadastrado no CEO Club, enviaremos um link de recuperação. Verifique também a caixa de spam."
+    );
+    return;
+  }
+
+  const quantidadeTrocas = perfil.trocas_senha || 0;
+
+  if (quantidadeTrocas >= 1) {
+    const { error: ticketError } = await supabase
+      .from("suporte_tickets")
+      .insert({
+        usuario_id: perfil.id,
+        nome_usuario: perfil.nome,
+        email_usuario: perfil.email,
+        tipo_usuario: perfil.role,
+        categoria: "Alteração de senha",
+        assunto: "Solicitação de nova troca de senha",
+        mensagem:
+          "O usuário tentou alterar a senha novamente. Como esta não é a primeira troca, o sistema bloqueou o envio automático e abriu este ticket para análise do suporte/T.I.",
+        status: "aberto",
+        prioridade: "media",
+        origem: "sistema",
       });
 
-    if (loginError || !loginData.user) {
-      setCarregando(false);
-      setErro("E-mail ou senha inválidos.");
+    setLoading(false);
+
+    if (ticketError) {
+      setErro(
+        "Não foi possível abrir o chamado de suporte agora. Tente novamente em alguns instantes."
+      );
       return;
     }
 
-    const user = loginData.user;
+    setMensagem(
+      "Você já realizou uma alteração de senha anteriormente. Por segurança, abrimos um chamado para o suporte/T.I. Aguarde o retorno da equipe para continuar."
+    );
 
-    const { data: perfil, error: perfilError } = await supabase
-      .from("profiles")
-      .select("nome, email, role")
-      .eq("id", user.id)
-      .single();
-
-    if (perfilError || !perfil) {
-      setCarregando(false);
-      setErro("Perfil não encontrado. Verifique o cadastro no Supabase.");
-      await supabase.auth.signOut();
-      return;
-    }
-
-    const role = perfil.role as UserRole;
-    const nome = perfil.nome || user.email || "Usuário";
-
-    if (!rolesValidas.includes(role)) {
-      setCarregando(false);
-      setErro("Perfil inválido no banco de dados.");
-      await supabase.auth.signOut();
-      return;
-    }
-
-    const usuarioLogado: UsuarioLogado = {
-      id: user.id,
-      nome,
-      email: perfil.email || user.email || emailNormalizado,
-      role,
-    };
-
-    localStorage.removeItem("cohub_user");
-    localStorage.setItem("ceoclub_user", JSON.stringify(usuarioLogado));
-
-    setCarregando(false);
-
-    if (role === "mentor") {
-      router.replace("/dashboard");
-      return;
-    }
-
-    if (role === "mentorado") {
-      router.replace("/mentorado/dashboard");
-      return;
-    }
-
-    if (role === "financeiro") {
-      router.replace("/financeiro");
-      return;
-    }
-
-    if (role === "suporte") {
-      router.replace("/suporte");
-      return;
-    }
-
-    router.replace("/login");
+    return;
   }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(emailNormalizado, {
+    redirectTo: `${window.location.origin}/redefinir-senha`,
+  });
+
+  setLoading(false);
+
+  if (error) {
+    setErro(
+      "Não foi possível enviar o e-mail de recuperação agora. Tente novamente em alguns instantes."
+    );
+    return;
+  }
+
+  setMensagem(
+    "Se este e-mail estiver cadastrado no CEO Club, enviaremos um link de recuperação. Verifique também a caixa de spam."
+  );
+}
 
   return (
     <main className="flex min-h-screen items-center justify-center overflow-hidden bg-[#f3f5f8] p-3 sm:p-4">
@@ -143,7 +125,7 @@ export default function LoginPage() {
               }`}
             >
               <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[#C9CED6]">
-                Curso de Mentoria
+                Acesso CEO Club
               </p>
             </div>
 
@@ -153,12 +135,12 @@ export default function LoginPage() {
               }`}
             >
               <h1 className="max-w-md break-words text-3xl font-extrabold leading-tight drop-shadow-lg xl:text-4xl">
-                Inove seu jeito de pensar
+                Recupere seu acesso com segurança
               </h1>
 
               <p className="mt-3 max-w-md break-words text-sm font-semibold leading-6 text-white/80">
-                Acesse sua jornada de mentoria, acompanhe módulos, encontros,
-                evolução e próximos passos dentro do CEO Club.
+                Informe seu e-mail cadastrado para receber o link de redefinição
+                e continuar sua jornada dentro do CEO Club.
               </p>
             </div>
           </div>
@@ -187,18 +169,18 @@ export default function LoginPage() {
               </div>
 
               <h1 className="text-3xl font-bold text-white sm:text-4xl">
-                CEO Club
+                Esqueci minha senha
               </h1>
 
-              <p className="mt-2 break-words text-xs font-semibold text-[#C9CED6] sm:text-sm">
-                by Mentora Dra. Luciana Rocha
+              <p className="mt-2 break-words text-xs font-semibold leading-5 text-[#C9CED6] sm:text-sm">
+                Digite seu e-mail de acesso para receber o link de recuperação.
               </p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-3.5">
+            <form onSubmit={handleEnviarRecuperacao} className="space-y-3.5">
               <label className="block">
                 <span className="mb-2 block text-sm font-bold text-[#E5E7EB]">
-                  E-mail de acesso
+                  E-mail cadastrado
                 </span>
 
                 <input
@@ -209,57 +191,47 @@ export default function LoginPage() {
                   onChange={(e) => {
                     setEmail(e.target.value);
                     setErro("");
+                    setMensagem("");
                   }}
                 />
               </label>
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-bold text-[#E5E7EB]">
-                  Senha
-                </span>
-
-                <input
-                  type="password"
-                  placeholder="Digite sua senha"
-                  className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40 sm:py-3"
-                  value={senha}
-                  onChange={(e) => {
-                    setSenha(e.target.value);
-                    setErro("");
-                  }}
-                />
-              </label>
-
-              <div className="flex justify-end">
-                <Link
-                  href="/esqueci-senha"
-                  className="text-xs font-semibold text-[#C9CED6] transition hover:text-white hover:underline"
-                >
-                  Esqueci minha senha
-                </Link>
-              </div>
+              {mensagem && (
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm font-semibold leading-5 text-emerald-100">
+                  {mensagem}
+                </div>
+              )}
 
               {erro && (
-                <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm font-semibold text-red-200">
+                <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm font-semibold leading-5 text-red-200">
                   {erro}
                 </div>
               )}
 
               <button
                 type="submit"
-                disabled={carregando}
+                disabled={loading}
                 className="w-full rounded-2xl py-3 text-sm font-bold text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70 sm:text-base"
                 style={{
                   background:
                     "linear-gradient(180deg, #F3F4F6 0%, #D1D5DB 55%, #9CA3AF 100%)",
                 }}
               >
-                {carregando ? "Entrando..." : "Entrar"}
+                {loading ? "Enviando..." : "Enviar link de recuperação"}
               </button>
             </form>
 
+            <div className="mt-5 text-center">
+              <Link
+                href="/login"
+                className="text-xs font-semibold text-[#C9CED6] transition hover:text-white hover:underline"
+              >
+                Voltar para o login
+              </Link>
+            </div>
+
             <p className="mt-5 break-words text-center text-xs font-semibold leading-5 text-[#C9CED6]">
-              Acesso exclusivo para mentor, mentorados e equipe autorizada.
+              O link será enviado pelo e-mail oficial do CEO Club.
             </p>
           </div>
         </div>

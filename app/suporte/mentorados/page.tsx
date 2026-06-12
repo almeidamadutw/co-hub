@@ -1,29 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
 
-type Perfil = {
+type Mentorado = {
   id: string;
   nome: string | null;
   email: string | null;
   telefone: string | null;
-  role: string | null;
   status: string | null;
   codigo_inscricao: string | null;
+  trocas_senha: number | null;
+  ultima_troca_senha: string | null;
   created_at: string | null;
   updated_at: string | null;
 };
-
-const roles = [
-  { label: "Mentor", value: "mentor" },
-  { label: "Mentorado", value: "mentorado" },
-  { label: "Financeiro", value: "financeiro" },
-  { label: "Suporte", value: "suporte" },
-];
 
 const statusOpcoes = [
   { label: "Ativo", value: "ativo" },
@@ -33,17 +27,18 @@ const statusOpcoes = [
   { label: "Suspenso", value: "suspenso" },
 ];
 
-export default function SuporteUsuariosPage() {
+export default function SuporteMentoradosPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [perfis, setPerfis] = useState<Perfil[]>([]);
+  const [mentorados, setMentorados] = useState<Mentorado[]>([]);
   const [busca, setBusca] = useState("");
-  const [roleFiltro, setRoleFiltro] = useState("todos");
   const [statusFiltro, setStatusFiltro] = useState("todos");
 
   const [carregando, setCarregando] = useState(true);
   const [salvandoId, setSalvandoId] = useState<string | null>(null);
+  const [resetandoId, setResetandoId] = useState<string | null>(null);
+
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
 
@@ -63,49 +58,47 @@ export default function SuporteUsuariosPage() {
       }
 
       setUsuario(user);
-      await carregarUsuarios();
+      await carregarMentorados();
       setCarregando(false);
     }
 
     carregar();
   }, [router]);
 
-  async function carregarUsuarios() {
+  async function carregarMentorados() {
     setErro("");
 
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, nome, email, telefone, role, status, codigo_inscricao, created_at, updated_at"
+        "id, nome, email, telefone, status, codigo_inscricao, trocas_senha, ultima_troca_senha, created_at, updated_at"
       )
+      .eq("role", "mentorado")
       .order("created_at", { ascending: false });
 
     if (error) {
-      setErro(`Não foi possível carregar os usuários: ${error.message}`);
+      setErro(`Não foi possível carregar os mentorados: ${error.message}`);
       return;
     }
 
-    setPerfis((data || []) as Perfil[]);
+    setMentorados((data || []) as Mentorado[]);
   }
 
-  const perfisFiltrados = useMemo(() => {
+  const mentoradosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
 
-    return perfis.filter((perfil) => {
-      const roleAtual = normalizar(perfil.role);
-      const statusAtual = normalizar(perfil.status);
+    return mentorados.filter((mentorado) => {
+      const statusAtual = normalizar(mentorado.status);
 
-      const passaRole = roleFiltro === "todos" || roleAtual === roleFiltro;
       const passaStatus =
         statusFiltro === "todos" || statusAtual === statusFiltro;
 
       const textoBusca = [
-        perfil.nome,
-        perfil.email,
-        perfil.telefone,
-        perfil.codigo_inscricao,
-        perfil.role,
-        perfil.status,
+        mentorado.nome,
+        mentorado.email,
+        mentorado.telefone,
+        mentorado.codigo_inscricao,
+        mentorado.status,
       ]
         .filter(Boolean)
         .join(" ")
@@ -113,38 +106,24 @@ export default function SuporteUsuariosPage() {
 
       const passaBusca = !termo || textoBusca.includes(termo);
 
-      return passaRole && passaStatus && passaBusca;
+      return passaStatus && passaBusca;
     });
-  }, [perfis, busca, roleFiltro, statusFiltro]);
+  }, [mentorados, busca, statusFiltro]);
 
   const resumo = useMemo(() => {
     return {
-      total: perfis.length,
-      mentorados: perfis.filter((p) => normalizar(p.role) === "mentorado")
+      total: mentorados.length,
+      ativos: mentorados.filter((m) => normalizar(m.status) === "ativo")
         .length,
-      mentores: perfis.filter((p) => normalizar(p.role) === "mentor").length,
-      suporte: perfis.filter((p) => normalizar(p.role) === "suporte").length,
-      financeiro: perfis.filter((p) => normalizar(p.role) === "financeiro")
-        .length,
-      semRole: perfis.filter((p) => !normalizar(p.role)).length,
-      semStatus: perfis.filter((p) => !normalizar(p.status)).length,
+      bloqueados: mentorados.filter((m) =>
+        ["bloqueado", "suspenso"].includes(normalizar(m.status))
+      ).length,
+      semStatus: mentorados.filter((m) => !normalizar(m.status)).length,
     };
-  }, [perfis]);
+  }, [mentorados]);
 
   function normalizar(valor: string | null) {
     return (valor || "").trim().toLowerCase();
-  }
-
-  function formatarData(data: string | null) {
-    if (!data) return "Sem data";
-
-    return new Intl.DateTimeFormat("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(data));
   }
 
   function formatarStatus(status: string | null) {
@@ -159,69 +138,128 @@ export default function SuporteUsuariosPage() {
     return "Sem status";
   }
 
-  function atualizarCampoLocal(
-    perfilId: string,
-    campo: "role" | "status",
-    valor: string
-  ) {
-    setPerfis((listaAtual) =>
-      listaAtual.map((perfil) =>
-        perfil.id === perfilId ? { ...perfil, [campo]: valor } : perfil
+  function formatarData(data: string | null) {
+    if (!data) return "Nunca";
+
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(data));
+  }
+
+  function atualizarStatusLocal(mentoradoId: string, status: string) {
+    setMentorados((listaAtual) =>
+      listaAtual.map((mentorado) =>
+        mentorado.id === mentoradoId ? { ...mentorado, status } : mentorado
       )
     );
   }
 
-  async function salvarPerfil(perfil: Perfil) {
+  async function salvarStatus(mentorado: Mentorado) {
     setErro("");
     setMensagem("");
 
-    const roleAtual = normalizar(perfil.role);
-    const statusAtual = normalizar(perfil.status);
-
-    if (!roleAtual) {
-      setErro("Selecione uma role antes de salvar.");
-      return;
-    }
+    const statusAtual = normalizar(mentorado.status);
 
     if (!statusAtual) {
       setErro("Selecione um status antes de salvar.");
       return;
     }
 
-    if (perfil.id === usuario?.id && roleAtual !== "suporte") {
-      setErro("Você não pode remover sua própria permissão de suporte.");
-      return;
-    }
-
     const confirmar = window.confirm(
-      `Deseja salvar as alterações de acesso para ${
-        perfil.nome || perfil.email || "este usuário"
+      `Deseja salvar o status "${formatarStatus(statusAtual)}" para ${
+        mentorado.nome || mentorado.email || "este mentorado"
       }?`
     );
 
     if (!confirmar) return;
 
-    setSalvandoId(perfil.id);
+    setSalvandoId(mentorado.id);
 
-    const { error } = await supabase.rpc("suporte_atualizar_profile", {
-      p_profile_id: perfil.id,
-      p_role: roleAtual,
-      p_status: statusAtual,
-    });
+    const { error } = await supabase.rpc(
+      "suporte_atualizar_status_mentorado",
+      {
+        p_profile_id: mentorado.id,
+        p_status: statusAtual,
+      }
+    );
 
     setSalvandoId(null);
 
     if (error) {
       setErro(
-        `Não foi possível salvar este usuário: ${
-          error.message || "erro de permissão ou validação no Supabase"
+        `Não foi possível salvar o status deste mentorado: ${
+          error.message || "erro de permissão no Supabase"
         }`
       );
       return;
     }
 
-    setMensagem("Usuário atualizado com sucesso e log registrado.");
-    await carregarUsuarios();
+    setMensagem("Status do mentorado atualizado com sucesso e log registrado.");
+    await carregarMentorados();
+  }
+
+  async function resetarSenha(mentorado: Mentorado) {
+    setErro("");
+    setMensagem("");
+
+    if (!mentorado.email) {
+      setErro("Este mentorado não possui e-mail cadastrado.");
+      return;
+    }
+
+    const confirmar = window.confirm(
+      `Deseja resetar a troca de senha e enviar um novo link para ${
+        mentorado.nome || mentorado.email
+      }?`
+    );
+
+    if (!confirmar) return;
+
+    setResetandoId(mentorado.id);
+
+    const { error: liberarError } = await supabase.rpc(
+      "suporte_liberar_reset_senha",
+      {
+        p_profile_id: mentorado.id,
+      }
+    );
+
+    if (liberarError) {
+      setResetandoId(null);
+      setErro(
+        `Não foi possível liberar o reset de senha: ${
+          liberarError.message || "erro de permissão no Supabase"
+        }`
+      );
+      return;
+    }
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      mentorado.email.trim().toLowerCase(),
+      {
+        redirectTo: `${window.location.origin}/redefinir-senha`,
+      }
+    );
+
+    setResetandoId(null);
+
+    if (resetError) {
+      setErro(
+        `Controle de senha liberado e log registrado, mas o e-mail não foi enviado: ${resetError.message}`
+      );
+      await carregarMentorados();
+      return;
+    }
+
+    setMensagem(
+      `Link de redefinição enviado para ${mentorado.email} e log registrado.`
+    );
+
+    await carregarMentorados();
   }
 
   if (carregando || !usuario) {
@@ -231,7 +269,10 @@ export default function SuporteUsuariosPage() {
           <p className="text-sm font-black uppercase tracking-[0.22em] text-gray-400">
             CEO Club
           </p>
-          <h1 className="mt-3 text-2xl font-black">Carregando usuários...</h1>
+
+          <h1 className="mt-3 text-2xl font-black">
+            Carregando mentorados...
+          </h1>
         </div>
       </main>
     );
@@ -249,7 +290,7 @@ export default function SuporteUsuariosPage() {
             </p>
 
             <h1 className="truncate text-base font-black sm:text-lg md:text-xl">
-              Usuários e permissões
+              Mentorados
             </h1>
           </div>
 
@@ -265,16 +306,16 @@ export default function SuporteUsuariosPage() {
         <section className="mx-auto w-full max-w-[1280px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
           <div className="mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white shadow-xl lg:rounded-[26px] lg:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
-              Controle de acesso
+              Visão técnica
             </p>
 
             <h2 className="mt-2 text-2xl font-black sm:text-3xl">
-              Gerenciamento de usuários
+              Mentorados cadastrados
             </h2>
 
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#D9DEE7]">
-              Consulte todos os perfis cadastrados no Supabase, corrija roles,
-              ajuste status e identifique usuários com acesso inconsistente.
+              Consulte dados de acesso, contato, status e suporte técnico dos
+              mentorados cadastrados no CEO Club.
             </p>
           </div>
 
@@ -292,21 +333,18 @@ export default function SuporteUsuariosPage() {
 
           <section className="mb-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <CardResumo titulo="Total" valor={resumo.total} />
-            <CardResumo titulo="Mentorados" valor={resumo.mentorados} />
-            <CardResumo titulo="Mentores" valor={resumo.mentores} />
-            <CardResumo titulo="Financeiro" valor={resumo.financeiro} />
-          </section>
-
-          <section className="mb-4 grid gap-4 md:grid-cols-3">
-            <CardResumo titulo="Suporte" valor={resumo.suporte} />
-            <CardResumo titulo="Sem role" valor={resumo.semRole} />
+            <CardResumo titulo="Ativos" valor={resumo.ativos} />
+            <CardResumo
+              titulo="Bloqueados/Suspensos"
+              valor={resumo.bloqueados}
+            />
             <CardResumo titulo="Sem status" valor={resumo.semStatus} />
           </section>
 
-          <section className="mb-4 grid gap-3 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
+          <section className="mb-4 grid gap-3 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 lg:grid-cols-[minmax(0,1fr)_240px]">
             <label>
               <span className="text-sm font-black text-gray-500">
-                Buscar usuário
+                Buscar mentorado
               </span>
 
               <input
@@ -318,23 +356,6 @@ export default function SuporteUsuariosPage() {
             </label>
 
             <label>
-              <span className="text-sm font-black text-gray-500">Role</span>
-
-              <select
-                value={roleFiltro}
-                onChange={(e) => setRoleFiltro(e.target.value)}
-                className="mt-2 w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-4 py-3 text-sm font-bold text-[#08163F] outline-none transition focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10"
-              >
-                <option value="todos">Todas</option>
-                {roles.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
               <span className="text-sm font-black text-gray-500">Status</span>
 
               <select
@@ -343,6 +364,7 @@ export default function SuporteUsuariosPage() {
                 className="mt-2 w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-4 py-3 text-sm font-bold text-[#08163F] outline-none transition focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10"
               >
                 <option value="todos">Todos</option>
+
                 {statusOpcoes.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
@@ -355,91 +377,62 @@ export default function SuporteUsuariosPage() {
           <section className="overflow-hidden rounded-[22px] bg-white shadow-lg shadow-slate-200/70">
             <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
               <h3 className="text-xl font-black text-[#050816]">
-                Usuários cadastrados
+                Lista de mentorados
               </h3>
 
               <p className="mt-1 text-sm font-semibold text-gray-500">
-                {perfisFiltrados.length} usuário(s) encontrado(s)
+                {mentoradosFiltrados.length} mentorado(s) encontrado(s)
               </p>
             </div>
 
             <div className="divide-y divide-gray-100">
-              {perfisFiltrados.length === 0 && (
+              {mentoradosFiltrados.length === 0 && (
                 <div className="p-6 text-sm font-bold text-gray-500">
-                  Nenhum usuário encontrado.
+                  Nenhum mentorado encontrado.
                 </div>
               )}
 
-              {perfisFiltrados.map((perfil) => {
-                const editandoAtual = salvandoId === perfil.id;
-                const ehUsuarioAtual = perfil.id === usuario.id;
+              {mentoradosFiltrados.map((mentorado) => {
+                const salvandoAtual = salvandoId === mentorado.id;
+                const resetandoAtual = resetandoId === mentorado.id;
 
                 return (
                   <div
-                    key={perfil.id}
-                    className="grid gap-4 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_180px_180px_160px]"
+                    key={mentorado.id}
+                    className="grid gap-4 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_190px_190px_170px]"
                   >
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="break-words text-lg font-black text-[#08163F]">
-                          {perfil.nome || "Usuário sem nome"}
-                        </h4>
-
-                        {ehUsuarioAtual && (
-                          <span className="rounded-full bg-[#08163F] px-3 py-1 text-xs font-black text-white">
-                            Você
-                          </span>
-                        )}
-                      </div>
+                      <h4 className="break-words text-lg font-black text-[#08163F]">
+                        {mentorado.nome || "Mentorado sem nome"}
+                      </h4>
 
                       <p className="mt-1 break-all text-sm font-bold text-gray-500">
-                        {perfil.email || "E-mail não informado"}
+                        {mentorado.email || "E-mail não informado"}
                       </p>
 
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="rounded-full bg-[#f3f5f8] px-3 py-1 text-xs font-black text-gray-500">
-                          {perfil.telefone || "Telefone não informado"}
-                        </span>
+                        <Tag>
+                          {mentorado.telefone || "Telefone não informado"}
+                        </Tag>
 
-                        <span className="rounded-full bg-[#f3f5f8] px-3 py-1 text-xs font-black text-gray-500">
-                          Criado em {formatarData(perfil.created_at)}
-                        </span>
+                        <Tag>
+                          Código: {mentorado.codigo_inscricao || "não informado"}
+                        </Tag>
 
-                        {perfil.codigo_inscricao && (
-                          <span className="rounded-full bg-[#f3f5f8] px-3 py-1 text-xs font-black text-gray-500">
-                            Código: {perfil.codigo_inscricao}
-                          </span>
-                        )}
+                        <Tag>
+                          Criado em {formatarData(mentorado.created_at)}
+                        </Tag>
+
+                        <Tag>
+                          Trocas de senha: {mentorado.trocas_senha ?? 0}
+                        </Tag>
+
+                        <Tag>
+                          Última troca:{" "}
+                          {formatarData(mentorado.ultima_troca_senha)}
+                        </Tag>
                       </div>
                     </div>
-
-                    <label>
-                      <span className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">
-                        Role
-                      </span>
-
-                      <select
-                        value={normalizar(perfil.role)}
-                        onChange={(e) =>
-                          atualizarCampoLocal(perfil.id, "role", e.target.value)
-                        }
-                        disabled={editandoAtual || ehUsuarioAtual}
-                        className="mt-2 w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-3 py-3 text-sm font-black text-[#08163F] outline-none transition focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <option value="">Sem role</option>
-                        {roles.map((item) => (
-                          <option key={item.value} value={item.value}>
-                            {item.label}
-                          </option>
-                        ))}
-                      </select>
-
-                      {ehUsuarioAtual && (
-                        <p className="mt-2 text-xs font-bold text-gray-400">
-                          Sua própria role fica protegida.
-                        </p>
-                      )}
-                    </label>
 
                     <label>
                       <span className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">
@@ -447,18 +440,15 @@ export default function SuporteUsuariosPage() {
                       </span>
 
                       <select
-                        value={normalizar(perfil.status)}
+                        value={normalizar(mentorado.status)}
                         onChange={(e) =>
-                          atualizarCampoLocal(
-                            perfil.id,
-                            "status",
-                            e.target.value
-                          )
+                          atualizarStatusLocal(mentorado.id, e.target.value)
                         }
-                        disabled={editandoAtual}
+                        disabled={salvandoAtual}
                         className="mt-2 w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-3 py-3 text-sm font-black text-[#08163F] outline-none transition focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <option value="">Sem status</option>
+
                         {statusOpcoes.map((item) => (
                           <option key={item.value} value={item.value}>
                             {item.label}
@@ -467,18 +457,37 @@ export default function SuporteUsuariosPage() {
                       </select>
 
                       <p className="mt-2 text-xs font-bold text-gray-400">
-                        Atual: {formatarStatus(perfil.status)}
+                        Atual: {formatarStatus(mentorado.status)}
                       </p>
                     </label>
+
+                    <div className="flex flex-col justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => salvarStatus(mentorado)}
+                        disabled={salvandoAtual}
+                        className="w-full rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {salvandoAtual ? "Salvando..." : "Salvar status"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/mentorados/${mentorado.id}`)}
+                        className="w-full rounded-2xl bg-[#f3f5f8] px-5 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
+                      >
+                        Perfil da mentora
+                      </button>
+                    </div>
 
                     <div className="flex items-center xl:justify-end">
                       <button
                         type="button"
-                        onClick={() => salvarPerfil(perfil)}
-                        disabled={editandoAtual}
-                        className="w-full rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 xl:w-auto"
+                        onClick={() => resetarSenha(mentorado)}
+                        disabled={resetandoAtual}
+                        className="w-full rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-md ring-1 ring-gray-200 transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 xl:w-auto"
                       >
-                        {editandoAtual ? "Salvando..." : "Salvar"}
+                        {resetandoAtual ? "Enviando..." : "Resetar senha"}
                       </button>
                     </div>
                   </div>
@@ -501,5 +510,13 @@ function CardResumo({ titulo, valor }: { titulo: string; valor: number }) {
 
       <p className="mt-3 text-4xl font-black text-[#08163F]">{valor}</p>
     </div>
+  );
+}
+
+function Tag({ children }: { children: ReactNode }) {
+  return (
+    <span className="rounded-full bg-[#f3f5f8] px-3 py-1 text-xs font-black text-gray-500">
+      {children}
+    </span>
   );
 }

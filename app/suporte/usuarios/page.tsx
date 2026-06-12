@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
+import { registrarLogSuporte } from "@/utils/suporteLogs";
 
 type Perfil = {
   id: string;
@@ -30,7 +31,6 @@ const statusOpcoes = [
   { label: "Inativo", value: "inativo" },
   { label: "Bloqueado", value: "bloqueado" },
   { label: "Cancelado", value: "cancelado" },
-  { label: "Suspenso", value: "suspenso" },
 ];
 
 export default function SuporteUsuariosPage() {
@@ -81,7 +81,8 @@ export default function SuporteUsuariosPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      setErro(`Não foi possível carregar os usuários: ${error.message}`);
+      console.error(error);
+      setErro("Não foi possível carregar os usuários.");
       return;
     }
 
@@ -147,6 +148,17 @@ export default function SuporteUsuariosPage() {
     }).format(new Date(data));
   }
 
+  function formatarRole(role: string | null) {
+    const roleAtual = normalizar(role);
+
+    if (roleAtual === "mentor") return "Mentor";
+    if (roleAtual === "mentorado") return "Mentorado";
+    if (roleAtual === "financeiro") return "Financeiro";
+    if (roleAtual === "suporte") return "Suporte";
+
+    return "Sem role";
+  }
+
   function formatarStatus(status: string | null) {
     const statusAtual = normalizar(status);
 
@@ -154,7 +166,6 @@ export default function SuporteUsuariosPage() {
     if (statusAtual === "inativo") return "Inativo";
     if (statusAtual === "bloqueado") return "Bloqueado";
     if (statusAtual === "cancelado") return "Cancelado";
-    if (statusAtual === "suspenso") return "Suspenso";
 
     return "Sem status";
   }
@@ -171,58 +182,58 @@ export default function SuporteUsuariosPage() {
     );
   }
 
-  async function salvarPerfil(perfil: Perfil) {
-    setErro("");
-    setMensagem("");
+async function salvarPerfil(perfil: Perfil) {
+  setErro("");
+  setMensagem("");
 
-    const roleAtual = normalizar(perfil.role);
-    const statusAtual = normalizar(perfil.status);
+  const roleAtual = normalizar(perfil.role);
+  const statusAtual = normalizar(perfil.status);
 
-    if (!roleAtual) {
-      setErro("Selecione uma role antes de salvar.");
-      return;
-    }
-
-    if (!statusAtual) {
-      setErro("Selecione um status antes de salvar.");
-      return;
-    }
-
-    if (perfil.id === usuario?.id && roleAtual !== "suporte") {
-      setErro("Você não pode remover sua própria permissão de suporte.");
-      return;
-    }
-
-    const confirmar = window.confirm(
-      `Deseja salvar as alterações de acesso para ${
-        perfil.nome || perfil.email || "este usuário"
-      }?`
-    );
-
-    if (!confirmar) return;
-
-    setSalvandoId(perfil.id);
-
-    const { error } = await supabase.rpc("suporte_atualizar_profile", {
-      p_profile_id: perfil.id,
-      p_role: roleAtual,
-      p_status: statusAtual,
-    });
-
-    setSalvandoId(null);
-
-    if (error) {
-      setErro(
-        `Não foi possível salvar este usuário: ${
-          error.message || "erro de permissão ou validação no Supabase"
-        }`
-      );
-      return;
-    }
-
-    setMensagem("Usuário atualizado com sucesso e log registrado.");
-    await carregarUsuarios();
+  if (!roleAtual) {
+    setErro("Selecione uma role antes de salvar.");
+    return;
   }
+
+  if (!statusAtual) {
+    setErro("Selecione um status antes de salvar.");
+    return;
+  }
+
+  if (perfil.id === usuario?.id && roleAtual !== "suporte") {
+    setErro("Você não pode remover sua própria permissão de suporte.");
+    return;
+  }
+
+  const confirmar = window.confirm(
+    `Deseja salvar as alterações de acesso para ${
+      perfil.nome || perfil.email || "este usuário"
+    }?`
+  );
+
+  if (!confirmar) return;
+
+  setSalvandoId(perfil.id);
+
+  const { error } = await supabase.rpc("suporte_atualizar_profile", {
+    p_profile_id: perfil.id,
+    p_role: roleAtual,
+    p_status: statusAtual,
+  });
+
+  setSalvandoId(null);
+
+  if (error) {
+    setErro(
+      `Não foi possível salvar este usuário: ${
+        error.message || "erro de permissão ou validação no Supabase"
+      }`
+    );
+    return;
+  }
+
+  setMensagem("Usuário atualizado com sucesso.");
+  await carregarUsuarios();
+}
 
   if (carregando || !usuario) {
     return (
@@ -231,7 +242,9 @@ export default function SuporteUsuariosPage() {
           <p className="text-sm font-black uppercase tracking-[0.22em] text-gray-400">
             CEO Club
           </p>
-          <h1 className="mt-3 text-2xl font-black">Carregando usuários...</h1>
+          <h1 className="mt-3 text-2xl font-black">
+            Carregando usuários...
+          </h1>
         </div>
       </main>
     );

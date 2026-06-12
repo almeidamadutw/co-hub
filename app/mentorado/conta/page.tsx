@@ -2,9 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import MentoradoSidebar from "@/components/MentoradoSidebar";
 import MentoradoLoading from "@/components/MentoradoLoading";
+
+type PerfilMentorado = {
+  id: string;
+  nome: string | null;
+  email: string | null;
+  role: string | null;
+  telefone: string | null;
+  genero: string | null;
+  nascimento: string | null;
+  nacionalidade: string | null;
+  profissao: string | null;
+  cidade: string | null;
+  foto_url: string | null;
+};
 
 export default function ContaMentoradoPage() {
   const router = useRouter();
@@ -14,47 +29,83 @@ export default function ContaMentoradoPage() {
   const [usuario, setUsuario] = useState<User | null>(null);
   const [aba, setAba] = useState<"dados" | "seguranca">("dados");
   const [salvo, setSalvo] = useState(false);
+  const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
 
   const [nome, setNome] = useState("");
   const [sobrenome, setSobrenome] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [genero, setGenero] = useState("");
+  const [genero, setGenero] = useState("Não informado");
   const [nascimento, setNascimento] = useState("");
-  const [nacionalidade, setNacionalidade] = useState("");
+  const [nacionalidade, setNacionalidade] = useState("Brasil");
   const [profissao, setProfissao] = useState("");
   const [cidade, setCidade] = useState("");
 
   useEffect(() => {
-    const user = getUsuarioLogado();
+    async function carregarConta() {
+      const user = getUsuarioLogado();
 
-    if (!user) {
-      router.replace("/login");
-      return;
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      if (user.role === "mentor") {
+        router.replace("/dashboard");
+        return;
+      }
+
+      if (user.role !== "mentorado") {
+        logoutUsuario();
+        router.replace("/login");
+        return;
+      }
+
+      setUsuario(user);
+
+      const { data: perfil, error } = await supabase
+        .from("profiles")
+        .select(
+          "id, nome, email, role, telefone, genero, nascimento, nacionalidade, profissao, cidade, foto_url"
+        )
+        .eq("id", user.id)
+        .single<PerfilMentorado>();
+
+      if (error || !perfil) {
+        console.error(error);
+        setErro("Não foi possível carregar seus dados. Tente novamente.");
+        setCarregando(false);
+        return;
+      }
+
+      const nomeCompleto = perfil.nome || user.nome || "";
+      const partesNome = nomeCompleto.trim().split(" ").filter(Boolean);
+
+      setNome(partesNome[0] ?? "");
+      setSobrenome(partesNome.slice(1).join(" ") || "");
+      setTelefone(perfil.telefone || "");
+      setGenero(perfil.genero || "Não informado");
+      setNascimento(perfil.nascimento || "");
+      setNacionalidade(perfil.nacionalidade || "Brasil");
+      setProfissao(perfil.profissao || "");
+      setCidade(perfil.cidade || "");
+      setFotoPerfil(perfil.foto_url || null);
+
+      const usuarioAtualizado: User = {
+        ...user,
+        nome: nomeCompleto || user.nome,
+        email: perfil.email || user.email,
+        role: user.role,
+      };
+
+      localStorage.setItem("ceoclub_user", JSON.stringify(usuarioAtualizado));
+      setUsuario(usuarioAtualizado);
+      setCarregando(false);
     }
 
-    if (user.role === "mentor") {
-      router.replace("/dashboard");
-      return;
-    }
-
-    if (user.role !== "mentorado") {
-      logoutUsuario();
-      router.replace("/login");
-      return;
-    }
-
-    setUsuario(user);
-
-    const fotoSalva = localStorage.getItem("ceoclub_foto_perfil");
-
-    if (fotoSalva) {
-      setFotoPerfil(fotoSalva);
-    }
-
-    const partesNome = user.nome.split(" ");
-    setNome(partesNome[0] ?? "");
-    setSobrenome(partesNome.slice(1).join(" ") || "");
+    carregarConta();
   }, [router]);
 
   function alterarFoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -71,9 +122,7 @@ export default function ContaMentoradoPage() {
 
     leitor.onload = () => {
       const resultado = leitor.result as string;
-
       setFotoPerfil(resultado);
-      localStorage.setItem("ceoclub_foto_perfil", resultado);
     };
 
     leitor.readAsDataURL(arquivo);
@@ -81,7 +130,6 @@ export default function ContaMentoradoPage() {
 
   function removerFoto() {
     setFotoPerfil(null);
-    localStorage.removeItem("ceoclub_foto_perfil");
 
     if (inputFotoRef.current) {
       inputFotoRef.current.value = "";
@@ -93,8 +141,57 @@ export default function ContaMentoradoPage() {
     router.replace("/login");
   }
 
-  function salvarDados(e: React.FormEvent<HTMLFormElement>) {
+  async function salvarDados(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    if (!usuario) return;
+
+    setErro("");
+    setSalvo(false);
+    setSalvando(true);
+
+    const nomeCompleto = `${nome.trim()} ${sobrenome.trim()}`
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!nomeCompleto) {
+      setSalvando(false);
+      setErro("Informe seu nome antes de salvar.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        nome: nomeCompleto,
+        telefone: telefone.trim(),
+        genero,
+        nascimento: nascimento || null,
+        nacionalidade,
+        profissao: profissao.trim(),
+        cidade: cidade.trim(),
+        foto_url: fotoPerfil,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", usuario.id);
+
+    setSalvando(false);
+
+    if (error) {
+      console.error(error);
+      setErro(
+        "Não foi possível salvar suas alterações. Verifique se os campos existem no Supabase."
+      );
+      return;
+    }
+
+    const usuarioAtualizado: User = {
+      ...usuario,
+      nome: nomeCompleto,
+    };
+
+    localStorage.setItem("ceoclub_user", JSON.stringify(usuarioAtualizado));
+    setUsuario(usuarioAtualizado);
 
     setSalvo(true);
 
@@ -103,7 +200,7 @@ export default function ContaMentoradoPage() {
     }, 3000);
   }
 
-  if (!usuario) {
+  if (carregando || !usuario) {
     return <MentoradoLoading mensagem="Carregando minha conta..." />;
   }
 
@@ -125,7 +222,9 @@ export default function ContaMentoradoPage() {
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
                 Área do mentorado
               </p>
-              <h1 className="truncate text-base font-black sm:text-lg md:text-xl">Minha conta</h1>
+              <h1 className="truncate text-base font-black sm:text-lg md:text-xl">
+                Minha conta
+              </h1>
             </div>
           </div>
 
@@ -170,9 +269,13 @@ export default function ContaMentoradoPage() {
                       Perfil do mentorado
                     </p>
 
-                    <h2 className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">{usuario.nome}</h2>
+                    <h2 className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
+                      {usuario.nome}
+                    </h2>
 
-                    <p className="mt-2 break-all text-sm font-semibold text-[#D9DEE7]">{usuario.email}</p>
+                    <p className="mt-2 break-all text-sm font-semibold text-[#D9DEE7]">
+                      {usuario.email}
+                    </p>
                   </div>
                 </div>
 
@@ -250,6 +353,12 @@ export default function ContaMentoradoPage() {
                     </div>
                   )}
 
+                  {erro && (
+                    <div className="mb-5 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+                      {erro}
+                    </div>
+                  )}
+
                   <form
                     onSubmit={salvarDados}
                     className="grid min-w-0 gap-4 md:grid-cols-2"
@@ -301,9 +410,9 @@ export default function ContaMentoradoPage() {
 
                     <Campo label="Data de nascimento">
                       <input
+                        type="date"
                         value={nascimento}
                         onChange={(e) => setNascimento(e.target.value)}
-                        placeholder="dd/mm/aaaa"
                         className="input-ceo"
                       />
                     </Campo>
@@ -339,9 +448,10 @@ export default function ContaMentoradoPage() {
                     <div className="flex flex-wrap gap-3 pt-2 md:col-span-2">
                       <button
                         type="submit"
-                        className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                        disabled={salvando}
+                        className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        Salvar alterações
+                        {salvando ? "Salvando..." : "Salvar alterações"}
                       </button>
 
                       <button
@@ -382,43 +492,26 @@ export default function ContaMentoradoPage() {
                     </h3>
 
                     <p className="mt-2 break-words text-sm font-semibold leading-6 text-gray-500">
-                      Para alterar sua senha, solicite suporte da equipe responsável pelo acesso.
+                      Para alterar sua senha novamente, solicite suporte da
+                      equipe responsável pelo acesso.
                     </p>
                   </div>
 
-                  <form className="grid gap-5">
-                    <Campo label="Senha atual">
-                      <input
-                        type="password"
-                        placeholder="Digite sua senha atual"
-                        className="input-ceo"
-                      />
-                    </Campo>
-
-                    <Campo label="Nova senha">
-                      <input
-                        type="password"
-                        placeholder="Digite a nova senha"
-                        className="input-ceo"
-                      />
-                    </Campo>
-
-                    <Campo label="Confirmar nova senha">
-                      <input
-                        type="password"
-                        placeholder="Confirme a nova senha"
-                        className="input-ceo"
-                      />
-                    </Campo>
+                  <div className="rounded-2xl border border-[#D9DEE7] bg-[#f9fafb] p-4">
+                    <p className="text-sm font-bold leading-6 text-gray-600">
+                      A primeira redefinição de senha pode ser feita pela tela
+                      de recuperação. Novas alterações passam por análise do
+                      suporte/T.I para proteger seu acesso.
+                    </p>
 
                     <button
-  type="button"
-  onClick={() => router.push("/mentorado/suporte")}
-  className="w-fit rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
->
-  Solicitar alteração de senha
-</button>
-                  </form>
+                      type="button"
+                      onClick={() => router.push("/mentorado/suporte")}
+                      className="mt-4 w-fit rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                    >
+                      Solicitar alteração de senha
+                    </button>
+                  </div>
                 </div>
 
                 <aside className="min-w-0 space-y-4">
@@ -477,7 +570,9 @@ function Campo({
 }) {
   return (
     <label className="min-w-0">
-      <span className="break-words text-sm font-black text-gray-500">{label}</span>
+      <span className="break-words text-sm font-black text-gray-500">
+        {label}
+      </span>
       <div className="mt-2">{children}</div>
     </label>
   );
@@ -493,7 +588,9 @@ function Card({
   return (
     <section className="min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
       <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
-        <h3 className="break-words text-xl font-black text-[#050816] sm:text-2xl">{titulo}</h3>
+        <h3 className="break-words text-xl font-black text-[#050816] sm:text-2xl">
+          {titulo}
+        </h3>
       </div>
 
       <div className="min-w-0 space-y-3 p-4 sm:p-5">{children}</div>
