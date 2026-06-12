@@ -25,6 +25,8 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
   function sair() {
     localStorage.removeItem("cohub_user");
     localStorage.removeItem("ceoclub_user");
+    sessionStorage.removeItem("cohub_user");
+    sessionStorage.removeItem("ceoclub_user");
     router.replace("/login");
   }
 
@@ -48,8 +50,8 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
         <div className="pointer-events-none absolute -left-14 bottom-10 h-36 w-36 rounded-full bg-[radial-gradient(circle,rgba(191,195,201,0.10),transparent)]" />
 
         <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-          <div className="mb-8 flex items-center gap-3 rounded-[24px] border border-white/10 bg-white/10 p-3 backdrop-blur-sm">
-            <div className="h-16 w-16 overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-1">
+          <div className="mb-6 flex items-center gap-3 rounded-[24px] border border-white/10 bg-white/10 p-3 backdrop-blur-sm">
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-1">
               <img
                 src="/images/logo.jpeg"
                 alt="Logo CEO Club"
@@ -57,18 +59,18 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
               />
             </div>
 
-            <div>
-              <h1 className="text-lg font-bold leading-tight text-white">
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-bold leading-tight text-white">
                 CEO Club
               </h1>
 
-              <p className="text-xs font-medium text-[#C9CED6]">
+              <p className="truncate text-xs font-medium text-[#C9CED6]">
                 Suporte técnico
               </p>
             </div>
           </div>
 
-          <div className="mb-6 rounded-[22px] border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+          <div className="mb-5 rounded-[22px] border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
             <p className="text-xs uppercase tracking-[0.25em] text-[#C9CED6]">
               Admin geral
             </p>
@@ -80,7 +82,7 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
             <p className="mt-1 text-sm text-[#D9DEE7]">Suporte</p>
           </div>
 
-          <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+          <nav className="ceo-sidebar-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-0">
             {menusSuporte.map((item) => {
               const ativo = rotaAtiva(item.href);
 
@@ -95,8 +97,12 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
                       : "border-transparent bg-white/10 text-[#E5E7EB] hover:border-white/10 hover:bg-white/15 hover:text-white"
                   }`}
                 >
-                  <span>{item.label}</span>
-                  <span className={ativo ? "text-[#08163F]" : "text-[#BFC3C9]"}>
+                  <span className="truncate">{item.label}</span>
+                  <span
+                    className={`ml-3 shrink-0 ${
+                      ativo ? "text-[#08163F]" : "text-[#BFC3C9]"
+                    }`}
+                  >
                     →
                   </span>
                 </button>
@@ -104,7 +110,7 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
             })}
           </nav>
 
-          <div className="pt-6">
+          <div className="pt-5">
             <button
               type="button"
               onClick={sair}
@@ -172,7 +178,7 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
               <p className="mt-2 break-words text-sm font-black">{nome}</p>
             </div>
 
-            <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <nav className="ceo-sidebar-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-0">
               {menusSuporte.map((item) => {
                 const ativo = rotaAtiva(item.href);
 
@@ -187,8 +193,8 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
                         : "border-white/10 bg-white/10 text-[#E5E7EB]"
                     }`}
                   >
-                    <span>{item.label}</span>
-                    <span>→</span>
+                    <span className="truncate">{item.label}</span>
+                    <span className="ml-3 shrink-0">→</span>
                   </button>
                 );
               })}
@@ -204,6 +210,17 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        .ceo-sidebar-scroll {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        .ceo-sidebar-scroll::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </>
   );
 }
