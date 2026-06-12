@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
-import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import { getUsuarioLogado, logoutUsuario } from "@/utils/auth";
+import type { User } from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
 
 type Mentorado = {
@@ -78,13 +79,13 @@ export default function ResetSenhaSuportePage() {
 
     return mentorados.filter((mentorado) => {
       const nome = mentorado.nome?.toLowerCase() || "";
-      const email = mentorado.email?.toLowerCase() || "";
+      const emailMentorado = mentorado.email?.toLowerCase() || "";
       const telefone = mentorado.telefone?.toLowerCase() || "";
       const status = mentorado.status?.toLowerCase() || "";
 
       return (
         nome.includes(termo) ||
-        email.includes(termo) ||
+        emailMentorado.includes(termo) ||
         telefone.includes(termo) ||
         status.includes(termo)
       );
@@ -112,9 +113,11 @@ export default function ResetSenhaSuportePage() {
       return;
     }
 
+    const emailNormalizado = mentorado.email.trim().toLowerCase();
+
     const confirmar = window.confirm(
       `Deseja resetar a troca de senha e enviar um novo link para ${
-        mentorado.nome || mentorado.email
+        mentorado.nome || emailNormalizado
       }?`
     );
 
@@ -140,7 +143,7 @@ export default function ResetSenhaSuportePage() {
     }
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      mentorado.email.trim().toLowerCase(),
+      emailNormalizado,
       {
         redirectTo: `${window.location.origin}/redefinir-senha`,
       }
@@ -180,7 +183,7 @@ export default function ResetSenhaSuportePage() {
     );
 
     setMensagem(
-      `Controle de senha resetado, link enviado para ${mentorado.email} e log registrado.`
+      `Controle de senha resetado, link enviado para ${emailNormalizado} e log registrado.`
     );
 
     await carregarMentorados();
