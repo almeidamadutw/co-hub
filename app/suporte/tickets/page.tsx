@@ -74,7 +74,7 @@ export default function TicketsSuportePage() {
   const [salvando, setSalvando] = useState(false);
 
   const [erro, setErro] = useState("");
-  const [mensagem, setMensagem] = useState("");
+  const [mensagemSucesso, setMensagemSucesso] = useState("");
 
   useEffect(() => {
     async function carregar() {
@@ -107,7 +107,8 @@ export default function TicketsSuportePage() {
       .select(
         "id, usuario_id, nome_usuario, email_usuario, role_usuario, categoria, prioridade, status, assunto, mensagem, resposta, created_at, updated_at, resolvido_em"
       )
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(50);
 
     if (error) {
       setErro(`Não foi possível carregar os tickets: ${error.message}`);
@@ -127,7 +128,8 @@ export default function TicketsSuportePage() {
         "id, ticket_id, autor_id, autor_nome, autor_email, autor_role, mensagem, tipo, created_at"
       )
       .eq("ticket_id", ticketId)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .limit(100);
 
     setCarregandoChat(false);
 
@@ -189,28 +191,38 @@ export default function TicketsSuportePage() {
     return (valor || "").trim().toLowerCase();
   }
 
+  function ticketEstaResolvido(ticket: Ticket | null) {
+    return normalizar(ticket?.status || null) === "resolvido";
+  }
+
   async function selecionarTicket(ticket: Ticket) {
     setTicketSelecionado(ticket);
     setNovaMensagem("");
-    setMensagem("");
+    setMensagemSucesso("");
     setErro("");
     await carregarMensagens(ticket.id);
   }
 
   function nomeCategoria(categoria: string | null) {
-    if (categoria === "problema_tecnico") return "Problema técnico";
-    if (categoria === "alteracao_senha") return "Alteração de senha";
-    if (categoria === "duvida_aula") return "Dúvida sobre aula";
-    if (categoria === "duvida_financeira") return "Dúvida financeira";
-    if (categoria === "duvida_atividade") return "Dúvida sobre atividade";
+    const categoriaAtual = normalizar(categoria);
+
+    if (categoriaAtual === "problema_tecnico") return "Problema técnico";
+    if (categoriaAtual === "alteracao_senha") return "Alteração de senha";
+    if (categoriaAtual === "duvida_aula") return "Dúvida sobre aula";
+    if (categoriaAtual === "duvida_financeira") return "Dúvida financeira";
+    if (categoriaAtual === "duvida_atividade") return "Dúvida sobre atividade";
+
     return "Outro";
   }
 
   function nomeStatus(status: string | null) {
-    if (status === "aberto") return "Aberto";
-    if (status === "em_analise") return "Em análise";
-    if (status === "respondido") return "Respondido";
-    if (status === "resolvido") return "Resolvido";
+    const statusAtual = normalizar(status);
+
+    if (statusAtual === "aberto") return "Aberto";
+    if (statusAtual === "em_analise") return "Em análise";
+    if (statusAtual === "respondido") return "Respondido";
+    if (statusAtual === "resolvido") return "Resolvido";
+
     return "Aberto";
   }
 
@@ -226,11 +238,29 @@ export default function TicketsSuportePage() {
     }).format(new Date(data));
   }
 
-  async function atualizarTicketComChat(novoStatus: string, enviarTexto: boolean) {
+  async function atualizarTicketComChat(
+    novoStatus: "aberto" | "em_analise" | "respondido" | "resolvido",
+    enviarTexto: boolean
+  ) {
     if (!ticketSelecionado) return;
 
+    if (novoStatus === "resolvido") {
+      const confirmar = window.confirm(
+        "Tem certeza que deseja resolver este ticket? Depois disso, o chat será bloqueado para novas mensagens."
+      );
+
+      if (!confirmar) return;
+    }
+
+    if (ticketEstaResolvido(ticketSelecionado)) {
+      setErro(
+        "Este ticket já foi resolvido. O chat está bloqueado para novas mensagens."
+      );
+      return;
+    }
+
     setSalvando(true);
-    setMensagem("");
+    setMensagemSucesso("");
     setErro("");
 
     const texto = enviarTexto ? novaMensagem.trim() : "";
@@ -254,22 +284,22 @@ export default function TicketsSuportePage() {
       return;
     }
 
-    setNovaMensagem("");
-    setMensagem("Ticket atualizado e log registrado.");
-
-    await carregarTickets();
-    await carregarMensagens(ticketSelecionado.id);
+    const agora = new Date().toISOString();
 
     const ticketAtualizado: Ticket = {
       ...ticketSelecionado,
       status: novoStatus,
       resposta: texto || ticketSelecionado.resposta,
-      updated_at: new Date().toISOString(),
-      resolvido_em:
-        novoStatus === "resolvido" ? new Date().toISOString() : null,
+      updated_at: agora,
+      resolvido_em: novoStatus === "resolvido" ? agora : null,
     };
 
     setTicketSelecionado(ticketAtualizado);
+    setNovaMensagem("");
+    setMensagemSucesso("Ticket atualizado, conversa salva e log registrado.");
+
+    await carregarTickets();
+    await carregarMensagens(ticketSelecionado.id);
   }
 
   if (carregando || !usuario) {
@@ -280,9 +310,7 @@ export default function TicketsSuportePage() {
             CEO Club
           </p>
 
-          <h1 className="mt-3 text-2xl font-black">
-            Carregando tickets...
-          </h1>
+          <h1 className="mt-3 text-2xl font-black">Carregando tickets...</h1>
         </div>
       </main>
     );
@@ -335,9 +363,9 @@ export default function TicketsSuportePage() {
             </div>
           )}
 
-          {mensagem && (
+          {mensagemSucesso && (
             <div className="mb-4 rounded-2xl bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-700">
-              {mensagem}
+              {mensagemSucesso}
             </div>
           )}
 
@@ -401,9 +429,7 @@ export default function TicketsSuportePage() {
           <section className="grid gap-4 xl:grid-cols-[430px_minmax(0,1fr)]">
             <div className="overflow-hidden rounded-[22px] bg-white shadow-lg shadow-slate-200/70">
               <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
-                <h3 className="text-xl font-black text-[#050816]">
-                  Tickets
-                </h3>
+                <h3 className="text-xl font-black text-[#050816]">Tickets</h3>
 
                 <p className="mt-1 text-sm font-semibold text-gray-500">
                   {ticketsFiltrados.length} chamado(s) encontrado(s)
@@ -419,6 +445,7 @@ export default function TicketsSuportePage() {
 
                 {ticketsFiltrados.map((ticket) => {
                   const selecionado = ticketSelecionado?.id === ticket.id;
+                  const resolvido = ticketEstaResolvido(ticket);
 
                   return (
                     <button
@@ -434,7 +461,9 @@ export default function TicketsSuportePage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span
                           className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${
-                            selecionado
+                            resolvido
+                              ? "bg-emerald-100 text-emerald-700"
+                              : selecionado
                               ? "bg-white text-[#08163F]"
                               : "bg-[#f3f5f8] text-gray-500"
                           }`}
@@ -509,11 +538,19 @@ export default function TicketsSuportePage() {
                       <div className="min-w-0">
                         <div className="mb-2 flex flex-wrap gap-2">
                           <Tag>{nomeStatus(ticketSelecionado.status)}</Tag>
-                          <Tag>{nomeCategoria(ticketSelecionado.categoria)}</Tag>
+                          <Tag>
+                            {nomeCategoria(ticketSelecionado.categoria)}
+                          </Tag>
                           <Tag>
                             Prioridade:{" "}
                             {ticketSelecionado.prioridade || "normal"}
                           </Tag>
+
+                          {ticketEstaResolvido(ticketSelecionado) && (
+                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
+                              Chat bloqueado
+                            </span>
+                          )}
                         </div>
 
                         <h3 className="break-words text-xl font-black text-[#08163F]">
@@ -527,6 +564,17 @@ export default function TicketsSuportePage() {
                           {ticketSelecionado.email_usuario ||
                             "E-mail não informado"}
                         </p>
+
+                        <p className="mt-1 text-xs font-bold text-gray-400">
+                          Aberto em {formatarData(ticketSelecionado.created_at)}
+                        </p>
+
+                        {ticketSelecionado.resolvido_em && (
+                          <p className="mt-1 text-xs font-bold text-emerald-600">
+                            Resolvido em{" "}
+                            {formatarData(ticketSelecionado.resolvido_em)}
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap gap-2">
@@ -535,7 +583,9 @@ export default function TicketsSuportePage() {
                           onClick={() =>
                             atualizarTicketComChat("em_analise", false)
                           }
-                          disabled={salvando}
+                          disabled={
+                            salvando || ticketEstaResolvido(ticketSelecionado)
+                          }
                           className="rounded-2xl bg-[#f3f5f8] px-4 py-2.5 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Em análise
@@ -546,7 +596,9 @@ export default function TicketsSuportePage() {
                           onClick={() =>
                             atualizarTicketComChat("resolvido", false)
                           }
-                          disabled={salvando}
+                          disabled={
+                            salvando || ticketEstaResolvido(ticketSelecionado)
+                          }
                           className="rounded-2xl bg-emerald-600 px-4 py-2.5 text-xs font-black text-white shadow-md transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Resolver
@@ -581,7 +633,11 @@ export default function TicketsSuportePage() {
                               : "usuario"
                           }
                           nome={item.autor_nome || item.autor_email || "Usuário"}
-                          role={item.tipo === "sistema" ? "sistema" : item.autor_role}
+                          role={
+                            item.tipo === "sistema"
+                              ? "sistema"
+                              : item.autor_role
+                          }
                           data={item.created_at}
                         >
                           {item.mensagem}
@@ -590,6 +646,13 @@ export default function TicketsSuportePage() {
                   </div>
 
                   <div className="border-t border-gray-100 bg-white p-4 sm:p-5">
+                    {ticketEstaResolvido(ticketSelecionado) && (
+                      <div className="mb-3 rounded-2xl bg-emerald-50 p-4 text-sm font-black leading-6 text-emerald-700">
+                        Este ticket foi resolvido. O chat está bloqueado para
+                        novas mensagens.
+                      </div>
+                    )}
+
                     <label>
                       <span className="text-sm font-black text-gray-500">
                         Responder no chat
@@ -598,33 +661,42 @@ export default function TicketsSuportePage() {
                       <textarea
                         value={novaMensagem}
                         onChange={(e) => setNovaMensagem(e.target.value)}
-                        placeholder="Digite a resposta para o usuário..."
+                        placeholder={
+                          ticketEstaResolvido(ticketSelecionado)
+                            ? "Ticket resolvido. Chat bloqueado."
+                            : "Digite a resposta para o usuário..."
+                        }
+                        disabled={ticketEstaResolvido(ticketSelecionado)}
                         rows={4}
-                        className="mt-2 w-full resize-none rounded-2xl border border-gray-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold leading-6 text-[#08163F] outline-none transition placeholder:text-gray-400 focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10"
+                        className="mt-2 w-full resize-none rounded-2xl border border-gray-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold leading-6 text-[#08163F] outline-none transition placeholder:text-gray-400 focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
                       />
                     </label>
 
-                    <div className="mt-3 flex flex-wrap justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          atualizarTicketComChat("respondido", true)
-                        }
-                        disabled={salvando}
-                        className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {salvando ? "Enviando..." : "Enviar resposta"}
-                      </button>
-
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <button
                         type="button"
                         onClick={() =>
                           atualizarTicketComChat("resolvido", true)
                         }
-                        disabled={salvando}
+                        disabled={
+                          salvando || ticketEstaResolvido(ticketSelecionado)
+                        }
                         className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        Responder e resolver
+                        {salvando ? "Salvando..." : "Responder e resolver"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          atualizarTicketComChat("respondido", true)
+                        }
+                        disabled={
+                          salvando || ticketEstaResolvido(ticketSelecionado)
+                        }
+                        className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {salvando ? "Enviando..." : "Enviar resposta"}
                       </button>
                     </div>
                   </div>
@@ -677,9 +749,7 @@ function MensagemBolha({
     <div className={`flex ${ehSuporte ? "justify-end" : "justify-start"}`}>
       <div
         className={`max-w-[82%] rounded-[22px] p-4 shadow-sm ${
-          ehSuporte
-            ? "bg-[#08163F] text-white"
-            : "bg-white text-[#08163F]"
+          ehSuporte ? "bg-[#08163F] text-white" : "bg-white text-[#08163F]"
         }`}
       >
         <div className="mb-2 flex flex-wrap items-center gap-2">

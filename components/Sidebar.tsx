@@ -3,29 +3,25 @@
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-type SidebarProps = {
+type MentoradoSidebarProps = {
   nome: string;
-  role: string;
-  acessoSuporte?: boolean;
+  codigoInscricao?: string | null;
 };
 
-const menusMentoraBase = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Agenda", href: "/agenda" },
-  { label: "Mentorados", href: "/mentorados" },
-  { label: "Módulos", href: "/modulos" },
-  { label: "Simulados", href: "/simulados" },
-  { label: "Financeiro", href: "/financeiro" },
-  { label: "Relatórios", href: "/relatorios" },
-  { label: "Usuários", href: "/usuarios" },
-  { label: "Minha conta", href: "/conta" },
+const menusMentorado = [
+  { label: "Início", href: "/mentorado/dashboard" },
+  { label: "Minha agenda", href: "/mentorado/agenda" },
+  { label: "Meus módulos", href: "/mentorado/modulos" },
+  { label: "Praticar", href: "/mentorado/praticar" },
+  { label: "Meu progresso", href: "/mentorado/progresso" },
+  { label: "Financeiro", href: "/mentorado/financeiro" },
+  { label: "Minha conta", href: "/mentorado/conta" },
 ];
 
-export default function Sidebar({
+export default function MentoradoSidebar({
   nome,
-  role,
-  acessoSuporte = false,
-}: SidebarProps) {
+  codigoInscricao,
+}: MentoradoSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
@@ -33,8 +29,6 @@ export default function Sidebar({
   function sair() {
     localStorage.removeItem("cohub_user");
     localStorage.removeItem("ceoclub_user");
-    sessionStorage.removeItem("cohub_user");
-    sessionStorage.removeItem("ceoclub_user");
     router.replace("/login");
   }
 
@@ -44,75 +38,37 @@ export default function Sidebar({
   }
 
   function rotaAtiva(href: string) {
-    if (href === "/dashboard") {
-      return pathname === "/dashboard";
-    }
-
-    if (href === "/suporte") {
-      return pathname === "/suporte" || pathname.startsWith("/suporte/");
-    }
-
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  function getPerfilLabel(roleAtual: string) {
-    if (roleAtual === "mentor") return "Mentora";
-    if (roleAtual === "financeiro") return "Financeiro";
-    if (roleAtual === "suporte") return "Suporte";
-    return "Equipe";
-  }
-
-  const perfilLabel = getPerfilLabel(role);
-
-  const menusMentora = acessoSuporte
-    ? [
-        ...menusMentoraBase.slice(0, -1),
-        { label: "Suporte", href: "/suporte" },
-        menusMentoraBase[menusMentoraBase.length - 1],
-      ]
-    : menusMentoraBase;
-
   return (
     <>
-      <aside className="sticky top-0 hidden h-screen w-[290px] shrink-0 flex-col overflow-hidden border-r border-white/10 bg-gradient-to-b from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-[0_18px_50px_rgba(8,22,63,0.22)] lg:flex">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgba(229,231,235,0.16),transparent)]" />
-        <div className="pointer-events-none absolute -left-14 bottom-10 h-36 w-36 rounded-full bg-[radial-gradient(circle,rgba(191,195,201,0.10),transparent)]" />
+      <aside className="sticky top-0 hidden h-screen w-[230px] shrink-0 overflow-hidden border-r border-black/5 bg-[#f6f7fb] px-3 py-3 text-[#08163F] lg:flex lg:flex-col">
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="rounded-[20px] bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.055)]">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[16px] bg-[#080D2D] p-1 shadow-md">
+                <img
+                  src="/images/logo.jpeg"
+                  alt="Logo CEO Club"
+                  className="h-full w-full rounded-[12px] object-cover"
+                />
+              </div>
 
-        <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-          <div className="mb-8 flex items-center gap-3 rounded-[24px] border border-white/10 bg-white/10 p-3 backdrop-blur-sm">
-            <div className="h-16 w-16 overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-1">
-              <img
-                src="/images/logo.jpeg"
-                alt="Logo CEO Club"
-                className="h-full w-full rounded-xl object-cover"
-              />
-            </div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-[0.26em] text-slate-400">
+                  Curso
+                </p>
 
-            <div>
-              <h1 className="text-lg font-bold leading-tight text-white">
-                CEO Club
-              </h1>
-              <p className="text-xs font-medium text-[#C9CED6]">
-                Área da equipe
-              </p>
+                <h1 className="mt-1 truncate text-base font-black text-[#08163F]">
+                  CEO Club
+                </h1>
+              </div>
             </div>
           </div>
 
-          <div className="mb-6 rounded-[22px] border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-            <p className="text-xs uppercase tracking-[0.25em] text-[#C9CED6]">
-              Usuária
-            </p>
-            <p className="mt-2 break-words text-base font-semibold text-white">
-              {nome}
-            </p>
-            <p className="mt-1 text-sm text-[#D9DEE7]">
-              {perfilLabel}
-              {acessoSuporte && role === "mentor" ? " + Suporte" : ""}
-            </p>
-          </div>
-
-          <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-            {menusMentora.map((item) => {
+          <nav className="mt-3 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1">
+            {menusMentorado.map((item) => {
               const ativo = rotaAtiva(item.href);
 
               return (
@@ -120,30 +76,34 @@ export default function Sidebar({
                   key={item.href}
                   type="button"
                   onClick={() => navegar(item.href)}
-                  className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm font-bold transition ${
+                  className={`flex w-full items-center justify-between rounded-[16px] px-4 py-2.5 text-left text-[13px] font-black transition ${
                     ativo
-                      ? "border-white/20 bg-white text-[#08163F] shadow-[0_10px_25px_rgba(255,255,255,0.14)]"
-                      : "border-transparent bg-white/10 text-[#E5E7EB] hover:border-white/10 hover:bg-white/15 hover:text-white"
+                      ? "bg-[#EEF0FF] text-[#08163F] shadow-sm"
+                      : "text-slate-500 hover:bg-white hover:text-[#08163F] hover:shadow-sm"
                   }`}
                 >
-                  <span>{item.label}</span>
-                  <span className={ativo ? "text-[#08163F]" : "text-[#BFC3C9]"}>
-                    →
-                  </span>
+                  <span className="truncate">{item.label}</span>
+                  <span className="ml-3 shrink-0 text-xs">→</span>
                 </button>
               );
             })}
           </nav>
 
-          <div className="pt-6">
+          <div className="mt-3 rounded-[20px] bg-[#080D2D] p-4 text-white shadow-[0_12px_28px_rgba(8,13,45,0.16)]">
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#C9CED6]">
+              Mentorado
+            </p>
+
+            <p className="mt-3 truncate text-base font-black">{nome}</p>
+
+            <p className="mt-1 truncate text-xs font-black text-white/90">
+              Inscrição {codigoInscricao || "não informada"}
+            </p>
+
             <button
               type="button"
               onClick={sair}
-              className="w-full rounded-2xl py-3 font-bold text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105"
-              style={{
-                background:
-                  "linear-gradient(180deg, #F3F4F6 0%, #D1D5DB 55%, #9CA3AF 100%)",
-              }}
+              className="mt-4 w-full rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-[#08163F] shadow-md transition hover:brightness-95"
             >
               Sair
             </button>
@@ -168,44 +128,49 @@ export default function Sidebar({
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           />
 
-          <div className="absolute bottom-0 right-0 top-0 flex w-[88vw] max-w-[360px] flex-col overflow-hidden bg-gradient-to-b from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-[-20px_0_50px_rgba(0,0,0,0.35)]">
-            <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="absolute bottom-0 right-0 top-0 flex w-[88vw] max-w-[360px] flex-col overflow-hidden bg-[#f6f7fb] p-4 text-[#08163F] shadow-[-20px_0_50px_rgba(0,0,0,0.30)]">
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-[20px] bg-white p-3 shadow-sm">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-1">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[16px] bg-[#080D2D] p-1 shadow-md">
                   <img
                     src="/images/logo.jpeg"
                     alt="Logo CEO Club"
-                    className="h-full w-full rounded-xl object-cover"
+                    className="h-full w-full rounded-[12px] object-cover"
                   />
                 </div>
 
                 <div className="min-w-0">
-                  <h2 className="truncate text-base font-black">CEO Club</h2>
-                  <p className="truncate text-xs font-bold text-[#C9CED6]">
-                    {perfilLabel}
-                    {acessoSuporte && role === "mentor" ? " + Suporte" : ""}
+                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
+                    Curso
                   </p>
+
+                  <h2 className="truncate text-base font-black">CEO Club</h2>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setMenuAberto(false)}
-                className="rounded-2xl bg-white/10 px-3 py-2 text-sm font-black text-white"
+                className="rounded-2xl bg-[#f3f5f8] px-3 py-2 text-sm font-black text-[#08163F]"
               >
                 X
               </button>
             </div>
 
-            <div className="mb-4 rounded-[20px] border border-white/10 bg-white/10 p-4">
+            <div className="mb-4 rounded-[20px] bg-[#080D2D] p-4 text-white">
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#C9CED6]">
-                Usuária
+                Mentorado
               </p>
+
               <p className="mt-2 break-words text-sm font-black">{nome}</p>
+
+              <p className="mt-1 break-words text-xs font-black text-white/80">
+                Inscrição {codigoInscricao || "não informada"}
+              </p>
             </div>
 
             <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-              {menusMentora.map((item) => {
+              {menusMentorado.map((item) => {
                 const ativo = rotaAtiva(item.href);
 
                 return (
@@ -213,10 +178,10 @@ export default function Sidebar({
                     key={item.href}
                     type="button"
                     onClick={() => navegar(item.href)}
-                    className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm font-black transition ${
+                    className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-black transition ${
                       ativo
-                        ? "border-white/20 bg-white text-[#08163F]"
-                        : "border-white/10 bg-white/10 text-[#E5E7EB]"
+                        ? "bg-[#08163F] text-white shadow-md"
+                        : "bg-white text-slate-600 shadow-sm"
                     }`}
                   >
                     <span>{item.label}</span>
@@ -229,7 +194,7 @@ export default function Sidebar({
             <button
               type="button"
               onClick={sair}
-              className="mt-4 w-full rounded-2xl bg-white py-3 text-sm font-black text-[#08163F]"
+              className="mt-4 w-full rounded-2xl bg-[#08163F] py-3 text-sm font-black text-white"
             >
               Sair
             </button>

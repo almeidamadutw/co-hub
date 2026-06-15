@@ -15,6 +15,7 @@ const menusMentorado = [
   { label: "Praticar", href: "/mentorado/praticar" },
   { label: "Meu progresso", href: "/mentorado/progresso" },
   { label: "Financeiro", href: "/mentorado/financeiro" },
+  { label: "Suporte", href: "/mentorado/suporte" },
   { label: "Minha conta", href: "/mentorado/conta" },
 ];
 
@@ -29,6 +30,8 @@ export default function MentoradoSidebar({
   function sair() {
     localStorage.removeItem("cohub_user");
     localStorage.removeItem("ceoclub_user");
+    sessionStorage.removeItem("cohub_user");
+    sessionStorage.removeItem("ceoclub_user");
     router.replace("/login");
   }
 
@@ -38,14 +41,18 @@ export default function MentoradoSidebar({
   }
 
   function rotaAtiva(href: string) {
+    if (href === "/mentorado/dashboard") {
+      return pathname === "/mentorado/dashboard";
+    }
+
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
   return (
     <>
-      <aside className="sticky top-0 hidden h-screen w-[230px] shrink-0 overflow-hidden border-r border-black/5 bg-[#f6f7fb] px-3 py-3 text-[#08163F] lg:flex lg:flex-col">
+      <aside className="fixed left-0 top-0 z-50 hidden h-screen w-[230px] flex-col overflow-hidden border-r border-black/5 bg-[#f6f7fb] px-3 py-3 text-[#08163F] shadow-[0_18px_50px_rgba(15,23,42,0.08)] lg:flex">
         <div className="flex h-full min-h-0 flex-col">
-          <div className="rounded-[20px] bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.055)]">
+          <div className="shrink-0 rounded-[20px] bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.055)]">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[16px] bg-[#080D2D] p-1 shadow-md">
                 <img
@@ -67,7 +74,7 @@ export default function MentoradoSidebar({
             </div>
           </div>
 
-          <nav className="mt-3 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1">
+          <nav className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
             {menusMentorado.map((item) => {
               const ativo = rotaAtiva(item.href);
 
@@ -89,7 +96,7 @@ export default function MentoradoSidebar({
             })}
           </nav>
 
-          <div className="mt-3 rounded-[20px] bg-[#080D2D] p-4 text-white shadow-[0_12px_28px_rgba(8,13,45,0.16)]">
+          <div className="mt-3 shrink-0 rounded-[20px] bg-[#080D2D] p-4 text-white shadow-[0_12px_28px_rgba(8,13,45,0.16)]">
             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#C9CED6]">
               Mentorado
             </p>
@@ -111,6 +118,8 @@ export default function MentoradoSidebar({
         </div>
       </aside>
 
+      <div className="hidden h-screen w-[230px] shrink-0 lg:block" aria-hidden="true" />
+
       <button
         type="button"
         onClick={() => setMenuAberto(true)}
@@ -129,7 +138,7 @@ export default function MentoradoSidebar({
           />
 
           <div className="absolute bottom-0 right-0 top-0 flex w-[88vw] max-w-[360px] flex-col overflow-hidden bg-[#f6f7fb] p-4 text-[#08163F] shadow-[-20px_0_50px_rgba(0,0,0,0.30)]">
-            <div className="mb-4 flex items-center justify-between gap-3 rounded-[20px] bg-white p-3 shadow-sm">
+            <div className="mb-4 flex shrink-0 items-center justify-between gap-3 rounded-[20px] bg-white p-3 shadow-sm">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[16px] bg-[#080D2D] p-1 shadow-md">
                   <img
@@ -157,7 +166,7 @@ export default function MentoradoSidebar({
               </button>
             </div>
 
-            <div className="mb-4 rounded-[20px] bg-[#080D2D] p-4 text-white">
+            <div className="mb-4 shrink-0 rounded-[20px] bg-[#080D2D] p-4 text-white">
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#C9CED6]">
                 Mentorado
               </p>
@@ -194,7 +203,7 @@ export default function MentoradoSidebar({
             <button
               type="button"
               onClick={sair}
-              className="mt-4 w-full rounded-2xl bg-[#08163F] py-3 text-sm font-black text-white"
+              className="mt-4 w-full shrink-0 rounded-2xl bg-[#08163F] py-3 text-sm font-black text-white"
             >
               Sair
             </button>
