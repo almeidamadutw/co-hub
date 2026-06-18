@@ -8,11 +8,12 @@ type SuporteSidebarProps = {
 
 const menusSuporte = [
   { label: "Dashboard", href: "/suporte" },
-  { label: "Tickets", href: "/suporte/tickets" },
+  { label: "Chamados", href: "/suporte/tickets" },
   { label: "Reset de senha", href: "/suporte/reset-senha" },
   { label: "Usuários", href: "/suporte/usuarios" },
+  { label: "Mentores", href: "/suporte/mentores" },
   { label: "Mentorados", href: "/suporte/mentorados" },
-  { label: "Logs técnicos", href: "/suporte/logs" },
+  { label: "Histórico", href: "/suporte/logs" },
   { label: "Minha conta", href: "/suporte/conta" },
 ];
 
@@ -76,7 +77,7 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
           </div>
         </div>
 
-        <nav className="relative z-10 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+        <nav className="relative z-10 min-h-0 flex-1 space-y-2 overflow-y-auto pr-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {menusSuporte.map((item) => {
             const ativo = rotaAtiva(item.href);
 

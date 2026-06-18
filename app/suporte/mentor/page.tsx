@@ -6,7 +6,7 @@ import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
 
-type Mentorado = {
+type Mentor = {
   id: string;
   nome: string | null;
   email: string | null;
@@ -27,11 +27,11 @@ const statusOpcoes = [
   { label: "Suspenso", value: "suspenso" },
 ];
 
-export default function SuporteMentoradosPage() {
+export default function SuporteMentoresPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [mentorados, setMentorados] = useState<Mentorado[]>([]);
+  const [mentores, setMentores] = useState<Mentor[]>([]);
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState("todos");
 
@@ -58,14 +58,14 @@ export default function SuporteMentoradosPage() {
       }
 
       setUsuario(user);
-      await carregarMentorados();
+      await carregarMentores();
       setCarregando(false);
     }
 
     carregar();
   }, [router]);
 
-  async function carregarMentorados() {
+  async function carregarMentores() {
     setErro("");
 
     const { data, error } = await supabase
@@ -73,32 +73,32 @@ export default function SuporteMentoradosPage() {
       .select(
         "id, nome, email, telefone, status, codigo_inscricao, trocas_senha, ultima_troca_senha, created_at, updated_at"
       )
-      .eq("role", "mentorado")
+      .eq("role", "mentor")
       .order("created_at", { ascending: false });
 
     if (error) {
-      setErro(`Não foi possível carregar os mentorados: ${error.message}`);
+      setErro(`Não foi possível carregar os mentores: ${error.message}`);
       return;
     }
 
-    setMentorados((data || []) as Mentorado[]);
+    setMentores((data || []) as Mentor[]);
   }
 
-  const mentoradosFiltrados = useMemo(() => {
+  const mentoresFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
 
-    return mentorados.filter((mentorado) => {
-      const statusAtual = normalizar(mentorado.status);
+    return mentores.filter((mentor) => {
+      const statusAtual = normalizar(mentor.status);
 
       const passaStatus =
         statusFiltro === "todos" || statusAtual === statusFiltro;
 
       const textoBusca = [
-        mentorado.nome,
-        mentorado.email,
-        mentorado.telefone,
-        mentorado.codigo_inscricao,
-        mentorado.status,
+        mentor.nome,
+        mentor.email,
+        mentor.telefone,
+        mentor.codigo_inscricao,
+        mentor.status,
       ]
         .filter(Boolean)
         .join(" ")
@@ -108,19 +108,18 @@ export default function SuporteMentoradosPage() {
 
       return passaStatus && passaBusca;
     });
-  }, [mentorados, busca, statusFiltro]);
+  }, [mentores, busca, statusFiltro]);
 
   const resumo = useMemo(() => {
     return {
-      total: mentorados.length,
-      ativos: mentorados.filter((m) => normalizar(m.status) === "ativo")
-        .length,
-      bloqueados: mentorados.filter((m) =>
+      total: mentores.length,
+      ativos: mentores.filter((m) => normalizar(m.status) === "ativo").length,
+      bloqueados: mentores.filter((m) =>
         ["bloqueado", "suspenso"].includes(normalizar(m.status))
       ).length,
-      semStatus: mentorados.filter((m) => !normalizar(m.status)).length,
+      semStatus: mentores.filter((m) => !normalizar(m.status)).length,
     };
-  }, [mentorados]);
+  }, [mentores]);
 
   function normalizar(valor: string | null) {
     return (valor || "").trim().toLowerCase();
@@ -155,19 +154,19 @@ export default function SuporteMentoradosPage() {
     return formatarData(data);
   }
 
-  function atualizarStatusLocal(mentoradoId: string, status: string) {
-    setMentorados((listaAtual) =>
-      listaAtual.map((mentorado) =>
-        mentorado.id === mentoradoId ? { ...mentorado, status } : mentorado
+  function atualizarStatusLocal(mentorId: string, status: string) {
+    setMentores((listaAtual) =>
+      listaAtual.map((mentor) =>
+        mentor.id === mentorId ? { ...mentor, status } : mentor
       )
     );
   }
 
-  async function salvarStatus(mentorado: Mentorado) {
+  async function salvarStatus(mentor: Mentor) {
     setErro("");
     setMensagem("");
 
-    const statusAtual = normalizar(mentorado.status);
+    const statusAtual = normalizar(mentor.status);
 
     if (!statusAtual) {
       setErro("Selecione um status antes de salvar.");
@@ -176,60 +175,58 @@ export default function SuporteMentoradosPage() {
 
     const confirmar = window.confirm(
       `Deseja salvar o status "${formatarStatus(statusAtual)}" para ${
-        mentorado.nome || mentorado.email || "este mentorado"
+        mentor.nome || mentor.email || "este mentor"
       }?`
     );
 
     if (!confirmar) return;
 
-    setSalvandoId(mentorado.id);
+    setSalvandoId(mentor.id);
 
-    const { error } = await supabase.rpc(
-      "suporte_atualizar_status_mentorado",
-      {
-        p_profile_id: mentorado.id,
-        p_status: statusAtual,
-      }
-    );
+    const { error } = await supabase.rpc("suporte_atualizar_profile", {
+      p_profile_id: mentor.id,
+      p_role: "mentor",
+      p_status: statusAtual,
+    });
 
     setSalvandoId(null);
 
     if (error) {
       setErro(
-        `Não foi possível salvar o status deste mentorado: ${
+        `Não foi possível salvar o status deste mentor: ${
           error.message || "erro de permissão no Supabase"
         }`
       );
       return;
     }
 
-    setMensagem("Status do mentorado atualizado com sucesso e histórico registrado.");
-    await carregarMentorados();
+    setMensagem("Status do mentor atualizado com sucesso e histórico registrado.");
+    await carregarMentores();
   }
 
-  async function resetarSenha(mentorado: Mentorado) {
+  async function resetarSenha(mentor: Mentor) {
     setErro("");
     setMensagem("");
 
-    if (!mentorado.email) {
-      setErro("Este mentorado não possui e-mail cadastrado.");
+    if (!mentor.email) {
+      setErro("Este mentor não possui e-mail cadastrado.");
       return;
     }
 
     const confirmar = window.confirm(
       `Deseja liberar uma nova troca de senha e enviar um novo link para ${
-        mentorado.nome || mentorado.email
+        mentor.nome || mentor.email
       }?`
     );
 
     if (!confirmar) return;
 
-    setResetandoId(mentorado.id);
+    setResetandoId(mentor.id);
 
     const { error: liberarError } = await supabase.rpc(
       "suporte_liberar_reset_senha",
       {
-        p_profile_id: mentorado.id,
+        p_profile_id: mentor.id,
       }
     );
 
@@ -244,7 +241,7 @@ export default function SuporteMentoradosPage() {
     }
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      mentorado.email.trim().toLowerCase(),
+      mentor.email.trim().toLowerCase(),
       {
         redirectTo: `${window.location.origin}/redefinir-senha`,
       }
@@ -256,13 +253,12 @@ export default function SuporteMentoradosPage() {
       setErro(
         `Controle de senha liberado e histórico registrado, mas o e-mail não foi enviado: ${resetError.message}`
       );
-      await carregarMentorados();
+      await carregarMentores();
       return;
     }
 
-    setMensagem(`Novo link enviado para ${mentorado.email} e histórico registrado.`);
-
-    await carregarMentorados();
+    setMensagem(`Novo link enviado para ${mentor.email} e histórico registrado.`);
+    await carregarMentores();
   }
 
   if (carregando || !usuario) {
@@ -273,9 +269,7 @@ export default function SuporteMentoradosPage() {
             CEO Club
           </p>
 
-          <h1 className="mt-3 text-2xl font-black">
-            Carregando mentorados...
-          </h1>
+          <h1 className="mt-3 text-2xl font-black">Carregando mentores...</h1>
         </div>
       </main>
     );
@@ -293,7 +287,7 @@ export default function SuporteMentoradosPage() {
             </p>
 
             <h1 className="truncate text-base font-black sm:text-lg md:text-xl">
-              Mentorados
+              Mentores
             </h1>
           </div>
 
@@ -313,11 +307,11 @@ export default function SuporteMentoradosPage() {
             </p>
 
             <h2 className="mt-2 text-2xl font-black sm:text-3xl">
-              Mentorados cadastrados
+              Mentores cadastrados
             </h2>
 
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#D9DEE7]">
-              Consulte dados de acesso, contato, status e suporte dos mentorados
+              Consulte dados de acesso, contato, status e suporte dos mentores
               cadastrados no CEO Club.
             </p>
           </div>
@@ -347,7 +341,7 @@ export default function SuporteMentoradosPage() {
           <section className="mb-4 grid gap-3 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 lg:grid-cols-[minmax(0,1fr)_240px]">
             <label>
               <span className="text-sm font-black text-gray-500">
-                Buscar mentorado
+                Buscar mentor
               </span>
 
               <input
@@ -380,62 +374,56 @@ export default function SuporteMentoradosPage() {
           <section className="overflow-hidden rounded-[22px] bg-white shadow-lg shadow-slate-200/70">
             <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
               <h3 className="text-xl font-black text-[#050816]">
-                Lista de mentorados
+                Lista de mentores
               </h3>
 
               <p className="mt-1 text-sm font-semibold text-gray-500">
-                {mentoradosFiltrados.length} mentorado(s) encontrado(s)
+                {mentoresFiltrados.length} mentor(es) encontrado(s)
               </p>
             </div>
 
             <div className="divide-y divide-gray-100">
-              {mentoradosFiltrados.length === 0 && (
+              {mentoresFiltrados.length === 0 && (
                 <div className="p-6 text-sm font-bold text-gray-500">
-                  Nenhum mentorado encontrado.
+                  Nenhum mentor encontrado.
                 </div>
               )}
 
-              {mentoradosFiltrados.map((mentorado) => {
-                const salvandoAtual = salvandoId === mentorado.id;
-                const resetandoAtual = resetandoId === mentorado.id;
+              {mentoresFiltrados.map((mentor) => {
+                const salvandoAtual = salvandoId === mentor.id;
+                const resetandoAtual = resetandoId === mentor.id;
 
                 return (
                   <div
-                    key={mentorado.id}
+                    key={mentor.id}
                     className="grid gap-4 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_190px_190px_170px]"
                   >
                     <div className="min-w-0">
                       <h4 className="break-words text-lg font-black text-[#08163F]">
-                        {mentorado.nome || "Mentorado sem nome"}
+                        {mentor.nome || "Mentor sem nome"}
                       </h4>
 
                       <p className="mt-1 break-all text-sm font-bold text-gray-500">
-                        {mentorado.email || "E-mail não informado"}
+                        {mentor.email || "E-mail não informado"}
                       </p>
 
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <Tag>
-                          {mentorado.telefone || "Telefone não informado"}
-                        </Tag>
+                        <Tag>{mentor.telefone || "Telefone não informado"}</Tag>
 
                         <Tag>
-                          Código: {mentorado.codigo_inscricao || "não informado"}
+                          Código: {mentor.codigo_inscricao || "não informado"}
                         </Tag>
 
-                        <Tag>
-                          Criado em {formatarData(mentorado.created_at)}
-                        </Tag>
+                        <Tag>Criado em {formatarData(mentor.created_at)}</Tag>
 
                         <Tag>
-                          Última atualização: {formatarData(mentorado.updated_at)}
+                          Última atualização: {formatarData(mentor.updated_at)}
                         </Tag>
 
-                        <Tag>
-                          Trocas registradas: {mentorado.trocas_senha ?? 0}
-                        </Tag>
+                        <Tag>Trocas registradas: {mentor.trocas_senha ?? 0}</Tag>
 
                         <Tag>
-                          Última troca: {formatarUltimaTroca(mentorado.ultima_troca_senha)}
+                          Última troca: {formatarUltimaTroca(mentor.ultima_troca_senha)}
                         </Tag>
                       </div>
                     </div>
@@ -446,9 +434,9 @@ export default function SuporteMentoradosPage() {
                       </span>
 
                       <select
-                        value={normalizar(mentorado.status)}
+                        value={normalizar(mentor.status)}
                         onChange={(e) =>
-                          atualizarStatusLocal(mentorado.id, e.target.value)
+                          atualizarStatusLocal(mentor.id, e.target.value)
                         }
                         disabled={salvandoAtual}
                         className="mt-2 w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-3 py-3 text-sm font-black text-[#08163F] outline-none transition focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10 disabled:cursor-not-allowed disabled:opacity-60"
@@ -463,14 +451,14 @@ export default function SuporteMentoradosPage() {
                       </select>
 
                       <p className="mt-2 text-xs font-bold text-gray-400">
-                        Atual: {formatarStatus(mentorado.status)}
+                        Atual: {formatarStatus(mentor.status)}
                       </p>
                     </label>
 
                     <div className="flex flex-col justify-center gap-2">
                       <button
                         type="button"
-                        onClick={() => salvarStatus(mentorado)}
+                        onClick={() => salvarStatus(mentor)}
                         disabled={salvandoAtual}
                         className="w-full rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                       >
@@ -479,17 +467,17 @@ export default function SuporteMentoradosPage() {
 
                       <button
                         type="button"
-                        onClick={() => router.push(`/mentorados/${mentorado.id}`)}
+                        onClick={() => router.push("/suporte/usuarios")}
                         className="w-full rounded-2xl bg-[#f3f5f8] px-5 py-3 text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
                       >
-                        Ver perfil
+                        Ver usuários
                       </button>
                     </div>
 
                     <div className="flex items-center xl:justify-end">
                       <button
                         type="button"
-                        onClick={() => resetarSenha(mentorado)}
+                        onClick={() => resetarSenha(mentor)}
                         disabled={resetandoAtual}
                         className="w-full rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-md ring-1 ring-gray-200 transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 xl:w-auto"
                       >

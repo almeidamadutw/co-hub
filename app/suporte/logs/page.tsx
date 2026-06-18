@@ -23,8 +23,8 @@ const acoesFiltro = [
   { label: "Todas", value: "todas" },
   { label: "Atualização de usuário", value: "atualizacao_usuario" },
   { label: "Reset de senha", value: "reset_senha" },
-  { label: "Ticket respondido", value: "ticket_respondido" },
-  { label: "Ticket resolvido", value: "ticket_resolvido" },
+  { label: "Chamado respondido", value: "ticket_respondido" },
+  { label: "Chamado resolvido", value: "ticket_resolvido" },
   { label: "Alteração de status", value: "alteracao_status" },
 ];
 
@@ -74,7 +74,7 @@ export default function SuporteLogsPage() {
       .limit(200);
 
     if (error) {
-      setErro(`Não foi possível carregar os logs: ${error.message}`);
+      setErro(`Não foi possível carregar o histórico: ${error.message}`);
       return;
     }
 
@@ -91,8 +91,11 @@ export default function SuporteLogsPage() {
         log.suporte_nome,
         log.suporte_email,
         log.acao,
+        formatarAcao(log.acao),
         log.entidade,
+        formatarEntidade(log.entidade),
         log.descricao,
+        limparDescricao(log.descricao),
         log.entidade_id,
       ]
         .filter(Boolean)
@@ -132,11 +135,48 @@ export default function SuporteLogsPage() {
   function formatarAcao(acao: string) {
     if (acao === "atualizacao_usuario") return "Atualização de usuário";
     if (acao === "reset_senha") return "Reset de senha";
-    if (acao === "ticket_respondido") return "Ticket respondido";
-    if (acao === "ticket_resolvido") return "Ticket resolvido";
+    if (acao === "ticket_respondido") return "Chamado respondido";
+    if (acao === "ticket_resolvido") return "Chamado resolvido";
     if (acao === "alteracao_status") return "Alteração de status";
 
-    return acao;
+    return acao.replaceAll("_", " ");
+  }
+
+  function formatarEntidade(entidade: string | null) {
+    if (!entidade) return "Área não informada";
+
+    const entidadeAtual = entidade.trim().toLowerCase();
+
+    if (entidadeAtual === "profile" || entidadeAtual === "profiles") {
+      return "Usuário";
+    }
+
+    if (
+      entidadeAtual === "suporte_ticket" ||
+      entidadeAtual === "suporte_tickets" ||
+      entidadeAtual === "ticket" ||
+      entidadeAtual === "tickets"
+    ) {
+      return "Chamado";
+    }
+
+    if (entidadeAtual === "senha" || entidadeAtual === "password") {
+      return "Senha";
+    }
+
+    return entidade.replaceAll("_", " ");
+  }
+
+  function limparDescricao(descricao: string) {
+    return descricao
+      .replace(/\brole\b/gi, "perfil de acesso")
+      .replace(/\blogs\b/gi, "histórico")
+      .replace(/\blog\b/gi, "histórico")
+      .replace(/\btickets\b/gi, "chamados")
+      .replace(/\bticket\b/gi, "chamado")
+      .replace(/p_profile_id/gi, "referência do usuário")
+      .replace(/p_status/gi, "status")
+      .replace(/p_role/gi, "perfil de acesso");
   }
 
   if (carregando || !usuario) {
@@ -147,7 +187,7 @@ export default function SuporteLogsPage() {
             CEO Club
           </p>
           <h1 className="mt-3 text-2xl font-black">
-            Carregando logs...
+            Carregando histórico...
           </h1>
         </div>
       </main>
@@ -166,7 +206,7 @@ export default function SuporteLogsPage() {
             </p>
 
             <h1 className="truncate text-base font-black sm:text-lg md:text-xl">
-              Logs técnicos
+              Histórico de segurança
             </h1>
           </div>
 
@@ -182,7 +222,7 @@ export default function SuporteLogsPage() {
         <section className="mx-auto w-full max-w-[1280px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
           <div className="mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white shadow-xl lg:rounded-[26px] lg:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
-              Rastreamento técnico
+              Registro administrativo
             </p>
 
             <h2 className="mt-2 text-2xl font-black sm:text-3xl">
@@ -191,8 +231,8 @@ export default function SuporteLogsPage() {
 
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#D9DEE7]">
               Esta tela registra alterações sensíveis feitas pelo suporte, como
-              reset de senha, alterações de status, permissões e atendimento de
-              tickets.
+              reset de senha, alterações de status, perfis de acesso e atendimento de
+              chamados.
             </p>
           </div>
 
@@ -203,22 +243,22 @@ export default function SuporteLogsPage() {
           )}
 
           <section className="mb-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <CardResumo titulo="Total de logs" valor={resumo.total} />
+            <CardResumo titulo="Total de registros" valor={resumo.total} />
             <CardResumo titulo="Reset de senha" valor={resumo.resetSenha} />
             <CardResumo titulo="Usuários" valor={resumo.usuarios} />
-            <CardResumo titulo="Tickets" valor={resumo.tickets} />
+            <CardResumo titulo="Chamados" valor={resumo.tickets} />
           </section>
 
           <section className="mb-4 grid gap-3 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 lg:grid-cols-[minmax(0,1fr)_260px]">
             <label>
               <span className="text-sm font-black text-gray-500">
-                Buscar log
+                Buscar registro
               </span>
 
               <input
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                placeholder="Busque por ação, suporte, descrição ou entidade"
+                placeholder="Busque por ação, responsável, descrição ou área"
                 className="mt-2 w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-4 py-3 text-sm font-bold text-[#08163F] outline-none transition placeholder:text-gray-400 focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10"
               />
             </label>
@@ -247,14 +287,14 @@ export default function SuporteLogsPage() {
               </h3>
 
               <p className="mt-1 text-sm font-semibold text-gray-500">
-                {logsFiltrados.length} log(s) encontrado(s)
+                {logsFiltrados.length} registro(s) encontrado(s)
               </p>
             </div>
 
             <div className="divide-y divide-gray-100">
               {logsFiltrados.length === 0 && (
                 <div className="p-6 text-sm font-bold text-gray-500">
-                  Nenhum log encontrado ainda.
+                  Nenhum registro encontrado ainda.
                 </div>
               )}
 
@@ -271,13 +311,13 @@ export default function SuporteLogsPage() {
 
                       {log.entidade && (
                         <span className="rounded-full bg-[#f3f5f8] px-3 py-1 text-xs font-black text-gray-500">
-                          {log.entidade}
+                          {formatarEntidade(log.entidade)}
                         </span>
                       )}
                     </div>
 
                     <h4 className="mt-3 break-words text-base font-black text-[#08163F]">
-                      {log.descricao}
+                      {limparDescricao(log.descricao)}
                     </h4>
 
                     <p className="mt-2 break-words text-sm font-semibold text-gray-500">
@@ -292,7 +332,7 @@ export default function SuporteLogsPage() {
 
                     {log.entidade_id && (
                       <p className="mt-2 break-all text-xs font-bold text-gray-400">
-                        ID relacionado: {log.entidade_id}
+                        Referência interna: {log.entidade_id}
                       </p>
                     )}
                   </div>

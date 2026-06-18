@@ -83,14 +83,14 @@ export default function ResetSenhaSuportePage() {
       const email = item.email?.toLowerCase() || "";
       const telefone = item.telefone?.toLowerCase() || "";
       const status = item.status?.toLowerCase() || "";
-      const role = item.role?.toLowerCase() || "";
+      const perfil = item.role?.toLowerCase() || "";
 
       return (
         nome.includes(termo) ||
         email.includes(termo) ||
         telefone.includes(termo) ||
         status.includes(termo) ||
-        role.includes(termo)
+        perfil.includes(termo)
       );
     });
   }, [busca, usuarios]);
@@ -113,6 +113,18 @@ export default function ResetSenhaSuportePage() {
     return "Usuário";
   }
 
+  function formatarStatus(status: string | null) {
+    const statusAtual = status?.trim().toLowerCase();
+
+    if (statusAtual === "ativo") return "Ativo";
+    if (statusAtual === "inativo") return "Inativo";
+    if (statusAtual === "bloqueado") return "Bloqueado";
+    if (statusAtual === "cancelado") return "Cancelado";
+    if (statusAtual === "suspenso") return "Suspenso";
+
+    return "Sem status";
+  }
+
   async function resetarSenhaUsuario(item: UsuarioResetSenha) {
     setErro("");
     setMensagem("");
@@ -125,7 +137,7 @@ export default function ResetSenhaSuportePage() {
     const emailNormalizado = item.email.trim().toLowerCase();
 
     const confirmar = window.confirm(
-      `Deseja resetar a troca de senha e enviar um novo link para ${
+      `Deseja liberar uma nova troca de senha e enviar um novo link para ${
         item.nome || emailNormalizado
       }?`
     );
@@ -174,7 +186,7 @@ export default function ResetSenhaSuportePage() {
       );
 
       setErro(
-        `O controle de senha foi liberado e o log foi registrado, mas o e-mail não foi enviado: ${resetError.message}`
+        `O controle de senha foi liberado e o histórico foi atualizado, mas o e-mail não foi enviado: ${resetError.message}`
       );
       return;
     }
@@ -192,7 +204,7 @@ export default function ResetSenhaSuportePage() {
     );
 
     setMensagem(
-      `Controle de senha resetado, link enviado para ${emailNormalizado} e log registrado.`
+      `Acesso liberado, novo link enviado para ${emailNormalizado} e histórico atualizado.`
     );
 
     await carregarUsuarios();
@@ -248,9 +260,9 @@ export default function ResetSenhaSuportePage() {
 
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#D9DEE7]">
               Use esta tela quando um mentor ou mentorado precisar receber um
-              novo link de redefinição. O sistema zera o controle de primeira
-              troca, envia o e-mail de recuperação e registra a ação nos logs
-              técnicos.
+              novo link de redefinição. O sistema libera uma nova troca,
+              envia o e-mail de recuperação e registra tudo no histórico de
+              segurança.
             </p>
           </div>
 
@@ -315,7 +327,7 @@ export default function ResetSenhaSuportePage() {
                       </span>
 
                       <span className="rounded-full bg-[#f3f5f8] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-gray-500">
-                        {item.status || "ativo"}
+                        {formatarStatus(item.status)}
                       </span>
                     </div>
 
@@ -351,7 +363,7 @@ export default function ResetSenhaSuportePage() {
                     >
                       {resetandoId === item.id
                         ? "Enviando..."
-                        : "Resetar senha"}
+                        : "Enviar novo link"}
                     </button>
                   </div>
                 </div>

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
-import { registrarLogSuporte } from "@/utils/suporteLogs";
 
 type Perfil = {
   id: string;
@@ -19,7 +18,7 @@ type Perfil = {
   updated_at: string | null;
 };
 
-const roles = [
+const perfisDeAcesso = [
   { label: "Mentor", value: "mentor" },
   { label: "Mentorado", value: "mentorado" },
   { label: "Financeiro", value: "financeiro" },
@@ -39,7 +38,7 @@ export default function SuporteUsuariosPage() {
   const [usuario, setUsuario] = useState<User | null>(null);
   const [perfis, setPerfis] = useState<Perfil[]>([]);
   const [busca, setBusca] = useState("");
-  const [roleFiltro, setRoleFiltro] = useState("todos");
+  const [perfilFiltro, setPerfilFiltro] = useState("todos");
   const [statusFiltro, setStatusFiltro] = useState("todos");
 
   const [carregando, setCarregando] = useState(true);
@@ -93,10 +92,10 @@ export default function SuporteUsuariosPage() {
     const termo = busca.trim().toLowerCase();
 
     return perfis.filter((perfil) => {
-      const roleAtual = normalizar(perfil.role);
+      const perfilAtual = normalizar(perfil.role);
       const statusAtual = normalizar(perfil.status);
 
-      const passaRole = roleFiltro === "todos" || roleAtual === roleFiltro;
+      const passaPerfil = perfilFiltro === "todos" || perfilAtual === perfilFiltro;
       const passaStatus =
         statusFiltro === "todos" || statusAtual === statusFiltro;
 
@@ -114,9 +113,9 @@ export default function SuporteUsuariosPage() {
 
       const passaBusca = !termo || textoBusca.includes(termo);
 
-      return passaRole && passaStatus && passaBusca;
+      return passaPerfil && passaStatus && passaBusca;
     });
-  }, [perfis, busca, roleFiltro, statusFiltro]);
+  }, [perfis, busca, perfilFiltro, statusFiltro]);
 
   const resumo = useMemo(() => {
     return {
@@ -127,7 +126,7 @@ export default function SuporteUsuariosPage() {
       suporte: perfis.filter((p) => normalizar(p.role) === "suporte").length,
       financeiro: perfis.filter((p) => normalizar(p.role) === "financeiro")
         .length,
-      semRole: perfis.filter((p) => !normalizar(p.role)).length,
+      semPerfil: perfis.filter((p) => !normalizar(p.role)).length,
       semStatus: perfis.filter((p) => !normalizar(p.status)).length,
     };
   }, [perfis]);
@@ -148,15 +147,15 @@ export default function SuporteUsuariosPage() {
     }).format(new Date(data));
   }
 
-  function formatarRole(role: string | null) {
-    const roleAtual = normalizar(role);
+  function formatarPerfil(role: string | null) {
+    const perfilAtual = normalizar(role);
 
-    if (roleAtual === "mentor") return "Mentor";
-    if (roleAtual === "mentorado") return "Mentorado";
-    if (roleAtual === "financeiro") return "Financeiro";
-    if (roleAtual === "suporte") return "Suporte";
+    if (perfilAtual === "mentor") return "Mentor";
+    if (perfilAtual === "mentorado") return "Mentorado";
+    if (perfilAtual === "financeiro") return "Financeiro";
+    if (perfilAtual === "suporte") return "Suporte";
 
-    return "Sem role";
+    return "Sem perfil";
   }
 
   function formatarStatus(status: string | null) {
@@ -186,11 +185,11 @@ async function salvarPerfil(perfil: Perfil) {
   setErro("");
   setMensagem("");
 
-  const roleAtual = normalizar(perfil.role);
+  const perfilAtual = normalizar(perfil.role);
   const statusAtual = normalizar(perfil.status);
 
-  if (!roleAtual) {
-    setErro("Selecione uma role antes de salvar.");
+  if (!perfilAtual) {
+    setErro("Selecione um perfil de acesso antes de salvar.");
     return;
   }
 
@@ -199,7 +198,7 @@ async function salvarPerfil(perfil: Perfil) {
     return;
   }
 
-  if (perfil.id === usuario?.id && roleAtual !== "suporte") {
+  if (perfil.id === usuario?.id && perfilAtual !== "suporte") {
     setErro("Você não pode remover sua própria permissão de suporte.");
     return;
   }
@@ -216,7 +215,7 @@ async function salvarPerfil(perfil: Perfil) {
 
   const { error } = await supabase.rpc("suporte_atualizar_profile", {
     p_profile_id: perfil.id,
-    p_role: roleAtual,
+    p_role: perfilAtual,
     p_status: statusAtual,
   });
 
@@ -286,7 +285,7 @@ async function salvarPerfil(perfil: Perfil) {
             </h2>
 
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#D9DEE7]">
-              Consulte todos os perfis cadastrados no Supabase, corrija roles,
+              Consulte todos os perfis cadastrados no Supabase, corrija perfis de acesso,
               ajuste status e identifique usuários com acesso inconsistente.
             </p>
           </div>
@@ -312,7 +311,7 @@ async function salvarPerfil(perfil: Perfil) {
 
           <section className="mb-4 grid gap-4 md:grid-cols-3">
             <CardResumo titulo="Suporte" valor={resumo.suporte} />
-            <CardResumo titulo="Sem role" valor={resumo.semRole} />
+            <CardResumo titulo="Sem perfil" valor={resumo.semPerfil} />
             <CardResumo titulo="Sem status" valor={resumo.semStatus} />
           </section>
 
@@ -331,15 +330,15 @@ async function salvarPerfil(perfil: Perfil) {
             </label>
 
             <label>
-              <span className="text-sm font-black text-gray-500">Role</span>
+              <span className="text-sm font-black text-gray-500">Perfil</span>
 
               <select
-                value={roleFiltro}
-                onChange={(e) => setRoleFiltro(e.target.value)}
+                value={perfilFiltro}
+                onChange={(e) => setPerfilFiltro(e.target.value)}
                 className="mt-2 w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-4 py-3 text-sm font-bold text-[#08163F] outline-none transition focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10"
               >
                 <option value="todos">Todas</option>
-                {roles.map((item) => (
+                {perfisDeAcesso.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
                   </option>
@@ -428,7 +427,7 @@ async function salvarPerfil(perfil: Perfil) {
 
                     <label>
                       <span className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">
-                        Role
+                        Perfil
                       </span>
 
                       <select
@@ -439,8 +438,8 @@ async function salvarPerfil(perfil: Perfil) {
                         disabled={editandoAtual || ehUsuarioAtual}
                         className="mt-2 w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-3 py-3 text-sm font-black text-[#08163F] outline-none transition focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <option value="">Sem role</option>
-                        {roles.map((item) => (
+                        <option value="">Sem perfil</option>
+                        {perfisDeAcesso.map((item) => (
                           <option key={item.value} value={item.value}>
                             {item.label}
                           </option>
@@ -449,7 +448,7 @@ async function salvarPerfil(perfil: Perfil) {
 
                       {ehUsuarioAtual && (
                         <p className="mt-2 text-xs font-bold text-gray-400">
-                          Sua própria role fica protegida.
+                          Seu próprio perfil de suporte fica protegido.
                         </p>
                       )}
                     </label>

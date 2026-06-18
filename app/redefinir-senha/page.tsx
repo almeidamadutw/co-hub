@@ -1,16 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
 
 export default function RedefinirSenhaPage() {
+  const router = useRouter();
+
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
   const [loading, setLoading] = useState(false);
+  const [validandoLink, setValidandoLink] = useState(true);
+
   const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
   const [animar, setAnimar] = useState(false);
+
   const [senhaAtualizada, setSenhaAtualizada] = useState(false);
   const [verNovaSenha, setVerNovaSenha] = useState(false);
   const [verConfirmarSenha, setVerConfirmarSenha] = useState(false);
@@ -20,10 +26,84 @@ export default function RedefinirSenhaPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  async function handleRedefinirSenha(e: React.FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    prepararSessaoDeRecuperacao();
+  }, []);
+
+  async function prepararSessaoDeRecuperacao() {
+    setValidandoLink(true);
+    setErro("");
+
+    try {
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get("code");
+
+      const hashParams = new URLSearchParams(
+        window.location.hash.replace("#", "")
+      );
+
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+
+      if (code) {
+        const { error } = await withTimeout(
+          supabase.auth.exchangeCodeForSession(code),
+          15000
+        );
+
+        if (error) {
+          setErro(
+            "Esse link de recuperação está inválido ou expirou. Solicite um novo link."
+          );
+          return;
+        }
+
+        limparUrl();
+      } else if (accessToken && refreshToken) {
+        const { error } = await withTimeout(
+          supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          }),
+          15000
+        );
+
+        if (error) {
+          setErro(
+            "Esse link de recuperação está inválido ou expirou. Solicite um novo link."
+          );
+          return;
+        }
+
+        limparUrl();
+      }
+
+      const { data, error } = await withTimeout(
+        supabase.auth.getSession(),
+        15000
+      );
+
+      if (error || !data.session) {
+        setErro(
+          "Não encontramos uma sessão válida para redefinir a senha. Solicite um novo link de recuperação."
+        );
+      }
+    } catch {
+      setErro(
+        "Não foi possível validar o link de recuperação. Solicite um novo link e tente novamente."
+      );
+    } finally {
+      setValidandoLink(false);
+    }
+  }
+
+  function limparUrl() {
+    window.history.replaceState({}, document.title, "/redefinir-senha");
+  }
+
+  async function handleRedefinirSenha(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    setLoading(true);
     setMensagem("");
     setErro("");
 
@@ -31,62 +111,129 @@ export default function RedefinirSenhaPage() {
     const confirmarSenhaLimpa = confirmarSenha.trim();
 
     if (!senhaLimpa || !confirmarSenhaLimpa) {
-      setLoading(false);
       setErro("Preencha a nova senha e a confirmação.");
       return;
     }
 
     if (senhaLimpa.length < 6) {
-      setLoading(false);
       setErro("A nova senha precisa ter pelo menos 6 caracteres.");
       return;
     }
 
     if (senhaLimpa !== confirmarSenhaLimpa) {
-      setLoading(false);
       setErro("As senhas não conferem.");
       return;
     }
 
-    const { error } = await supabase.auth.updateUser({
-      password: senhaLimpa,
-    });
+    setLoading(true);
 
-    setLoading(false);
-
-    if (error) {
-      setErro(
-        "Não foi possível redefinir sua senha. Solicite um novo link de recuperação e tente novamente."
+    try {
+      const { data: sessaoAtual, error: erroSessao } = await withTimeout(
+        supabase.auth.getSession(),
+        15000
       );
-      return;
+
+      const usuarioId = sessaoAtual.session?.user.id;
+
+      if (erroSessao || !usuarioId) {
+        setErro(
+          "Sua sessão de redefinição expirou. Solicite um novo link de recuperação."
+        );
+        return;
+      }
+
+      let trocasAtuais = 0;
+
+      try {
+        const { data: perfilAtual } = await withTimeout(
+          supabase
+            .from("profiles")
+            .select("trocas_senha")
+            .eq("id", usuarioId)
+            .maybeSingle(),
+          10000
+        );
+
+        trocasAtuais = Number(perfilAtual?.trocas_senha || 0);
+
+        if (trocasAtuais >= 1) {
+          setErro(
+            "Essa troca de senha já foi utilizada. Para alterar novamente, solicite liberação ao suporte."
+          );
+          return;
+        }
+      } catch {
+        trocasAtuais = 0;
+      }
+
+      const { error } = await withTimeout(
+        supabase.auth.updateUser({
+          password: senhaLimpa,
+        }),
+        15000
+      );
+
+      if (error) {
+        setErro(traduzirErroSenha(error.message));
+        return;
+      }
+
+      try {
+        await withTimeout(
+          supabase
+            .from("profiles")
+            .update({
+              trocas_senha: trocasAtuais + 1,
+              ultima_troca_senha: new Date().toISOString(),
+            })
+            .eq("id", usuarioId),
+          10000
+        );
+      } catch {
+        // A senha já foi alterada. Se o registro do perfil falhar, não prendemos a tela.
+      }
+
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // Evita travar a confirmação caso o logout falhe.
+      }
+
+      setSenhaAtualizada(true);
+      setNovaSenha("");
+      setConfirmarSenha("");
+      setMensagem(
+        "Senha redefinida com sucesso. Agora você já pode acessar sua conta."
+      );
+
+      setTimeout(() => {
+        router.replace("/login");
+      }, 1800);
+    } catch {
+      setErro(
+        "A redefinição demorou demais ou falhou. Solicite um novo link e tente novamente."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function traduzirErroSenha(mensagemErro: string) {
+    const erroNormalizado = mensagemErro.toLowerCase();
+
+    if (erroNormalizado.includes("new password should be different")) {
+      return "A nova senha precisa ser diferente da senha anterior.";
     }
 
-const { data: sessao } = await supabase.auth.getSession();
+    if (erroNormalizado.includes("session") || erroNormalizado.includes("jwt")) {
+      return "Sua sessão de redefinição expirou. Solicite um novo link de recuperação.";
+    }
 
-const usuarioId = sessao.session?.user.id;
+    if (erroNormalizado.includes("password")) {
+      return "Não foi possível salvar essa senha. Tente uma senha diferente.";
+    }
 
-if (usuarioId) {
-  const { data: perfilAtual } = await supabase
-    .from("profiles")
-    .select("trocas_senha")
-    .eq("id", usuarioId)
-    .single();
-
-  const trocasAtuais = perfilAtual?.trocas_senha || 0;
-
-  await supabase
-    .from("profiles")
-    .update({
-      trocas_senha: trocasAtuais + 1,
-      ultima_troca_senha: new Date().toISOString(),
-    })
-    .eq("id", usuarioId);
-}
-
-    setSenhaAtualizada(true);
-    setNovaSenha("");
-    setConfirmarSenha("");
-    setMensagem("Senha redefinida com sucesso. Agora você já pode acessar sua conta.");
+    return "Não foi possível redefinir sua senha. Solicite um novo link de recuperação e tente novamente.";
   }
 
   return (
@@ -172,21 +319,21 @@ if (usuarioId) {
                   <input
                     type={verNovaSenha ? "text" : "password"}
                     placeholder="Digite sua nova senha"
-                    className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 pr-20 text-sm font-semibold text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40 sm:py-3"
+                    className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 pr-20 text-sm font-semibold text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40 disabled:cursor-not-allowed disabled:opacity-70 sm:py-3"
                     value={novaSenha}
                     onChange={(e) => {
                       setNovaSenha(e.target.value);
                       setErro("");
                       setMensagem("");
                     }}
-                    disabled={senhaAtualizada}
+                    disabled={senhaAtualizada || loading || validandoLink}
                   />
 
                   <button
                     type="button"
                     onClick={() => setVerNovaSenha((valor) => !valor)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#C9CED6] transition hover:text-white"
-                    disabled={senhaAtualizada}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#C9CED6] transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={senhaAtualizada || loading || validandoLink}
                   >
                     {verNovaSenha ? "Ocultar" : "Mostrar"}
                   </button>
@@ -202,21 +349,21 @@ if (usuarioId) {
                   <input
                     type={verConfirmarSenha ? "text" : "password"}
                     placeholder="Confirme sua nova senha"
-                    className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 pr-20 text-sm font-semibold text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40 sm:py-3"
+                    className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 pr-20 text-sm font-semibold text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40 disabled:cursor-not-allowed disabled:opacity-70 sm:py-3"
                     value={confirmarSenha}
                     onChange={(e) => {
                       setConfirmarSenha(e.target.value);
                       setErro("");
                       setMensagem("");
                     }}
-                    disabled={senhaAtualizada}
+                    disabled={senhaAtualizada || loading || validandoLink}
                   />
 
                   <button
                     type="button"
                     onClick={() => setVerConfirmarSenha((valor) => !valor)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#C9CED6] transition hover:text-white"
-                    disabled={senhaAtualizada}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#C9CED6] transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={senhaAtualizada || loading || validandoLink}
                   >
                     {verConfirmarSenha ? "Ocultar" : "Mostrar"}
                   </button>
@@ -258,14 +405,18 @@ if (usuarioId) {
               {!senhaAtualizada && (
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || validandoLink}
                   className="w-full rounded-2xl py-3 text-sm font-bold text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70 sm:text-base"
                   style={{
                     background:
                       "linear-gradient(180deg, #F3F4F6 0%, #D1D5DB 55%, #9CA3AF 100%)",
                   }}
                 >
-                  {loading ? "Salvando..." : "Salvar nova senha"}
+                  {validandoLink
+                    ? "Validando link..."
+                    : loading
+                    ? "Salvando..."
+                    : "Salvar nova senha"}
                 </button>
               )}
             </form>
@@ -287,4 +438,23 @@ if (usuarioId) {
       </section>
     </main>
   );
+}
+
+function withTimeout<T>(promise: PromiseLike<T>, tempo = 15000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("Tempo limite excedido."));
+    }, tempo);
+
+    promise.then(
+      (resultado) => {
+        clearTimeout(timer);
+        resolve(resultado);
+      },
+      (erro) => {
+        clearTimeout(timer);
+        reject(erro);
+      }
+    );
+  });
 }

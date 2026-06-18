@@ -23,7 +23,7 @@ type ResumoSuporte = {
   totalSuporte: number;
   usuariosAtivos: number;
   usuariosInativos: number;
-  usuariosSemRole: number;
+  usuariosSemPerfil: number;
   usuariosSemStatus: number;
 };
 
@@ -109,7 +109,7 @@ export default function SuportePage() {
         );
       }).length,
 
-      usuariosSemRole: perfis.filter((perfil) => !perfil.role).length,
+      usuariosSemPerfil: perfis.filter((perfil) => !perfil.role).length,
 
       usuariosSemStatus: perfis.filter((perfil) => !perfil.status).length,
     };
@@ -129,8 +129,8 @@ export default function SuportePage() {
     }).format(new Date(data));
   }
 
-  function formatarRole(role: string | null) {
-    if (!role) return "Sem role";
+  function formatarPerfil(role: string | null) {
+    if (!role) return "Sem perfil";
 
     const roleNormalizada = role.trim().toLowerCase();
 
@@ -242,19 +242,19 @@ export default function SuportePage() {
             <CardResumo
               titulo="Mentorados"
               valor={resumo.totalMentorados}
-              descricao="Usuários com role mentorado"
+              descricao="Usuários com perfil mentorado"
             />
 
             <CardResumo
               titulo="Mentores"
               valor={resumo.totalMentores}
-              descricao="Usuários com role mentor"
+              descricao="Usuários com perfil mentor"
             />
 
             <CardResumo
               titulo="Financeiro"
               valor={resumo.totalFinanceiro}
-              descricao="Usuários com role financeiro"
+              descricao="Usuários com perfil financeiro"
             />
           </section>
 
@@ -262,7 +262,7 @@ export default function SuportePage() {
             <CardResumo
               titulo="Suporte"
               valor={resumo.totalSuporte}
-              descricao="Usuários com role suporte"
+              descricao="Usuários com perfil suporte"
             />
 
             <CardResumo
@@ -278,9 +278,9 @@ export default function SuportePage() {
             />
 
             <CardResumo
-              titulo="Sem role"
-              valor={resumo.usuariosSemRole}
-              descricao="Perfis que precisam de correção"
+              titulo="Sem perfil"
+              valor={resumo.usuariosSemPerfil}
+              descricao="Usuários que precisam receber um perfil de acesso"
             />
           </section>
 
@@ -301,7 +301,7 @@ export default function SuportePage() {
 
             <AcaoSuporte
               titulo="Usuários"
-              descricao="Consultar perfis, roles, status e dados técnicos dos acessos."
+              descricao="Consultar perfis de acesso, status e dados técnicos dos usuários."
               botao="Gerenciar usuários"
               onClick={() => router.push("/suporte/usuarios")}
             />
@@ -322,7 +322,7 @@ export default function SuportePage() {
 
             <AcaoSuporte
               titulo="Permissões"
-              descricao="Corrigir usuários sem role, status errado ou acesso inconsistente."
+              descricao="Corrigir usuários sem perfil, status errado ou acesso inconsistente."
               botao="Ver usuários"
               onClick={() => router.push("/suporte/usuarios")}
             />
@@ -361,7 +361,7 @@ export default function SuportePage() {
                       </div>
 
                       <span className="rounded-full bg-[#f3f5f8] px-3 py-1 text-xs font-black text-[#08163F]">
-                        {formatarRole(perfil.role)}
+                        {formatarPerfil(perfil.role)}
                       </span>
                     </div>
 
@@ -389,15 +389,15 @@ export default function SuportePage() {
               </h3>
 
               <p className="mt-3 text-sm font-semibold leading-6 text-gray-500">
-                Esta área só permite acesso para usuários com role{" "}
+                Esta área só permite acesso para usuários com perfil de acesso{" "}
                 <span className="font-black text-[#08163F]">suporte</span>.
                 Outros perfis são deslogados automaticamente.
               </p>
 
               <div className="mt-4 space-y-3">
                 <InfoSeguranca
-                  label="Usuários sem role"
-                  value={String(resumo.usuariosSemRole)}
+                  label="Usuários sem perfil"
+                  value={String(resumo.usuariosSemPerfil)}
                 />
 
                 <InfoSeguranca
@@ -406,8 +406,8 @@ export default function SuportePage() {
                 />
 
                 <InfoSeguranca
-                  label="Role atual"
-                  value={formatarRole(usuario.role)}
+                  label="Perfil atual"
+                  value={formatarPerfil(usuario.role)}
                 />
               </div>
             </div>

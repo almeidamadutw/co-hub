@@ -53,6 +53,18 @@ const categoriaOptions = [
   { label: "Outro", value: "outro" },
 ];
 
+function formatarPerfilMensagem(perfil: string | null) {
+  const perfilAtual = (perfil || "").trim().toLowerCase();
+
+  if (perfilAtual === "mentor") return "Mentor";
+  if (perfilAtual === "mentorado") return "Mentorado";
+  if (perfilAtual === "financeiro") return "Financeiro";
+  if (perfilAtual === "suporte") return "Suporte";
+  if (perfilAtual === "sistema") return "Sistema";
+
+  return "Usuário";
+}
+
 export default function TicketsSuportePage() {
   const router = useRouter();
 
@@ -111,7 +123,7 @@ export default function TicketsSuportePage() {
       .limit(50);
 
     if (error) {
-      setErro(`Não foi possível carregar os tickets: ${error.message}`);
+      setErro(`Não foi possível carregar os chamados: ${error.message}`);
       return;
     }
 
@@ -134,7 +146,7 @@ export default function TicketsSuportePage() {
     setCarregandoChat(false);
 
     if (error) {
-      setErro(`Não foi possível carregar o chat do ticket: ${error.message}`);
+      setErro(`Não foi possível carregar a conversa do chamado: ${error.message}`);
       return;
     }
 
@@ -246,7 +258,7 @@ export default function TicketsSuportePage() {
 
     if (novoStatus === "resolvido") {
       const confirmar = window.confirm(
-        "Tem certeza que deseja resolver este ticket? Depois disso, o chat será bloqueado para novas mensagens."
+        "Tem certeza que deseja resolver este chamado? Depois disso, a conversa será bloqueada para novas mensagens."
       );
 
       if (!confirmar) return;
@@ -254,7 +266,7 @@ export default function TicketsSuportePage() {
 
     if (ticketEstaResolvido(ticketSelecionado)) {
       setErro(
-        "Este ticket já foi resolvido. O chat está bloqueado para novas mensagens."
+        "Este chamado já foi resolvido. A conversa está bloqueada para novas mensagens."
       );
       return;
     }
@@ -267,7 +279,7 @@ export default function TicketsSuportePage() {
 
     if (enviarTexto && !texto) {
       setSalvando(false);
-      setErro("Digite uma mensagem antes de enviar.");
+      setErro("Digite uma resposta antes de enviar.");
       return;
     }
 
@@ -280,7 +292,7 @@ export default function TicketsSuportePage() {
     setSalvando(false);
 
     if (error) {
-      setErro(`Não foi possível atualizar o ticket: ${error.message}`);
+      setErro(`Não foi possível atualizar o chamado: ${error.message}`);
       return;
     }
 
@@ -296,7 +308,7 @@ export default function TicketsSuportePage() {
 
     setTicketSelecionado(ticketAtualizado);
     setNovaMensagem("");
-    setMensagemSucesso("Ticket atualizado, conversa salva e log registrado.");
+    setMensagemSucesso("Chamado atualizado, conversa salva e histórico registrado.");
 
     await carregarTickets();
     await carregarMensagens(ticketSelecionado.id);
@@ -310,7 +322,7 @@ export default function TicketsSuportePage() {
             CEO Club
           </p>
 
-          <h1 className="mt-3 text-2xl font-black">Carregando tickets...</h1>
+          <h1 className="mt-3 text-2xl font-black">Carregando chamados...</h1>
         </div>
       </main>
     );
@@ -328,7 +340,7 @@ export default function TicketsSuportePage() {
             </p>
 
             <h1 className="truncate text-base font-black sm:text-lg md:text-xl">
-              Tickets e conversas
+              Chamados e conversas
             </h1>
           </div>
 
@@ -353,7 +365,7 @@ export default function TicketsSuportePage() {
 
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#D9DEE7]">
               Acompanhe os chamados, responda os usuários e mantenha o histórico
-              da conversa dentro do próprio ticket.
+              da conversa dentro do próprio atendimento.
             </p>
           </div>
 
@@ -380,7 +392,7 @@ export default function TicketsSuportePage() {
           <section className="mb-4 grid gap-3 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 lg:grid-cols-[minmax(0,1fr)_220px_240px]">
             <label>
               <span className="text-sm font-black text-gray-500">
-                Buscar ticket
+                Buscar chamado
               </span>
 
               <input
@@ -429,7 +441,7 @@ export default function TicketsSuportePage() {
           <section className="grid gap-4 xl:grid-cols-[430px_minmax(0,1fr)]">
             <div className="overflow-hidden rounded-[22px] bg-white shadow-lg shadow-slate-200/70">
               <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
-                <h3 className="text-xl font-black text-[#050816]">Tickets</h3>
+                <h3 className="text-xl font-black text-[#050816]">Chamados</h3>
 
                 <p className="mt-1 text-sm font-semibold text-gray-500">
                   {ticketsFiltrados.length} chamado(s) encontrado(s)
@@ -439,7 +451,7 @@ export default function TicketsSuportePage() {
               <div className="max-h-[720px] divide-y divide-gray-100 overflow-y-auto">
                 {ticketsFiltrados.length === 0 && (
                   <div className="p-6 text-sm font-bold text-gray-500">
-                    Nenhum ticket encontrado.
+                    Nenhum chamado encontrado.
                   </div>
                 )}
 
@@ -483,7 +495,7 @@ export default function TicketsSuportePage() {
                       </div>
 
                       <h4 className="mt-3 line-clamp-2 text-base font-black">
-                        {ticket.assunto || "Ticket sem assunto"}
+                        {ticket.assunto || "Chamado sem assunto"}
                       </h4>
 
                       <p
@@ -518,7 +530,7 @@ export default function TicketsSuportePage() {
                 <div className="flex min-h-[720px] items-center justify-center p-8 text-center">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.22em] text-gray-400">
-                      Nenhum ticket selecionado
+                      Nenhum chamado selecionado
                     </p>
 
                     <h3 className="mt-3 text-2xl font-black text-[#08163F]">
@@ -526,7 +538,7 @@ export default function TicketsSuportePage() {
                     </h3>
 
                     <p className="mt-2 max-w-md text-sm font-semibold leading-6 text-gray-500">
-                      Ao escolher um ticket, o histórico da conversa aparece
+                      Ao escolher um chamado, o histórico da conversa aparece
                       aqui.
                     </p>
                   </div>
@@ -548,13 +560,13 @@ export default function TicketsSuportePage() {
 
                           {ticketEstaResolvido(ticketSelecionado) && (
                             <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
-                              Chat bloqueado
+                              Conversa bloqueada
                             </span>
                           )}
                         </div>
 
                         <h3 className="break-words text-xl font-black text-[#08163F]">
-                          {ticketSelecionado.assunto || "Ticket sem assunto"}
+                          {ticketSelecionado.assunto || "Chamado sem assunto"}
                         </h3>
 
                         <p className="mt-2 break-all text-sm font-bold text-gray-500">
@@ -648,14 +660,14 @@ export default function TicketsSuportePage() {
                   <div className="border-t border-gray-100 bg-white p-4 sm:p-5">
                     {ticketEstaResolvido(ticketSelecionado) && (
                       <div className="mb-3 rounded-2xl bg-emerald-50 p-4 text-sm font-black leading-6 text-emerald-700">
-                        Este ticket foi resolvido. O chat está bloqueado para
+                        Este chamado foi resolvido. A conversa está bloqueada para
                         novas mensagens.
                       </div>
                     )}
 
                     <label>
                       <span className="text-sm font-black text-gray-500">
-                        Responder no chat
+                        Responder na conversa
                       </span>
 
                       <textarea
@@ -663,8 +675,8 @@ export default function TicketsSuportePage() {
                         onChange={(e) => setNovaMensagem(e.target.value)}
                         placeholder={
                           ticketEstaResolvido(ticketSelecionado)
-                            ? "Ticket resolvido. Chat bloqueado."
-                            : "Digite a resposta para o usuário..."
+                            ? "Chamado resolvido. Conversa bloqueada."
+                            : "Digite sua resposta para o usuário..."
                         }
                         disabled={ticketEstaResolvido(ticketSelecionado)}
                         rows={4}
@@ -672,7 +684,7 @@ export default function TicketsSuportePage() {
                       />
                     </label>
 
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-start">
                       <button
                         type="button"
                         onClick={() =>
@@ -769,7 +781,7 @@ function MensagemBolha({
                   : "bg-[#f3f5f8] text-gray-500"
               }`}
             >
-              {role}
+              {formatarPerfilMensagem(role)}
             </span>
           )}
         </div>
