@@ -145,14 +145,18 @@ export default function RedefinirSenhaPage() {
       let trocasAtuais = 0;
 
       try {
-        const { data: perfilAtual } = await withTimeout(
+        const { data: perfilAtual, error: erroPerfil } = await withTimeout(
           supabase
             .from("profiles")
-            .select("trocas_senha")
+            .select("trocas_senha, ultima_troca_senha")
             .eq("id", usuarioId)
             .maybeSingle(),
           10000
         );
+
+        if (erroPerfil) {
+          throw erroPerfil;
+        }
 
         trocasAtuais = Number(perfilAtual?.trocas_senha || 0);
 
@@ -162,8 +166,12 @@ export default function RedefinirSenhaPage() {
           );
           return;
         }
-      } catch {
-        trocasAtuais = 0;
+      } catch (erroValidacao) {
+        console.error("Erro ao validar controle de troca de senha:", erroValidacao);
+        setErro(
+          "Não foi possível validar a liberação desta troca de senha. Solicite ajuda ao suporte."
+        );
+        return;
       }
 
       const { error } = await withTimeout(
@@ -178,19 +186,13 @@ export default function RedefinirSenhaPage() {
         return;
       }
 
+      let historicoRegistrado = true;
+
       try {
-        await withTimeout(
-          supabase
-            .from("profiles")
-            .update({
-              trocas_senha: trocasAtuais + 1,
-              ultima_troca_senha: new Date().toISOString(),
-            })
-            .eq("id", usuarioId),
-          10000
-        );
-      } catch {
-        // A senha já foi alterada. Se o registro do perfil falhar, não prendemos a tela.
+        await registrarTrocaSenhaNoPerfil(usuarioId, trocasAtuais);
+      } catch (erroRegistro) {
+        historicoRegistrado = false;
+        console.error("Erro ao registrar histórico de troca de senha:", erroRegistro);
       }
 
       try {
@@ -203,18 +205,45 @@ export default function RedefinirSenhaPage() {
       setNovaSenha("");
       setConfirmarSenha("");
       setMensagem(
-        "Senha redefinida com sucesso. Agora você já pode acessar sua conta."
+        historicoRegistrado
+          ? "Senha redefinida com sucesso. Agora você já pode acessar sua conta."
+          : "Senha redefinida com sucesso, mas o histórico da troca não foi registrado. Avise o suporte caso a data não apareça no painel."
       );
 
       setTimeout(() => {
         router.replace("/login");
-      }, 1800);
+      }, historicoRegistrado ? 1800 : 2600);
     } catch {
       setErro(
         "A redefinição demorou demais ou falhou. Solicite um novo link e tente novamente."
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function registrarTrocaSenhaNoPerfil(
+    usuarioId: string,
+    trocasAtuais: number
+  ) {
+    const agora = new Date().toISOString();
+
+    const { error } = await withTimeout(
+      supabase
+        .from("profiles")
+        .update({
+          trocas_senha: trocasAtuais + 1,
+          ultima_troca_senha: agora,
+          updated_at: agora,
+        })
+        .eq("id", usuarioId)
+        .select("id")
+        .maybeSingle(),
+      10000
+    );
+
+    if (error) {
+      throw error;
     }
   }
 
