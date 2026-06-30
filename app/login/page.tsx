@@ -28,7 +28,7 @@ function redirecionarPorRole(
   router: ReturnType<typeof useRouter>
 ) {
   if (role === "mentor") {
-    router.replace("/dashboard");
+    router.replace("/mentor/dashboard");
     return;
   }
 
@@ -59,6 +59,7 @@ export default function LoginPage() {
   const [animar, setAnimar] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [manterConectado, setManterConectado] = useState(true);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimar(true), 80);
@@ -235,16 +236,26 @@ export default function LoginPage() {
                   Senha
                 </span>
 
-                <input
-                  type="password"
-                  placeholder="Digite sua senha"
-                  className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40 sm:py-3"
-                  value={senha}
-                  onChange={(e) => {
-                    setSenha(e.target.value);
-                    setErro("");
-                  }}
-                />
+                <div className="relative">
+                  <input
+                    type={mostrarSenha ? "text" : "password"}
+                    placeholder="Digite sua senha"
+                    className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 pr-28 text-sm font-semibold text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40 sm:py-3"
+                    value={senha}
+                    onChange={(e) => {
+                      setSenha(e.target.value);
+                      setErro("");
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setMostrarSenha((valorAtual) => !valorAtual)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-[#E5E7EB] px-3 py-1.5 text-xs font-black text-[#08163F] shadow-sm transition hover:bg-white hover:shadow-md"
+                  >
+                    {mostrarSenha ? "Ocultar" : "Ver"}
+                  </button>
+                </div>
               </label>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

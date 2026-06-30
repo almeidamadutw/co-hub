@@ -3,11 +3,11 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-export default function MentorMentoradosRedirectPage() {
+export default function DashboardRedirectPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/mentorados");
+    router.replace("/mentor/dashboard");
   }, [router]);
 
   return (
@@ -18,7 +18,7 @@ export default function MentorMentoradosRedirectPage() {
         </p>
 
         <h1 className="mt-3 text-2xl font-black">
-          Redirecionando para mentorados...
+          Redirecionando para o painel...
         </h1>
       </div>
     </main>

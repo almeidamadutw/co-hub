@@ -1,10 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { supabase } from "@/utils/supabase";
+import { getUsuarioLogado } from "@/utils/auth";
 
 type MentoradoSidebarProps = {
   nome: string;
+  codigoInscricao?: string | null;
+};
+
+type UsuarioSidebar = {
+  id?: string;
+  email?: string | null;
+  codigo_inscricao?: string | null;
   codigoInscricao?: string | null;
 };
 
@@ -25,7 +34,65 @@ export default function MentoradoSidebar({
 }: MentoradoSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+
   const [menuAberto, setMenuAberto] = useState(false);
+  const [codigoEncontrado, setCodigoEncontrado] = useState(
+    codigoInscricao || ""
+  );
+
+  useEffect(() => {
+    let componenteAtivo = true;
+
+    async function carregarCodigoInscricao() {
+      if (codigoInscricao) {
+        setCodigoEncontrado(codigoInscricao);
+        return;
+      }
+
+      const user = getUsuarioLogado() as UsuarioSidebar | null;
+
+      const codigoLocal = user?.codigo_inscricao || user?.codigoInscricao;
+
+      if (codigoLocal) {
+        setCodigoEncontrado(codigoLocal);
+        return;
+      }
+
+      if (!user?.id && !user?.email) {
+        setCodigoEncontrado("");
+        return;
+      }
+
+      let consulta = supabase
+        .from("profiles")
+        .select("codigo_inscricao")
+        .eq("role", "mentorado");
+
+      if (user.id) {
+        consulta = consulta.eq("id", user.id);
+      } else if (user.email) {
+        consulta = consulta.ilike("email", user.email.trim());
+      }
+
+      const { data, error } = await consulta.maybeSingle();
+
+      if (!componenteAtivo) return;
+
+      if (error) {
+        console.error("Erro ao buscar inscrição do mentorado:", error.message);
+        setCodigoEncontrado("");
+        return;
+      }
+
+      setCodigoEncontrado(data?.codigo_inscricao || "");
+    }
+
+    carregarCodigoInscricao();
+
+    return () => {
+      componenteAtivo = false;
+    };
+  }, [codigoInscricao]);
 
   function sair() {
     localStorage.removeItem("cohub_user");
@@ -74,7 +141,7 @@ export default function MentoradoSidebar({
             </div>
           </div>
 
-          <nav className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+          <nav className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto pr-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {menusMentorado.map((item) => {
               const ativo = rotaAtiva(item.href);
 
@@ -104,7 +171,7 @@ export default function MentoradoSidebar({
             <p className="mt-3 truncate text-base font-black">{nome}</p>
 
             <p className="mt-1 truncate text-xs font-black text-white/90">
-              Inscrição {codigoInscricao || "não informada"}
+              Inscrição {codigoEncontrado || "não informada"}
             </p>
 
             <button
@@ -118,7 +185,10 @@ export default function MentoradoSidebar({
         </div>
       </aside>
 
-      <div className="hidden h-screen w-[230px] shrink-0 lg:block" aria-hidden="true" />
+      <div
+        className="hidden h-screen w-[230px] shrink-0 lg:block"
+        aria-hidden="true"
+      />
 
       <button
         type="button"
@@ -174,11 +244,11 @@ export default function MentoradoSidebar({
               <p className="mt-2 break-words text-sm font-black">{nome}</p>
 
               <p className="mt-1 break-words text-xs font-black text-white/80">
-                Inscrição {codigoInscricao || "não informada"}
+                Inscrição {codigoEncontrado || "não informada"}
               </p>
             </div>
 
-            <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {menusMentorado.map((item) => {
                 const ativo = rotaAtiva(item.href);
 

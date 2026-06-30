@@ -2,34 +2,37 @@
 
 import { usePathname, useRouter } from "next/navigation";
 
-type SuporteSidebarProps = {
+type SidebarProps = {
   nome: string;
 };
 
-const menusSuporte = [
-  { label: "Dashboard", href: "/suporte" },
-  { label: "Chamados", href: "/suporte/tickets" },
-  { label: "Reset de senha", href: "/suporte/reset-senha" },
-  { label: "Usuários", href: "/suporte/usuarios" },
-  { label: "Mentores", href: "/suporte/mentores" },
-  { label: "Mentorados", href: "/suporte/mentorados" },
-  { label: "Histórico", href: "/suporte/logs" },
-  { label: "Minha conta", href: "/suporte/conta" },
+const menusMentor = [
+  { label: "Dashboard", href: "/mentor/dashboard" },
+  { label: "Agenda", href: "/agenda" },
+  { label: "Mentorados", href: "/mentorados" },
+  { label: "Módulos", href: "/modulos" },
+  { label: "Simulados", href: "/simulados" },
+  { label: "Financeiro", href: "/financeiro" },
+  { label: "Relatórios", href: "/relatorios" },
+  { label: "Usuários", href: "/usuarios" },
+  { label: "Minha conta", href: "/conta" },
 ];
 
-export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
+export default function Sidebar({ nome }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
 
   function sair() {
     localStorage.removeItem("cohub_user");
     localStorage.removeItem("ceoclub_user");
+    sessionStorage.removeItem("cohub_user");
+    sessionStorage.removeItem("ceoclub_user");
     router.replace("/login");
   }
 
   function rotaAtiva(href: string) {
-    if (href === "/suporte") {
-      return pathname === "/suporte";
+    if (href === "/mentor/dashboard") {
+      return pathname === "/mentor/dashboard" || pathname === "/dashboard";
     }
 
     return pathname === href || pathname.startsWith(`${href}/`);
@@ -57,14 +60,14 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
               </h1>
 
               <p className="text-xs font-medium text-[#C9CED6]">
-                Suporte técnico
+                Painel da mentora
               </p>
             </div>
           </div>
 
           <div className="mb-4 rounded-[20px] border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#C9CED6]">
-              Admin geral
+              Mentor
             </p>
 
             <p className="mt-2 break-words text-sm font-bold text-white">
@@ -72,13 +75,13 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
             </p>
 
             <p className="mt-1 text-xs font-semibold text-[#D9DEE7]">
-              Suporte
+              Gestão CEO Club
             </p>
           </div>
         </div>
 
-        <nav className="relative z-10 min-h-0 flex-1 space-y-2 overflow-y-auto pr-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {menusSuporte.map((item) => {
+        <nav className="relative z-10 min-h-0 flex-1 space-y-2 overflow-y-auto pr-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {menusMentor.map((item) => {
             const ativo = rotaAtiva(item.href);
 
             return (
