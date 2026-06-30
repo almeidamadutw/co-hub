@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 
 type SidebarProps = {
   nome: string;
@@ -21,6 +22,7 @@ const menusMentor = [
 export default function Sidebar({ nome }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const [menuAberto, setMenuAberto] = useState(false);
 
   function sair() {
     localStorage.removeItem("cohub_user");
@@ -28,6 +30,11 @@ export default function Sidebar({ nome }: SidebarProps) {
     sessionStorage.removeItem("cohub_user");
     sessionStorage.removeItem("ceoclub_user");
     router.replace("/login");
+  }
+
+  function navegar(href: string) {
+    setMenuAberto(false);
+    router.push(href);
   }
 
   function rotaAtiva(href: string) {
@@ -38,15 +45,15 @@ export default function Sidebar({ nome }: SidebarProps) {
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  return (
-    <>
-      <aside className="fixed left-0 top-0 z-50 flex h-screen w-[290px] flex-col overflow-hidden border-r border-white/10 bg-gradient-to-b from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white shadow-[0_18px_50px_rgba(8,22,63,0.22)]">
+  function ConteudoSidebar() {
+    return (
+      <>
         <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgba(229,231,235,0.16),transparent)]" />
         <div className="pointer-events-none absolute -left-14 bottom-10 h-36 w-36 rounded-full bg-[radial-gradient(circle,rgba(191,195,201,0.10),transparent)]" />
 
         <div className="relative z-10 shrink-0">
           <div className="mb-4 flex items-center gap-3 rounded-[22px] border border-white/10 bg-white/10 p-3 backdrop-blur-sm">
-            <div className="h-14 w-14 overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-1">
+            <div className="h-12 w-12 overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-1 2xl:h-14 2xl:w-14">
               <img
                 src="/images/logo.jpeg"
                 alt="Logo CEO Club"
@@ -55,17 +62,17 @@ export default function Sidebar({ nome }: SidebarProps) {
             </div>
 
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-bold leading-tight text-white">
+              <h1 className="truncate text-base font-bold leading-tight text-white 2xl:text-lg">
                 CEO Club
               </h1>
 
-              <p className="text-xs font-medium text-[#C9CED6]">
+              <p className="text-[11px] font-medium text-[#C9CED6] 2xl:text-xs">
                 Painel da mentora
               </p>
             </div>
           </div>
 
-          <div className="mb-4 rounded-[20px] border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+          <div className="mb-4 rounded-[20px] border border-white/10 bg-white/10 p-3 backdrop-blur-sm 2xl:p-4">
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#C9CED6]">
               Mentora
             </p>
@@ -88,16 +95,20 @@ export default function Sidebar({ nome }: SidebarProps) {
               <button
                 key={item.href}
                 type="button"
-                onClick={() => router.push(item.href)}
-                className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm font-bold transition ${
+                onClick={() => navegar(item.href)}
+                className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2.5 text-left text-[13px] font-bold transition 2xl:px-4 2xl:py-3 2xl:text-sm ${
                   ativo
                     ? "border-white/20 bg-white text-[#08163F] shadow-[0_10px_25px_rgba(255,255,255,0.14)]"
                     : "border-transparent bg-white/10 text-[#E5E7EB] hover:border-white/10 hover:bg-white/15 hover:text-white"
                 }`}
               >
-                <span>{item.label}</span>
+                <span className="truncate">{item.label}</span>
 
-                <span className={ativo ? "text-[#08163F]" : "text-[#BFC3C9]"}>
+                <span
+                  className={`ml-3 shrink-0 ${
+                    ativo ? "text-[#08163F]" : "text-[#BFC3C9]"
+                  }`}
+                >
                   →
                 </span>
               </button>
@@ -118,9 +129,46 @@ export default function Sidebar({ nome }: SidebarProps) {
             Sair
           </button>
         </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <aside className="fixed inset-y-0 left-0 z-50 hidden h-dvh w-[240px] flex-col overflow-hidden border-r border-white/10 bg-gradient-to-b from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-4 text-white shadow-[0_18px_50px_rgba(8,22,63,0.22)] lg:flex xl:w-[260px] 2xl:w-[290px] 2xl:p-5">
+        <ConteudoSidebar />
       </aside>
 
-      <div className="h-screen w-[290px] shrink-0" aria-hidden="true" />
+      <button
+        type="button"
+        onClick={() => setMenuAberto(true)}
+        className="fixed bottom-4 right-4 z-40 rounded-full bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-[0_14px_32px_rgba(8,22,63,0.35)] lg:hidden"
+      >
+        Menu
+      </button>
+
+      {menuAberto && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            aria-label="Fechar menu"
+            onClick={() => setMenuAberto(false)}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          />
+
+          <aside className="absolute bottom-0 left-0 top-0 flex w-[88vw] max-w-[360px] flex-col overflow-hidden bg-gradient-to-b from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-4 text-white shadow-[20px_0_50px_rgba(0,0,0,0.30)]">
+            <button
+              type="button"
+              onClick={() => setMenuAberto(false)}
+              className="relative z-10 mb-4 self-end rounded-2xl bg-white/10 px-3 py-2 text-sm font-black text-white"
+            >
+              X
+            </button>
+
+            <ConteudoSidebar />
+          </aside>
+        </div>
+      )}
     </>
   );
 }

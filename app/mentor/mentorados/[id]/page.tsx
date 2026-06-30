@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import ResetSenhaMentoradoCard from "@/components/ResetSenhaMentoradoCard";
 import {
   CartesianGrid,
   Line,
@@ -12,7 +11,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import { supabase } from "@/utils/supabase";
 
@@ -534,7 +532,7 @@ export default function PerfilMentoradoPage() {
 
   if (!usuario || carregando) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] px-4 text-[#08163F]">
+      <section className="flex min-h-full items-center justify-center px-4 text-[#08163F]">
         <div className="w-full max-w-sm rounded-[24px] border border-white/60 bg-white/90 p-6 text-center shadow-xl shadow-slate-200/70 backdrop-blur-sm">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-xs font-black text-white shadow-lg">
             CEO
@@ -552,16 +550,13 @@ export default function PerfilMentoradoPage() {
             <div className="h-full w-1/2 animate-pulse rounded-full bg-[#12317C]" />
           </div>
         </div>
-      </main>
+      </section>
     );
   }
 
   if (erro) {
     return (
-      <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-        <Sidebar nome={usuario.nome} role={usuario.role} />
-
-        <section className="relative flex min-w-0 flex-1 items-center justify-center overflow-x-hidden p-4 sm:p-6">
+      <section className="relative flex min-h-full min-w-0 items-center justify-center overflow-x-hidden p-4 text-[#08163F] sm:p-6">
           <div className="w-full max-w-lg rounded-[24px] bg-white p-6 text-center shadow-xl shadow-slate-200/70 sm:p-8">
             <h1 className="break-words text-2xl font-black sm:text-3xl">
               Erro ao carregar perfil
@@ -572,23 +567,19 @@ export default function PerfilMentoradoPage() {
             </p>
 
             <button
-              onClick={() => router.push("/mentorados")}
+              onClick={() => router.push("/mentor/mentorados")}
               className="mt-6 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white"
             >
               Voltar para mentorados
             </button>
           </div>
-        </section>
-      </main>
+      </section>
     );
   }
 
   if (!mentorado) {
     return (
-      <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-        <Sidebar nome={usuario.nome} role={usuario.role} />
-
-        <section className="relative flex min-w-0 flex-1 items-center justify-center overflow-x-hidden p-4 sm:p-6">
+      <section className="relative flex min-h-full min-w-0 items-center justify-center overflow-x-hidden p-4 text-[#08163F] sm:p-6">
           <div className="w-full max-w-lg rounded-[24px] bg-white p-6 text-center shadow-xl shadow-slate-200/70 sm:p-8">
             <h1 className="break-words text-2xl font-black sm:text-3xl">
               Mentorado não encontrado
@@ -599,28 +590,24 @@ export default function PerfilMentoradoPage() {
             </p>
 
             <button
-              onClick={() => router.push("/mentorados")}
+              onClick={() => router.push("/mentor/mentorados")}
               className="mt-6 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-bold text-white"
             >
               Voltar para mentorados
             </button>
           </div>
-        </section>
-      </main>
+      </section>
     );
   }
 
   const status = mentorado.status ?? "Ativo";
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-      <Sidebar nome={usuario.nome} role={usuario.role} />
-
-      <section className="relative min-w-0 flex-1 overflow-x-hidden">
+    <section className="relative min-w-0 overflow-x-hidden text-[#08163F]">
         <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <button
-              onClick={() => router.push("/mentorados")}
+              onClick={() => router.push("/mentor/mentorados")}
               className="rounded-xl bg-[#f3f5f8] px-3 py-2 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md sm:text-sm"
             >
               ← Voltar
@@ -952,7 +939,7 @@ export default function PerfilMentoradoPage() {
               </div>
 
               <button
-                onClick={() => router.push("/financeiro")}
+                onClick={() => router.push("/mentor/financeiro")}
                 className="mt-5 w-full rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
               >
                 Abrir financeiro geral →
@@ -995,22 +982,22 @@ export default function PerfilMentoradoPage() {
               <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-2">
                 <ActionButton
                   label="Agendar sessão"
-                  onClick={() => router.push("/agenda")}
+                  onClick={() => router.push("/mentor/agenda")}
                 />
 
                 <ActionButton
                   label="Abrir agenda"
-                  onClick={() => router.push("/agenda")}
+                  onClick={() => router.push("/mentor/agenda")}
                 />
 
                 <ActionButton
                   label="Ver módulos"
-                  onClick={() => router.push("/modulos")}
+                  onClick={() => router.push("/mentor/modulos")}
                 />
 
                 <ActionButton
                   label="Financeiro"
-                  onClick={() => router.push("/financeiro")}
+                  onClick={() => router.push("/mentor/financeiro")}
                 />
               </div>
             </Card>
@@ -1107,8 +1094,7 @@ export default function PerfilMentoradoPage() {
             </Card>
           </section>
         </div>
-      </section>
-    </main>
+    </section>
   );
 }
 

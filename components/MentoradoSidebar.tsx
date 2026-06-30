@@ -117,11 +117,11 @@ export default function MentoradoSidebar({
 
   return (
     <>
-      <aside className="fixed left-0 top-0 z-50 hidden h-screen w-[230px] flex-col overflow-hidden border-r border-black/5 bg-[#f6f7fb] px-3 py-3 text-[#08163F] shadow-[0_18px_50px_rgba(15,23,42,0.08)] lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-50 hidden h-dvh w-[220px] flex-col overflow-hidden border-r border-black/5 bg-[#f6f7fb] px-3 py-3 text-[#08163F] shadow-[0_18px_50px_rgba(15,23,42,0.08)] lg:flex xl:w-[230px]">
         <div className="flex h-full min-h-0 flex-col">
           <div className="shrink-0 rounded-[20px] bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.055)]">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[16px] bg-[#080D2D] p-1 shadow-md">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[16px] bg-[#080D2D] p-1 shadow-md xl:h-12 xl:w-12">
                 <img
                   src="/images/logo.jpeg"
                   alt="Logo CEO Club"
@@ -130,7 +130,7 @@ export default function MentoradoSidebar({
               </div>
 
               <div className="min-w-0">
-                <p className="text-[9px] font-black uppercase tracking-[0.26em] text-slate-400">
+                <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400 xl:tracking-[0.26em]">
                   Curso
                 </p>
 
@@ -150,7 +150,7 @@ export default function MentoradoSidebar({
                   key={item.href}
                   type="button"
                   onClick={() => navegar(item.href)}
-                  className={`flex w-full items-center justify-between rounded-[16px] px-4 py-2.5 text-left text-[13px] font-black transition ${
+                  className={`flex w-full items-center justify-between rounded-[16px] px-3 py-2.5 text-left text-[12px] font-black transition xl:px-4 xl:text-[13px] ${
                     ativo
                       ? "bg-[#EEF0FF] text-[#08163F] shadow-sm"
                       : "text-slate-500 hover:bg-white hover:text-[#08163F] hover:shadow-sm"
@@ -163,12 +163,14 @@ export default function MentoradoSidebar({
             })}
           </nav>
 
-          <div className="mt-3 shrink-0 rounded-[20px] bg-[#080D2D] p-4 text-white shadow-[0_12px_28px_rgba(8,13,45,0.16)]">
-            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#C9CED6]">
+          <div className="mt-3 shrink-0 rounded-[20px] bg-[#080D2D] p-3 text-white shadow-[0_12px_28px_rgba(8,13,45,0.16)] xl:p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#C9CED6] xl:tracking-[0.28em]">
               Mentorado
             </p>
 
-            <p className="mt-3 truncate text-base font-black">{nome}</p>
+            <p className="mt-3 truncate text-sm font-black xl:text-base">
+              {nome}
+            </p>
 
             <p className="mt-1 truncate text-xs font-black text-white/90">
               Inscrição {codigoEncontrado || "não informada"}
@@ -184,11 +186,6 @@ export default function MentoradoSidebar({
           </div>
         </div>
       </aside>
-
-      <div
-        className="hidden h-screen w-[230px] shrink-0 lg:block"
-        aria-hidden="true"
-      />
 
       <button
         type="button"
