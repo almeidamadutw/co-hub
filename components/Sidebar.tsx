@@ -3,26 +3,126 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
-type SidebarProps = {
-  nome: string;
+type MenuItem = {
+  label: string;
+  href: string;
 };
 
-const menusMentor = [
-  { label: "Dashboard", href: "/mentor/dashboard" },
-  { label: "Agenda", href: "/mentor/agenda" },
-  { label: "Mentorados", href: "/mentor/mentorados" },
-  { label: "Módulos", href: "/mentor/modulos" },
-  { label: "Simulados", href: "/mentor/simulados" },
-  { label: "Financeiro", href: "/mentor/financeiro" },
-  { label: "Relatórios", href: "/mentor/relatorios" },
-  { label: "Usuários", href: "/mentor/usuarios" },
-  { label: "Minha conta", href: "/mentor/conta" },
-];
+type SidebarRole = "mentor" | "mentorado" | "financeiro" | "suporte";
 
-export default function Sidebar({ nome }: SidebarProps) {
+type SidebarProps = {
+  nome: string;
+  role?: string;
+  acessoSuporte?: boolean;
+};
+
+const menusPorRole: Record<SidebarRole, MenuItem[]> = {
+  mentor: [
+    { label: "Dashboard", href: "/mentor/dashboard" },
+    { label: "Agenda", href: "/mentor/agenda" },
+    { label: "Mentorados", href: "/mentor/mentorados" },
+    { label: "Módulos", href: "/mentor/modulos" },
+    { label: "Simulados", href: "/mentor/simulados" },
+    { label: "Financeiro", href: "/mentor/financeiro" },
+    { label: "Relatórios", href: "/mentor/relatorios" },
+    { label: "Usuários", href: "/mentor/usuarios" },
+    { label: "Minha conta", href: "/mentor/conta" },
+  ],
+
+  mentorado: [
+    { label: "Dashboard", href: "/mentorado/dashboard" },
+    { label: "Módulos", href: "/mentorado/modulos" },
+    { label: "Praticar", href: "/mentorado/praticar" },
+    { label: "Progresso", href: "/mentorado/progresso" },
+    { label: "Financeiro", href: "/mentorado/financeiro" },
+    { label: "Agenda", href: "/mentorado/agenda" },
+    { label: "Suporte", href: "/mentorado/suporte" },
+    { label: "Minha conta", href: "/mentorado/conta" },
+  ],
+
+  financeiro: [
+    { label: "Dashboard", href: "/financeiro" },
+    { label: "Cobranças", href: "/financeiro/cobrancas" },
+    { label: "Relatórios", href: "/financeiro/relatorios" },
+    { label: "Minha conta", href: "/financeiro/conta" },
+  ],
+
+  suporte: [
+    { label: "Dashboard", href: "/suporte" },
+    { label: "Usuários", href: "/suporte/usuarios" },
+    { label: "Mentorados", href: "/suporte/mentorados" },
+    { label: "Financeiro", href: "/suporte/financeiro" },
+    { label: "Reset de senha", href: "/suporte/reset-senha" },
+    { label: "Relatórios", href: "/suporte/relatorios" },
+    { label: "Minha conta", href: "/suporte/conta" },
+  ],
+};
+
+function normalizarRole(role?: string): SidebarRole {
+  if (
+    role === "mentor" ||
+    role === "mentorado" ||
+    role === "financeiro" ||
+    role === "suporte"
+  ) {
+    return role;
+  }
+
+  return "mentor";
+}
+
+function tituloDoPainel(role: SidebarRole) {
+  const titulos: Record<SidebarRole, string> = {
+    mentor: "Painel da mentora",
+    mentorado: "Painel do mentorado",
+    financeiro: "Painel financeiro",
+    suporte: "Painel de suporte",
+  };
+
+  return titulos[role];
+}
+
+function nomeDoPerfil(role: SidebarRole) {
+  const nomes: Record<SidebarRole, string> = {
+    mentor: "Mentora",
+    mentorado: "Mentorado",
+    financeiro: "Financeiro",
+    suporte: "Suporte",
+  };
+
+  return nomes[role];
+}
+
+function subtituloDoPerfil(role: SidebarRole) {
+  const subtitulos: Record<SidebarRole, string> = {
+    mentor: "Gestão CEO Club",
+    mentorado: "Jornada CEO Club",
+    financeiro: "Controle de cobranças",
+    suporte: "Administração geral",
+  };
+
+  return subtitulos[role];
+}
+
+export default function Sidebar({
+  nome,
+  role = "mentor",
+  acessoSuporte = false,
+}: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
+
+  const roleAtual = normalizarRole(role);
+
+  const menusBase = menusPorRole[roleAtual];
+
+  const menus =
+    acessoSuporte &&
+    roleAtual !== "suporte" &&
+    !menusBase.some((item) => item.href === "/suporte")
+      ? [...menusBase, { label: "Área suporte", href: "/suporte" }]
+      : menusBase;
 
   function sair() {
     localStorage.removeItem("cohub_user");
@@ -42,6 +142,14 @@ export default function Sidebar({ nome }: SidebarProps) {
       return pathname === "/mentor/dashboard" || pathname === "/dashboard";
     }
 
+    if (href === "/suporte") {
+      return pathname === "/suporte" || pathname === "/suporte/dashboard";
+    }
+
+    if (href === "/financeiro") {
+      return pathname === "/financeiro" || pathname === "/financeiro/dashboard";
+    }
+
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
@@ -49,6 +157,7 @@ export default function Sidebar({ nome }: SidebarProps) {
     return (
       <>
         <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgba(229,231,235,0.16),transparent)]" />
+
         <div className="pointer-events-none absolute -left-14 bottom-10 h-36 w-36 rounded-full bg-[radial-gradient(circle,rgba(191,195,201,0.10),transparent)]" />
 
         <div className="relative z-10 shrink-0">
@@ -67,14 +176,14 @@ export default function Sidebar({ nome }: SidebarProps) {
               </h1>
 
               <p className="text-[11px] font-medium text-[#C9CED6] 2xl:text-xs">
-                Painel da mentora
+                {tituloDoPainel(roleAtual)}
               </p>
             </div>
           </div>
 
           <div className="mb-4 rounded-[20px] border border-white/10 bg-white/10 p-3 backdrop-blur-sm 2xl:p-4">
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#C9CED6]">
-              Mentora
+              {nomeDoPerfil(roleAtual)}
             </p>
 
             <p className="mt-2 break-words text-sm font-bold text-white">
@@ -82,13 +191,13 @@ export default function Sidebar({ nome }: SidebarProps) {
             </p>
 
             <p className="mt-1 text-xs font-semibold text-[#D9DEE7]">
-              Gestão CEO Club
+              {subtituloDoPerfil(roleAtual)}
             </p>
           </div>
         </div>
 
         <nav className="relative z-10 min-h-0 flex-1 space-y-2 overflow-y-auto pr-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {menusMentor.map((item) => {
+          {menus.map((item) => {
             const ativo = rotaAtiva(item.href);
 
             return (
