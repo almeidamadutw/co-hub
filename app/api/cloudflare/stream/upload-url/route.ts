@@ -1,8 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  erroConfig,
+  responderPermissaoNegada,
+  verificarAcesso,
+} from "@/utils/apiAuth";
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const config = erroConfig();
+
+  if (config) {
+    return NextResponse.json({ error: config }, { status: 500 });
+  }
+
+  const permissao = await verificarAcesso(req, ["mentor", "suporte"]);
+
+  if (!permissao.ok) {
+    return responderPermissaoNegada(permissao);
+  }
+
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
   const token = process.env.CLOUDFLARE_STREAM_TOKEN;
 

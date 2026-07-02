@@ -418,113 +418,117 @@ export default function MentoradoModulosPage() {
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
         <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
-            <div className="flex min-w-0 items-center gap-3">
-              <button
-                onClick={() => router.push("/mentorado/dashboard")}
-                className="rounded-xl bg-[#f3f5f8] px-3 py-2 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md sm:text-sm"
-              >
-                ← Voltar
-              </button>
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.push("/mentorado/dashboard")}
+              className="rounded-xl bg-[#f3f5f8] px-3 py-2 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md sm:text-sm"
+            >
+              ← Voltar
+            </button>
 
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 sm:text-xs">
-                  Jornada CEO Club
-                </p>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 sm:text-xs">
+                Jornada CEO Club
+              </p>
 
-                <h2 className="line-clamp-1 text-base font-black sm:text-lg md:text-xl">
-                  {moduloSelecionado ? getModuloPremium(moduloSelecionado) : "Módulos"}
-                </h2>
-              </div>
+              <h2 className="line-clamp-1 text-base font-black sm:text-lg md:text-xl">
+                {moduloSelecionado ? getModuloPremium(moduloSelecionado) : "Módulos"}
+              </h2>
             </div>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => router.push("/mentorado/suporte")}
-                className="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-[#08163F] shadow-sm sm:text-sm"
-              >
-                Suporte
-              </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.push("/mentorado/suporte")}
+              className="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-[#08163F] shadow-sm sm:text-sm"
+            >
+              Suporte
+            </button>
 
-              <button
-                onClick={sair}
-                className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-black text-white shadow-lg sm:text-sm"
-              >
-                Sair
-              </button>
+            <button
+              type="button"
+              onClick={sair}
+              className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-black text-white shadow-lg sm:text-sm"
+            >
+              Sair
+            </button>
+          </div>
+        </header>
+
+        <div className="min-w-0 px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+          {erro && (
+            <div className="mb-4 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+              {erro}
             </div>
-          </header>
+          )}
 
-        <div className="grid min-w-0 gap-4 px-4 py-4 sm:px-5 lg:px-6 lg:py-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
-            {erro && (
-              <section className="lg:col-span-2">
-                <div className="rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
-                  {erro}
-                </div>
-              </section>
-            )}
+          {modulosDisponiveis.length === 0 ? (
+            <section className="rounded-[24px] border border-dashed border-slate-200 bg-white p-6 text-center shadow-xl shadow-slate-200/70 sm:p-8">
+              <h1 className="break-words text-xl font-black sm:text-2xl">
+                Nenhum módulo liberado ainda
+              </h1>
 
-            {modulosDisponiveis.length === 0 ? (
-              <section className="lg:col-span-2">
-                <div className="rounded-[24px] border border-dashed border-slate-200 bg-white p-6 text-center shadow-xl shadow-slate-200/70 sm:p-8">
-                  <h1 className="break-words text-xl font-black sm:text-2xl">Nenhum módulo liberado ainda</h1>
-                  <p className="mx-auto mt-3 max-w-xl text-sm font-semibold leading-6 text-slate-500">
-                    Seus próximos módulos ficam bloqueados até a mentora liberar a nova etapa da sua jornada.
-                  </p>
-                </div>
-              </section>
-            ) : (
-              <>
-                <section className="min-w-0 space-y-4">
-                  {moduloSelecionado && (
-                    <section className="min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-2xl shadow-[#07122F]/20 sm:p-5 lg:rounded-[26px] lg:p-6">
-                      <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                        <div className="min-w-0">
-                          <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-200">
-                            Módulo {moduloSelecionado.ordem}
-                          </p>
+              <p className="mx-auto mt-3 max-w-xl text-sm font-semibold leading-6 text-slate-500">
+                Seus próximos módulos ficam bloqueados até a mentora liberar a
+                nova etapa da sua jornada.
+              </p>
+            </section>
+          ) : (
+            <div className="min-w-0 space-y-4">
+              {moduloSelecionado && (
+                <section className="min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-2xl shadow-[#07122F]/20 sm:p-5 lg:rounded-[26px] lg:p-6">
+                  <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-200">
+                        Módulo {moduloSelecionado.ordem}
+                      </p>
 
-                          <h1 className="mt-2 break-words text-xl font-black leading-tight sm:text-2xl lg:text-3xl">
-                            {getModuloPremium(moduloSelecionado)}
-                          </h1>
+                      <h1 className="mt-2 break-words text-xl font-black leading-tight sm:text-2xl lg:text-3xl">
+                        {getModuloPremium(moduloSelecionado)}
+                      </h1>
 
-                          <p className="mt-2 break-words text-sm font-black text-blue-100">
-                            {getModuloExplicativo(moduloSelecionado)}
-                          </p>
+                      <p className="mt-2 break-words text-sm font-black text-blue-100">
+                        {getModuloExplicativo(moduloSelecionado)}
+                      </p>
 
-                          <p className="mt-3 max-w-3xl break-words text-sm font-semibold leading-6 text-[#D9DEE7]">
-                            {getModuloDescricaoCurta(moduloSelecionado) ||
-                              "Este módulo ainda não possui descrição curta."}
-                          </p>
-                        </div>
+                      <p className="mt-3 max-w-3xl break-words text-sm font-semibold leading-6 text-[#D9DEE7]">
+                        {getModuloDescricaoCurta(moduloSelecionado) ||
+                          "Este módulo ainda não possui descrição curta."}
+                      </p>
+                    </div>
 
-                        <div className="w-full rounded-[20px] border border-white/15 bg-white/10 p-3 backdrop-blur-sm xl:max-w-[230px]">
-                          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">
-                            Status do mentorado
-                          </p>
+                    <div className="w-full rounded-[20px] border border-white/15 bg-white/10 p-3 backdrop-blur-sm xl:max-w-[250px]">
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">
+                        Status do mentorado
+                      </p>
 
-                          <div className="mt-2 flex items-center justify-between gap-3">
-                            <StatusMentoradoBadge status={progressoModuloSelecionado.status} />
-                            <strong className="text-xl font-black">
-                              {progressoModuloSelecionado.percentual}%
-                            </strong>
-                          </div>
-
-                          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/15">
-                            <div
-                              className="h-full rounded-full bg-white"
-                              style={{ width: `${progressoModuloSelecionado.percentual}%` }}
-                            />
-                          </div>
-
-                          <p className="mt-2 text-xs font-bold text-blue-100">
-                            {progressoModuloSelecionado.concluidas}/
-                            {progressoModuloSelecionado.total} aula(s)
-                          </p>
-                        </div>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <StatusMentoradoBadge status={progressoModuloSelecionado.status} />
+                        <strong className="text-xl font-black">
+                          {progressoModuloSelecionado.percentual}%
+                        </strong>
                       </div>
-                    </section>
-                  )}
 
+                      <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/15">
+                        <div
+                          className="h-full rounded-full bg-white"
+                          style={{ width: `${progressoModuloSelecionado.percentual}%` }}
+                        />
+                      </div>
+
+                      <p className="mt-2 text-xs font-bold text-blue-100">
+                        {progressoModuloSelecionado.concluidas}/
+                        {progressoModuloSelecionado.total} aula(s)
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,400px)] 2xl:grid-cols-[minmax(0,1fr)_420px]">
+                <section className="min-w-0 space-y-4">
                   <section className="min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] shadow-2xl shadow-[#07122F]/20 sm:rounded-[24px]">
                     {embedUrl ? (
                       <iframe
@@ -554,7 +558,7 @@ export default function MentoradoModulosPage() {
                   </section>
 
                   <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                    <div>
+                    <div className="min-w-0">
                       <h2 className="max-w-3xl break-words text-xl font-black leading-tight text-[#050816] sm:text-2xl">
                         {aulaSelecionada?.titulo ||
                           getModuloPremium(moduloSelecionado as ModuloMentoria)}
@@ -575,6 +579,7 @@ export default function MentoradoModulosPage() {
 
                     <div className="flex flex-wrap gap-2 sm:gap-3">
                       <button
+                        type="button"
                         onClick={() => setModalArquivosAberto(true)}
                         className="rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-black text-[#08163F] shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
                       >
@@ -583,6 +588,7 @@ export default function MentoradoModulosPage() {
 
                       {aulaSelecionada && (
                         <button
+                          type="button"
                           disabled={salvandoProgresso}
                           onClick={() => alternarConclusao(aulaSelecionada.id)}
                           className={`rounded-2xl px-4 py-2.5 text-sm font-black shadow-lg transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${
@@ -648,6 +654,7 @@ export default function MentoradoModulosPage() {
                     }
                     acao={
                       <button
+                        type="button"
                         onClick={() => router.push("/mentorado/praticar")}
                         className="inline-flex items-center justify-center whitespace-nowrap rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:brightness-110"
                       >
@@ -657,7 +664,7 @@ export default function MentoradoModulosPage() {
                   />
                 </section>
 
-                <aside className="min-w-0">
+                <aside className="min-w-0 xl:sticky xl:top-[84px] xl:self-start">
                   <section className="min-w-0 rounded-[22px] bg-white p-4 shadow-xl shadow-slate-200/70 sm:rounded-[24px]">
                     <div className="rounded-[20px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white sm:p-5">
                       <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
@@ -677,11 +684,14 @@ export default function MentoradoModulosPage() {
                       </p>
 
                       <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/15">
-                        <div className="h-full rounded-full bg-white" style={{ width: `${progressoGeral}%` }} />
+                        <div
+                          className="h-full rounded-full bg-white"
+                          style={{ width: `${progressoGeral}%` }}
+                        />
                       </div>
                     </div>
 
-                    <div className="mt-4 max-h-[calc(100vh-260px)] space-y-3 overflow-y-auto overflow-x-hidden pr-2">
+                    <div className="mt-4 max-h-[calc(100vh-300px)] space-y-3 overflow-y-auto overflow-x-hidden pr-2">
                       {modulosVisiveis.map((modulo) => {
                         const bloqueado = !moduloLiberado(modulo.id);
                         const aulasConcluidasModulo = modulo.aulas.filter((aula) =>
@@ -696,15 +706,18 @@ export default function MentoradoModulosPage() {
                         const statusModulo = bloqueado
                           ? "Bloqueado"
                           : modulo.aulas.length === 0
-                            ? "Não iniciado"
-                            : percentualModulo === 100
-                            ? "Concluído"
-                            : percentualModulo > 0
-                            ? "Em andamento"
-                            : "Não iniciado";
+                          ? "Não iniciado"
+                          : percentualModulo === 100
+                          ? "Concluído"
+                          : percentualModulo > 0
+                          ? "Em andamento"
+                          : "Não iniciado";
 
                         return (
-                          <div key={modulo.id} className="min-w-0 overflow-hidden rounded-[20px] border border-slate-100">
+                          <div
+                            key={modulo.id}
+                            className="min-w-0 overflow-hidden rounded-[20px] border border-slate-100"
+                          >
                             <button
                               type="button"
                               onClick={() => selecionarModulo(modulo.id)}
@@ -717,7 +730,7 @@ export default function MentoradoModulosPage() {
                               }`}
                             >
                               <div className="flex items-start justify-between gap-3">
-                                <div>
+                                <div className="min-w-0">
                                   <span className="rounded-full bg-[#08163F] px-3 py-1.5 text-[11px] font-black text-white">
                                     Módulo {modulo.ordem}
                                   </span>
@@ -731,7 +744,7 @@ export default function MentoradoModulosPage() {
                                   </p>
                                 </div>
 
-                                <span className="text-sm font-black text-slate-500">
+                                <span className="shrink-0 text-sm font-black text-slate-500">
                                   {aulasConcluidasModulo}/{modulo.aulas.length}
                                 </span>
                               </div>
@@ -780,9 +793,10 @@ export default function MentoradoModulosPage() {
                     </div>
                   </section>
                 </aside>
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          )}
+        </div>
       </section>
 
       {modalArquivosAberto && (
@@ -800,6 +814,7 @@ export default function MentoradoModulosPage() {
               </div>
 
               <button
+                type="button"
                 onClick={() => setModalArquivosAberto(false)}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f3f5f8] text-xl font-black text-[#08163F] transition hover:bg-gray-200"
               >
@@ -810,7 +825,10 @@ export default function MentoradoModulosPage() {
             {arquivosDaAula.length > 0 ? (
               <div className="space-y-4">
                 {arquivosDaAula.map((arquivo) => (
-                  <div key={arquivo.id} className="flex min-w-0 flex-col gap-3 rounded-[20px] bg-[#f9fafb] p-4 md:flex-row md:items-center md:justify-between">
+                  <div
+                    key={arquivo.id}
+                    className="flex min-w-0 flex-col gap-3 rounded-[20px] bg-[#f9fafb] p-4 md:flex-row md:items-center md:justify-between"
+                  >
                     <div className="min-w-0">
                       <p className="break-words text-base font-black text-[#08163F] sm:text-lg">
                         📄 {arquivo.nome}
@@ -821,7 +839,12 @@ export default function MentoradoModulosPage() {
                       </p>
                     </div>
 
-                    <a href={arquivo.url} target="_blank" rel="noreferrer" className="rounded-2xl bg-gradient-to-b from-[#F3F4F6] via-[#D1D5DB] to-[#9CA3AF] px-5 py-3 text-center text-sm font-black text-[#08163F] shadow-lg transition hover:brightness-105">
+                    <a
+                      href={arquivo.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-2xl bg-gradient-to-b from-[#F3F4F6] via-[#D1D5DB] to-[#9CA3AF] px-5 py-3 text-center text-sm font-black text-[#08163F] shadow-lg transition hover:brightness-105"
+                    >
                       Abrir material
                     </a>
                   </div>
@@ -844,7 +867,6 @@ export default function MentoradoModulosPage() {
     </main>
   );
 }
-
 function AulaListaButton({
   aula,
   concluida,

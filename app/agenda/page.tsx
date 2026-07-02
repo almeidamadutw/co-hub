@@ -2,8 +2,9 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import AuthGuard from "@/components/AuthGuard";
 
-export default function AgendaRedirectPage() {
+function AgendaRedirectContent() {
   const router = useRouter();
 
   useEffect(() => {
@@ -22,5 +23,13 @@ export default function AgendaRedirectPage() {
         </h1>
       </div>
     </main>
+  );
+}
+
+export default function AgendaRedirectPage() {
+  return (
+    <AuthGuard permitido={["mentor", "suporte"]}>
+      <AgendaRedirectContent />
+    </AuthGuard>
   );
 }

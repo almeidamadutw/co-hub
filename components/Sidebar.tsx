@@ -114,7 +114,6 @@ export default function Sidebar({
   const [menuAberto, setMenuAberto] = useState(false);
 
   const roleAtual = normalizarRole(role);
-
   const menusBase = menusPorRole[roleAtual];
 
   const menus =
@@ -157,7 +156,6 @@ export default function Sidebar({
     return (
       <>
         <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgba(229,231,235,0.16),transparent)]" />
-
         <div className="pointer-events-none absolute -left-14 bottom-10 h-36 w-36 rounded-full bg-[radial-gradient(circle,rgba(191,195,201,0.10),transparent)]" />
 
         <div className="relative z-10 shrink-0">
@@ -196,7 +194,7 @@ export default function Sidebar({
           </div>
         </div>
 
-        <nav className="relative z-10 min-h-0 flex-1 space-y-2 overflow-y-auto pr-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <nav className="no-scrollbar relative z-10 min-h-0 flex-1 space-y-2 overflow-y-auto pr-0">
           {menus.map((item) => {
             const ativo = rotaAtiva(item.href);
 

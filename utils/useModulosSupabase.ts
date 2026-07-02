@@ -68,6 +68,29 @@ export function getModuloDescricaoCurta(modulo: ModuloMentoria) {
   return modulo.descricao_curta?.trim() || modulo.descricao || "";
 }
 
+function mensagemErroSupabase(error: unknown, fallback: string) {
+  if (!error) return fallback;
+
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+
+  if (typeof error === "object" && error !== null) {
+    const erroObj = error as {
+      message?: string;
+      details?: string;
+      hint?: string;
+      code?: string;
+    };
+
+    return [erroObj.message, erroObj.details, erroObj.hint, erroObj.code]
+      .filter(Boolean)
+      .join(" | ") || fallback;
+  }
+
+  return fallback;
+}
+
 export function useModulosSupabase() {
   const [modulos, setModulos] = useState<ModuloMentoria[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -118,16 +141,26 @@ export function useModulosSupabase() {
       .order("ordem", { ascending: true });
 
     if (error) {
-      setErro(error.message);
+      console.error("Erro ao carregar módulos:", error);
+      setErro(mensagemErroSupabase(error, "Não foi possível carregar os módulos."));
       setCarregando(false);
       return;
     }
 
     const modulosTratados = (data ?? []).map((modulo: any) => ({
       ...modulo,
-      aulas: [...(modulo.aulas ?? [])].sort(
-        (a: AulaModulo, b: AulaModulo) => Number(a.ordem) - Number(b.ordem)
-      ),
+      aulas: [...(modulo.aulas ?? [])]
+        .sort(
+          (a: AulaModulo, b: AulaModulo) => Number(a.ordem) - Number(b.ordem)
+        )
+        .map((aula: AulaModulo) => ({
+          ...aula,
+          materiais_aula: [...(aula.materiais_aula ?? [])].sort((a, b) => {
+            const dataA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const dataB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return dataB - dataA;
+          }),
+        })),
     })) as ModuloMentoria[];
 
     setModulos(modulosTratados);
@@ -144,15 +177,21 @@ export function useModulosSupabase() {
 
   const aulasComVideo = useMemo(() => {
     return modulos.reduce((total, modulo) => {
-      return total + modulo.aulas.filter((aula) => Boolean(aula.video_url?.trim())).length;
+      return (
+        total +
+        modulo.aulas.filter((aula) => Boolean(aula.video_url?.trim())).length
+      );
     }, 0);
   }, [modulos]);
 
   const totalMateriais = useMemo(() => {
     return modulos.reduce((total, modulo) => {
-      return total + modulo.aulas.reduce(
-        (soma, aula) => soma + (aula.materiais_aula?.length ?? 0),
-        0
+      return (
+        total +
+        modulo.aulas.reduce(
+          (soma, aula) => soma + (aula.materiais_aula?.length ?? 0),
+          0
+        )
       );
     }, 0);
   }, [modulos]);
@@ -186,7 +225,7 @@ export function useModulosSupabase() {
       criado_por: payload.criadoPor ?? null,
     });
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mensagemErroSupabase(error, "Não foi possível criar o módulo."));
 
     await carregarModulos();
   }
@@ -206,14 +245,14 @@ export function useModulosSupabase() {
       })
       .eq("id", moduloId);
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mensagemErroSupabase(error, "Não foi possível atualizar o módulo."));
 
     await carregarModulos();
   }
 
   async function excluirModulo(moduloId: string) {
     const { error } = await supabase.from("modulos").delete().eq("id", moduloId);
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mensagemErroSupabase(error, "Não foi possível excluir o módulo."));
     await carregarModulos();
   }
 
@@ -238,15 +277,15 @@ export function useModulosSupabase() {
     const { error } = await supabase.from("aulas").insert({
       modulo_id: moduloId,
       titulo,
-      descricao,
-      objetivo,
-      duracao,
-      video_url: videoUrl,
+      descricao: descricao || null,
+      objetivo: objetivo || null,
+      duracao: duracao || null,
+      video_url: videoUrl || null,
       ordem,
       ativo: true,
     });
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mensagemErroSupabase(error, "Não foi possível criar a aula."));
 
     await carregarModulos();
   }
@@ -268,14 +307,14 @@ export function useModulosSupabase() {
       })
       .eq("id", aulaId);
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mensagemErroSupabase(error, "Não foi possível atualizar a aula."));
 
     await carregarModulos();
   }
 
   async function excluirAula(aulaId: string) {
     const { error } = await supabase.from("aulas").delete().eq("id", aulaId);
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mensagemErroSupabase(error, "Não foi possível excluir a aula."));
     await carregarModulos();
   }
 
@@ -288,15 +327,25 @@ export function useModulosSupabase() {
     nome: string;
     url: string;
   }) {
-    const { error } = await supabase.from("materiais_aula").insert({
+    const payload = {
       aula_id: aulaId,
-      nome,
-      url,
-    });
+      nome: nome.trim(),
+      url: url.trim(),
+    };
 
-    if (error) throw new Error(error.message);
+    const { data, error } = await supabase
+      .from("materiais_aula")
+      .insert(payload)
+      .select("id, aula_id, nome, url, created_at")
+      .single();
+
+    if (error) {
+      console.error("Erro ao salvar material em materiais_aula:", error, payload);
+      throw new Error(mensagemErroSupabase(error, "Não foi possível salvar o material no banco."));
+    }
 
     await carregarModulos();
+    return data as ArquivoAula;
   }
 
   async function removerMaterial(materialId: string) {
@@ -305,7 +354,7 @@ export function useModulosSupabase() {
       .delete()
       .eq("id", materialId);
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mensagemErroSupabase(error, "Não foi possível remover o material."));
 
     await carregarModulos();
   }
