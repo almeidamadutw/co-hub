@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, usuarioTemPermissao, User } from "@/utils/auth";
@@ -91,7 +91,6 @@ function iconeTipo(tipo: string) {
 
 export default function MentorBibliotecaPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [usuario, setUsuario] = useState<User | null>(null);
   const [mentorados, setMentorados] = useState<MentoradoResumo[]>([]);
@@ -158,7 +157,8 @@ export default function MentorBibliotecaPage() {
     const lista = (data ?? []) as MentoradoResumo[];
     setMentorados(lista);
 
-    const mentoradoIdUrl = searchParams.get("mentoradoId");
+    const params = new URLSearchParams(window.location.search);
+    const mentoradoIdUrl = params.get("mentoradoId") || params.get("mentorado");
     const primeiroId = mentoradoIdUrl || lista[0]?.id || "";
 
     setForm((atual) => ({ ...atual, mentoradoId: atual.mentoradoId || primeiroId }));
