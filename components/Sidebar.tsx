@@ -20,18 +20,19 @@ const menusPorRole: Record<SidebarRole, MenuItem[]> = {
   mentor: [
     { label: "Dashboard", href: "/mentor/dashboard" },
     { label: "Agenda", href: "/mentor/agenda" },
-    { label: "Mentorados", href: "/mentor/mentorados" },
+    { label: "Mentorados", href: "/mentor/mentorados/lista" },
+    { label: "Biblioteca", href: "/mentor/biblioteca" },
     { label: "Módulos", href: "/mentor/modulos" },
     { label: "Simulados", href: "/mentor/simulados" },
     { label: "Financeiro", href: "/mentor/financeiro" },
     { label: "Relatórios", href: "/mentor/relatorios" },
-    { label: "Usuários", href: "/mentor/usuarios" },
     { label: "Minha conta", href: "/mentor/conta" },
   ],
 
   mentorado: [
     { label: "Dashboard", href: "/mentorado/dashboard" },
     { label: "Módulos", href: "/mentorado/modulos" },
+    { label: "Biblioteca", href: "/mentorado/biblioteca" },
     { label: "Praticar", href: "/mentorado/praticar" },
     { label: "Progresso", href: "/mentorado/progresso" },
     { label: "Financeiro", href: "/mentorado/financeiro" },
@@ -51,6 +52,7 @@ const menusPorRole: Record<SidebarRole, MenuItem[]> = {
     { label: "Dashboard", href: "/suporte" },
     { label: "Usuários", href: "/suporte/usuarios" },
     { label: "Mentorados", href: "/suporte/mentorados" },
+    { label: "Biblioteca", href: "/suporte/biblioteca" },
     { label: "Financeiro", href: "/suporte/financeiro" },
     { label: "Reset de senha", href: "/suporte/reset-senha" },
     { label: "Relatórios", href: "/suporte/relatorios" },
@@ -139,6 +141,14 @@ export default function Sidebar({
   function rotaAtiva(href: string) {
     if (href === "/mentor/dashboard") {
       return pathname === "/mentor/dashboard" || pathname === "/dashboard";
+    }
+
+    if (href === "/mentor/mentorados/lista") {
+      return (
+        pathname === "/mentor/mentorados" ||
+        pathname === "/mentor/mentorados/lista" ||
+        pathname.startsWith("/mentor/mentorados/")
+      );
     }
 
     if (href === "/suporte") {

@@ -7,13 +7,13 @@ export default function MentorMentoradosRedirectPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/mentorados");
+    router.replace("/mentor/mentorados/lista");
   }, [router]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-      <div className="rounded-[24px] bg-white p-8 text-center shadow-xl">
-        <p className="text-sm font-black uppercase tracking-[0.22em] text-gray-400">
+    <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] px-4 text-[#08163F]">
+      <div className="w-full max-w-xl rounded-[28px] bg-white p-8 text-center shadow-xl shadow-slate-200/70">
+        <p className="text-xs font-black uppercase tracking-[0.28em] text-slate-400">
           CEO Club
         </p>
 

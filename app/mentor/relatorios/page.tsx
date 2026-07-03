@@ -188,7 +188,7 @@ export default function RelatoriosPage() {
       return;
     }
 
-    if (user.role !== "mentor" && user.role !== "financeiro") {
+    if (user.role !== "mentor" && user.role !== "financeiro" && user.role !== "suporte") {
       logoutUsuario();
       router.replace("/login");
       return;
@@ -758,9 +758,9 @@ export default function RelatoriosPage() {
 
   return (
     <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-      <Sidebar nome={usuario.nome} role={usuario.role} />
+      <Sidebar nome={usuario.nome} role="mentor" acessoSuporte={usuario.role === "suporte"} />
 
-      <section className="relative min-w-0 flex-1 overflow-x-hidden">
+      <section className="ceo-content no-scrollbar !p-4 sm:!p-5 lg:!p-6">
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#12317C]/15 blur-3xl" />
         <div className="pointer-events-none absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-slate-300/30 blur-3xl" />
 
@@ -795,8 +795,8 @@ export default function RelatoriosPage() {
           </div>
         </header>
 
-        <div className="relative z-10 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <section className="relative min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-2xl shadow-[#07122F]/25 sm:p-5 lg:rounded-[26px] lg:p-6">
+        <div className="ceo-stack !max-w-7xl">
+          <section className="relative min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl shadow-[#07122F]/20 sm:p-5">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
             <div className="absolute -bottom-32 left-20 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl" />
 
@@ -806,7 +806,7 @@ export default function RelatoriosPage() {
                   Inteligência da mentoria
                 </p>
 
-                <h2 className="mt-3 max-w-5xl break-words text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
+                <h2 className="mt-3 max-w-5xl break-words text-xl font-black leading-tight sm:text-2xl lg:text-3xl">
                   Relatórios para cruzar financeiro, progresso, mentorados e agenda.
                 </h2>
 
@@ -819,7 +819,7 @@ export default function RelatoriosPage() {
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-100">
                   Progresso médio
                 </p>
-                <p className="mt-2 break-words text-3xl font-black sm:text-4xl">{resumoProgresso.percentualMedio}%</p>
+                <p className="mt-2 break-words text-2xl font-black sm:text-3xl">{resumoProgresso.percentualMedio}%</p>
                 <p className="mt-1 text-sm font-semibold text-blue-100">
                   {resumoProgresso.totalConclusoes} conclusões registradas
                 </p>
@@ -827,7 +827,7 @@ export default function RelatoriosPage() {
             </div>
           </section>
 
-          <section className="mt-4 min-w-0 rounded-[20px] border border-white/50 bg-white/85 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm sm:p-5">
+          <section className="mt-3 min-w-0 rounded-[20px] border border-white/50 bg-white/85 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm sm:p-5">
             <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.1fr)_minmax(180px,0.8fr)_minmax(160px,0.7fr)_minmax(170px,0.7fr)]">
               <input
                 value={busca}
@@ -887,21 +887,21 @@ export default function RelatoriosPage() {
             </div>
           ))}
 
-          <section className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KPI titulo="Progresso médio" valor={`${resumoProgresso.percentualMedio}%`} texto={`${resumoProgresso.aulasConcluidasMedia} aulas por mentorado em média.`} destaque />
             <KPI titulo="Mentorados" valor={String(mentoradosFiltrados.length)} texto={`${resumoProgresso.semProgresso} sem progresso registrado.`} alerta={resumoProgresso.semProgresso > 0} />
             <KPI titulo="Presença" valor={`${resumoAgenda.taxaPresenca}%`} texto={`${resumoAgenda.concluidos}/${resumoAgenda.total} eventos concluídos.`} />
             <KPI titulo="Recebimento" valor={`${resumoFinanceiro.taxaRecebimento}%`} texto={`${formatarMoeda(resumoFinanceiro.recebido)} recebidos.`} />
           </section>
 
-          <section className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KPI titulo="Receita prevista" valor={formatarMoeda(resumoFinanceiro.previsto)} texto="Soma das parcelas dentro dos filtros." />
             <KPI titulo="Em aberto" valor={formatarMoeda(resumoFinanceiro.aberto)} texto="Pendentes e atrasadas." />
             <KPI titulo="Atrasado" valor={formatarMoeda(resumoFinanceiro.atrasado)} texto={`${resumoFinanceiro.mentoradosComAtraso} mentorado(s) com atraso.`} alerta={resumoFinanceiro.atrasado > 0} />
             <KPI titulo="Módulo difícil" valor={resumoProgresso.moduloMaisDificil?.titulo ?? "—"} texto={`${resumoProgresso.moduloMaisDificil?.percentual ?? 0}% de progresso médio.`} alerta />
           </section>
 
-          <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+          <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
             <Card
               etiqueta="Gráfico de linha"
               titulo="Evolução geral da turma"
@@ -947,7 +947,7 @@ export default function RelatoriosPage() {
             </Card>
           </section>
 
-          <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+          <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
             <Card
               etiqueta="Financeiro"
               titulo="Evolução financeira mensal"
@@ -989,7 +989,7 @@ export default function RelatoriosPage() {
             </Card>
           </section>
 
-          <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
+          <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
             <Card
               etiqueta="Acompanhamento"
               titulo="Mentorados em atenção"
@@ -1054,7 +1054,7 @@ export default function RelatoriosPage() {
             </Card>
           </section>
 
-          <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-2">
+          <section className="mt-3 grid min-w-0 gap-3 xl:grid-cols-2">
             <Card
               etiqueta="Agenda"
               titulo="Próximos encontros"
@@ -1118,7 +1118,7 @@ export default function RelatoriosPage() {
             </Card>
           </section>
 
-          <section className="mt-4 min-w-0 rounded-[22px] bg-white p-4 shadow-xl shadow-slate-200/70 sm:rounded-[24px] sm:p-5 lg:p-6">
+          <section className="mt-3 min-w-0 rounded-[20px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:rounded-[22px]">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
@@ -1233,18 +1233,18 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="min-w-0 overflow-hidden rounded-[22px] bg-white p-4 shadow-xl shadow-slate-200/70 sm:rounded-[24px] sm:p-5 lg:p-6">
+    <section className="min-w-0 overflow-hidden rounded-[20px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:rounded-[22px]">
       <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
         {etiqueta}
       </p>
 
-      <h3 className="mt-1 break-words text-lg font-black sm:text-xl">{titulo}</h3>
+      <h3 className="mt-1 break-words text-base font-black sm:text-lg">{titulo}</h3>
 
       <p className="mt-2 break-words text-sm font-semibold leading-6 text-slate-500">
         {descricao}
       </p>
 
-      <div className="mt-4 min-w-0">{children}</div>
+      <div className="mt-3 min-w-0">{children}</div>
     </section>
   );
 }

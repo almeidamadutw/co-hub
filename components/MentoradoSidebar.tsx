@@ -21,6 +21,7 @@ const menusMentorado = [
   { label: "Início", href: "/mentorado/dashboard" },
   { label: "Minha agenda", href: "/mentorado/agenda" },
   { label: "Meus módulos", href: "/mentorado/modulos" },
+  { label: "Biblioteca", href: "/mentorado/biblioteca" },
   { label: "Praticar", href: "/mentorado/praticar" },
   { label: "Meu progresso", href: "/mentorado/progresso" },
   { label: "Financeiro", href: "/mentorado/financeiro" },
