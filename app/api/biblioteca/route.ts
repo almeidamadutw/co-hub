@@ -4,6 +4,19 @@ import { supabase } from "@/utils/supabase";
 const BUCKET_BIBLIOTECA = "ceo-club-biblioteca";
 const LIMITE_UPLOAD_BYTES = 25 * 1024 * 1024;
 
+const BUCKETS_POSSIVEIS_AULAS = Array.from(
+  new Set([
+    process.env.NEXT_PUBLIC_SUPABASE_BUCKET_AULAS,
+    process.env.SUPABASE_BUCKET_AULAS,
+    "ceo-club-aulas",
+    "ceo-club-materiais",
+    "ceo-club-biblioteca",
+    "biblioteca",
+    "materiais",
+    "aulas",
+  ].filter(Boolean) as string[])
+);
+
 type OrigemBiblioteca = "biblioteca" | "aula";
 
 type BibliotecaItem = {
@@ -32,9 +45,14 @@ const CAMPOS_LISTA_MATERIAIS = [
   "documentos",
   "anexos",
   "materiais_aula",
+  "arquivos_aula",
+  "documentos_aula",
+  "files",
+  "attachments",
 ];
 
 const CAMPOS_URL_MATERIAL = [
+  "url",
   "arquivo_url",
   "material_url",
   "url_material",
@@ -44,11 +62,61 @@ const CAMPOS_URL_MATERIAL = [
   "link_url",
   "documento_url",
   "anexo_url",
-  "url",
+  "public_url",
+  "publicUrl",
+  "href",
+  "src",
+];
+
+const CAMPOS_STORAGE_PATH = [
+  "storage_path",
+  "arquivo_storage_path",
+  "material_storage_path",
+  "documento_storage_path",
+  "anexo_storage_path",
+  "storagePath",
+  "arquivo_path",
+  "material_path",
+  "documento_path",
+  "anexo_path",
+  "file_path",
+  "path",
+  "caminho",
+  "arquivo",
+  "documento",
+];
+
+const CAMPOS_BUCKET = [
+  "bucket",
+  "bucket_name",
+  "bucketName",
+  "storage_bucket",
+  "storageBucket",
+];
+
+const TABELAS_MATERIAIS_AULA = [
+  "aula_documentos",
+  "aula_materiais",
+  "aula_arquivos",
+  "aulas_documentos",
+  "aulas_materiais",
+  "aulas_arquivos",
+  "materiais_aula",
+  "documentos_aula",
+  "arquivos_aula",
 ];
 
 function texto(valor: unknown) {
   return typeof valor === "string" ? valor.trim() : "";
+}
+
+function numero(valor: unknown) {
+  const convertido = Number(valor);
+  return Number.isFinite(convertido) && convertido > 0 ? convertido : null;
+}
+
+function booleanoFalso(valor: unknown) {
+  return valor === false || valor === "false" || valor === 0 || valor === "0";
 }
 
 function pegarPrimeiroTexto(objeto: Record<string, unknown>, campos: string[]) {
@@ -89,12 +157,14 @@ function tipoPorUrl(url: string, tipoOriginal?: string | null) {
   const urlLower = url.toLowerCase();
 
   if (urlLower.includes(".pdf")) return "pdf";
+
   if (
     urlLower.includes("youtube.com") ||
     urlLower.includes("youtu.be") ||
     urlLower.includes("vimeo.com") ||
     urlLower.includes(".mp4") ||
-    urlLower.includes(".mov")
+    urlLower.includes(".mov") ||
+    urlLower.includes(".avi")
   ) {
     return "video";
   }
@@ -130,6 +200,7 @@ function tipoPorArquivo(arquivo: File) {
   if (mime.includes("pdf") || nome.endsWith(".pdf")) return "pdf";
   if (mime.startsWith("video/")) return "video";
   if (mime.startsWith("image/")) return "imagem";
+
   if (
     nome.endsWith(".doc") ||
     nome.endsWith(".docx") ||
@@ -159,7 +230,16 @@ function moduloEstaLiberado(modulo: Record<string, unknown> | null) {
 
   if (!status) return true;
 
-  const statusBloqueados = ["bloqueado", "bloqueada", "rascunho", "oculto", "oculta", "inativo"];
+  const statusBloqueados = [
+    "bloqueado",
+    "bloqueada",
+    "rascunho",
+    "oculto",
+    "oculta",
+    "inativo",
+    "inativa",
+  ];
+
   return !statusBloqueados.includes(status);
 }
 
@@ -185,10 +265,196 @@ function nomeAula(aula: Record<string, unknown>) {
   );
 }
 
-function extrairMateriaisDeArray(
+function publicUrl(bucket: string, path: string) {
+  const pathLimpo = path.replace(/^\/+/, "");
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(pathLimpo);
+
+  return data.publicUrl;
+}
+
+function extrairUrlPublicaDeSupabase(valor: string) {
+  if (!valor.includes("/storage/v1/object/public/")) return null;
+
+  const partePublica = valor.split("/storage/v1/object/public/")[1];
+
+  if (!partePublica) return null;
+
+  const [bucket, ...resto] = partePublica.split("/");
+  const path = resto.join("/");
+
+  if (!bucket || !path) return null;
+
+  return {
+    bucket,
+    path,
+    url: valor,
+  };
+}
+
+function separarBucketDoPath(pathOriginal: string, bucketHint?: string | null) {
+  const bruto = pathOriginal.trim();
+
+  if (!bruto) {
+    return {
+      bucket: bucketHint || BUCKETS_POSSIVEIS_AULAS[0] || BUCKET_BIBLIOTECA,
+      path: "",
+    };
+  }
+
+  const urlPublica = extrairUrlPublicaDeSupabase(bruto);
+
+  if (urlPublica) {
+    return {
+      bucket: urlPublica.bucket,
+      path: urlPublica.path,
+    };
+  }
+
+  const semBarras = bruto.replace(/^\/+/, "");
+
+  for (const bucket of BUCKETS_POSSIVEIS_AULAS) {
+    if (semBarras === bucket) {
+      return {
+        bucket,
+        path: "",
+      };
+    }
+
+    if (semBarras.startsWith(`${bucket}/`)) {
+      return {
+        bucket,
+        path: semBarras.replace(`${bucket}/`, ""),
+      };
+    }
+  }
+
+  return {
+    bucket: bucketHint || BUCKETS_POSSIVEIS_AULAS[0] || BUCKET_BIBLIOTECA,
+    path: semBarras,
+  };
+}
+
+async function descobrirBucketPorPath(path: string) {
+  const pathLimpo = path.replace(/^\/+/, "");
+
+  if (!pathLimpo || pathLimpo.startsWith("http")) {
+    return BUCKETS_POSSIVEIS_AULAS[0] || BUCKET_BIBLIOTECA;
+  }
+
+  const partes = pathLimpo.split("/");
+  const nomeArquivo = partes.pop() || "";
+  const pasta = partes.join("/");
+
+  if (!nomeArquivo) {
+    return BUCKETS_POSSIVEIS_AULAS[0] || BUCKET_BIBLIOTECA;
+  }
+
+  for (const bucket of BUCKETS_POSSIVEIS_AULAS) {
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .list(pasta || undefined, {
+          search: nomeArquivo,
+          limit: 20,
+        });
+
+      if (error) continue;
+
+      const encontrado = (data ?? []).some((item) => item.name === nomeArquivo);
+
+      if (encontrado) return bucket;
+    } catch {
+      continue;
+    }
+  }
+
+  return BUCKETS_POSSIVEIS_AULAS[0] || BUCKET_BIBLIOTECA;
+}
+
+async function resolverUrlMaterial(
+  item: Record<string, unknown>,
+  urlDireta?: string
+) {
+  const url =
+    texto(urlDireta) ||
+    pegarPrimeiroTexto(item, CAMPOS_URL_MATERIAL);
+
+  if (url) {
+    if (url.startsWith("http")) {
+      return {
+        url,
+        storagePath: pegarPrimeiroTexto(item, CAMPOS_STORAGE_PATH) || null,
+      };
+    }
+
+    const bucketHint = pegarPrimeiroTexto(item, CAMPOS_BUCKET);
+    const separado = separarBucketDoPath(url, bucketHint);
+    const bucket = separado.bucket || (await descobrirBucketPorPath(separado.path));
+
+    return {
+      url: publicUrl(bucket, separado.path),
+      storagePath: separado.path,
+    };
+  }
+
+  const storagePath = pegarPrimeiroTexto(item, CAMPOS_STORAGE_PATH);
+
+  if (!storagePath) {
+    return {
+      url: "",
+      storagePath: null,
+    };
+  }
+
+  if (storagePath.startsWith("http")) {
+    return {
+      url: storagePath,
+      storagePath,
+    };
+  }
+
+  const bucketHint = pegarPrimeiroTexto(item, CAMPOS_BUCKET);
+  const separado = separarBucketDoPath(storagePath, bucketHint);
+  const bucket = bucketHint || separado.bucket || (await descobrirBucketPorPath(separado.path));
+
+  return {
+    url: publicUrl(bucket, separado.path),
+    storagePath: separado.path,
+  };
+}
+
+function nomeDoMaterial(item: Record<string, unknown>, fallback: string) {
+  return (
+    pegarPrimeiroTexto(item, [
+      "nome",
+      "titulo",
+      "title",
+      "label",
+      "filename",
+      "file_name",
+      "nome_arquivo",
+      "arquivo_nome",
+      "material_nome",
+      "documento_nome",
+    ]) || fallback
+  );
+}
+
+function observacaoDoMaterial(item: Record<string, unknown>) {
+  return (
+    texto(item.observacao) ||
+    texto(item.descricao) ||
+    texto(item.description) ||
+    texto(item.resumo) ||
+    null
+  );
+}
+
+async function extrairMateriaisDeArray(
   aula: Record<string, unknown>,
   modulo: Record<string, unknown> | null
-): BibliotecaItem[] {
+): Promise<BibliotecaItem[]> {
   const itens: BibliotecaItem[] = [];
   const aulaId = texto(aula.id);
   const moduloId = texto(aula.modulo_id) || texto(modulo?.id);
@@ -200,19 +466,22 @@ function extrairMateriaisDeArray(
 
     if (!Array.isArray(valorBruto)) continue;
 
-    valorBruto.forEach((itemBruto, index) => {
-      if (typeof itemBruto === "string") {
-        const url = itemBruto.trim();
+    for (let index = 0; index < valorBruto.length; index++) {
+      const itemBruto = valorBruto[index];
 
-        if (!url) return;
+      if (typeof itemBruto === "string") {
+        const itemComoObjeto = { url: itemBruto };
+        const resolvido = await resolverUrlMaterial(itemComoObjeto);
+
+        if (!resolvido.url) continue;
 
         itens.push({
           id: `aula-${aulaId}-${campo}-${index}`,
           nome: `Material - ${aulaNome}`,
           categoria: "material",
-          tipo: tipoPorUrl(url),
-          url,
-          storage_path: null,
+          tipo: tipoPorUrl(resolvido.url),
+          url: resolvido.url,
+          storage_path: resolvido.storagePath,
           tamanho_bytes: null,
           observacao: null,
           created_at: texto(aula.created_at) || new Date().toISOString(),
@@ -224,40 +493,27 @@ function extrairMateriaisDeArray(
           aula_nome: aulaNome,
         });
 
-        return;
+        continue;
       }
 
-      if (!itemBruto || typeof itemBruto !== "object") return;
+      if (!itemBruto || typeof itemBruto !== "object") continue;
 
       const item = itemBruto as Record<string, unknown>;
+      const resolvido = await resolverUrlMaterial(item);
 
-      const url =
-        pegarPrimeiroTexto(item, [
-          "url",
-          "arquivo_url",
-          "material_url",
-          "link",
-          "href",
-          "src",
-          "publicUrl",
-          "public_url",
-        ]) || "";
+      if (!resolvido.url) continue;
 
-      if (!url) return;
-
-      const nome =
-        pegarPrimeiroTexto(item, ["nome", "titulo", "title", "label", "filename"]) ||
-        `Material - ${aulaNome}`;
+      const nome = nomeDoMaterial(item, `Material - ${aulaNome}`);
 
       itens.push({
-        id: `aula-${aulaId}-${campo}-${index}`,
+        id: texto(item.id) || `aula-${aulaId}-${campo}-${index}`,
         nome,
         categoria: texto(item.categoria) || "material",
-        tipo: tipoPorUrl(url, texto(item.tipo)),
-        url,
-        storage_path: texto(item.storage_path) || null,
-        tamanho_bytes: Number(item.tamanho_bytes || item.size || item.bytes) || null,
-        observacao: texto(item.observacao) || texto(item.descricao) || null,
+        tipo: tipoPorUrl(resolvido.url, texto(item.tipo)),
+        url: resolvido.url,
+        storage_path: resolvido.storagePath,
+        tamanho_bytes: numero(item.tamanho_bytes ?? item.size ?? item.bytes),
+        observacao: observacaoDoMaterial(item),
         created_at: texto(item.created_at) || texto(aula.created_at) || new Date().toISOString(),
         updated_at: texto(item.updated_at) || texto(aula.updated_at) || null,
         origem: "aula",
@@ -266,45 +522,60 @@ function extrairMateriaisDeArray(
         aula_id: aulaId || null,
         aula_nome: aulaNome,
       });
-    });
+    }
   }
 
   return itens;
 }
 
-function extrairMaterialSimples(
+async function extrairMaterialSimples(
   aula: Record<string, unknown>,
   modulo: Record<string, unknown> | null
-): BibliotecaItem[] {
+): Promise<BibliotecaItem[]> {
   const itens: BibliotecaItem[] = [];
   const aulaId = texto(aula.id);
   const moduloId = texto(aula.modulo_id) || texto(modulo?.id);
   const aulaNome = nomeAula(aula);
   const moduloNome = nomeModulo(modulo);
 
-  const urlsJaUsadas = new Set<string>();
+  const candidatos = [
+    ...CAMPOS_URL_MATERIAL.map((campo) => ({
+      campo,
+      valor: texto(aula[campo]),
+    })),
+    ...CAMPOS_STORAGE_PATH.map((campo) => ({
+      campo,
+      valor: texto(aula[campo]),
+    })),
+  ];
 
-  for (const campo of CAMPOS_URL_MATERIAL) {
-    const url = texto(aula[campo]);
+  const valoresJaUsados = new Set<string>();
 
-    if (!url || urlsJaUsadas.has(url)) continue;
+  for (const candidato of candidatos) {
+    if (!candidato.valor || valoresJaUsados.has(candidato.valor)) continue;
 
-    urlsJaUsadas.add(url);
+    valoresJaUsados.add(candidato.valor);
+
+    const resolvido = await resolverUrlMaterial(aula, candidato.valor);
+
+    if (!resolvido.url) continue;
 
     const nome =
       texto(aula.material_nome) ||
       texto(aula.arquivo_nome) ||
       texto(aula.nome_material) ||
+      texto(aula.nome_arquivo) ||
+      texto(aula.documento_nome) ||
       `Material - ${aulaNome}`;
 
     itens.push({
-      id: `aula-${aulaId}-${campo}`,
+      id: `aula-${aulaId}-${candidato.campo}`,
       nome,
       categoria: texto(aula.categoria_material) || "material",
-      tipo: tipoPorUrl(url, texto(aula.tipo_material) || texto(aula.tipo)),
-      url,
-      storage_path: texto(aula.storage_path) || texto(aula.arquivo_storage_path) || null,
-      tamanho_bytes: Number(aula.tamanho_bytes || aula.arquivo_tamanho_bytes) || null,
+      tipo: tipoPorUrl(resolvido.url, texto(aula.tipo_material) || texto(aula.tipo)),
+      url: resolvido.url,
+      storage_path: resolvido.storagePath,
+      tamanho_bytes: numero(aula.tamanho_bytes ?? aula.arquivo_tamanho_bytes),
       observacao:
         texto(aula.observacao_material) ||
         texto(aula.descricao_material) ||
@@ -333,10 +604,7 @@ async function buscarAulasComModulos() {
     return (tentativaComRelacao.data ?? []) as Record<string, unknown>[];
   }
 
-  const tentativaSimples = await supabase
-    .from("aulas")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const tentativaSimples = await supabase.from("aulas").select("*");
 
   const aulas = (tentativaSimples.data ?? []) as Record<string, unknown>[];
 
@@ -346,10 +614,7 @@ async function buscarAulasComModulos() {
 
   if (moduloIds.length === 0) return aulas;
 
-  const { data: modulos } = await supabase
-    .from("modulos")
-    .select("*")
-    .in("id", moduloIds);
+  const { data: modulos } = await supabase.from("modulos").select("*").in("id", moduloIds);
 
   const mapaModulos = new Map(
     ((modulos ?? []) as Record<string, unknown>[]).map((modulo) => [
@@ -364,7 +629,7 @@ async function buscarAulasComModulos() {
   }));
 }
 
-async function buscarMateriaisDasAulas(podeVerTudo: boolean) {
+async function buscarMateriaisNasAulas(podeVerTudo: boolean) {
   const aulas = await buscarAulasComModulos();
   const materiais: BibliotecaItem[] = [];
 
@@ -375,20 +640,116 @@ async function buscarMateriaisDasAulas(podeVerTudo: boolean) {
       continue;
     }
 
-    materiais.push(...extrairMateriaisDeArray(aula, modulo));
-    materiais.push(...extrairMaterialSimples(aula, modulo));
+    materiais.push(...(await extrairMateriaisDeArray(aula, modulo)));
+    materiais.push(...(await extrairMaterialSimples(aula, modulo)));
   }
 
-  const urls = new Set<string>();
+  return materiais;
+}
 
-  return materiais.filter((item) => {
+async function buscarMapasAulasEModulos() {
+  const { data: aulasData } = await supabase.from("aulas").select("*");
+  const aulas = (aulasData ?? []) as Record<string, unknown>[];
+
+  const moduloIds = Array.from(
+    new Set(aulas.map((aula) => texto(aula.modulo_id)).filter(Boolean))
+  );
+
+  const { data: modulosData } =
+    moduloIds.length > 0
+      ? await supabase.from("modulos").select("*").in("id", moduloIds)
+      : { data: [] };
+
+  const modulos = (modulosData ?? []) as Record<string, unknown>[];
+
+  const mapaAulas = new Map(aulas.map((aula) => [texto(aula.id), aula]));
+  const mapaModulos = new Map(modulos.map((modulo) => [texto(modulo.id), modulo]));
+
+  return {
+    mapaAulas,
+    mapaModulos,
+  };
+}
+
+async function buscarMateriaisEmTabelasSeparadas(podeVerTudo: boolean) {
+  const materiais: BibliotecaItem[] = [];
+  const { mapaAulas, mapaModulos } = await buscarMapasAulasEModulos();
+
+  for (const tabela of TABELAS_MATERIAIS_AULA) {
+    const { data, error } = await supabase.from(tabela).select("*");
+
+    if (error || !data) continue;
+
+    for (const registro of data as Record<string, unknown>[]) {
+      if (
+        !podeVerTudo &&
+        (booleanoFalso(registro.visivel_mentorado) ||
+          booleanoFalso(registro.liberado_mentorado) ||
+          booleanoFalso(registro.ativo))
+      ) {
+        continue;
+      }
+
+      const aulaId = texto(registro.aula_id) || texto(registro.aulas_id);
+      const aula = mapaAulas.get(aulaId) ?? null;
+
+      const moduloId =
+        texto(registro.modulo_id) ||
+        texto(registro.modulos_id) ||
+        texto(aula?.modulo_id);
+
+      const modulo = mapaModulos.get(moduloId) ?? null;
+
+      if (!podeVerTudo && !moduloEstaLiberado(modulo)) {
+        continue;
+      }
+
+      const resolvido = await resolverUrlMaterial(registro);
+
+      if (!resolvido.url) continue;
+
+      const aulaNome = aula ? nomeAula(aula) : texto(registro.aula_nome) || null;
+      const moduloNome = nomeModulo(modulo) || texto(registro.modulo_nome) || null;
+
+      materiais.push({
+        id: texto(registro.id) || `${tabela}-${aulaId}-${resolvido.url}`,
+        nome: nomeDoMaterial(registro, aulaNome ? `Material - ${aulaNome}` : "Material da aula"),
+        categoria: texto(registro.categoria) || "material",
+        tipo: tipoPorUrl(resolvido.url, texto(registro.tipo)),
+        url: resolvido.url,
+        storage_path: resolvido.storagePath,
+        tamanho_bytes: numero(registro.tamanho_bytes ?? registro.size ?? registro.bytes),
+        observacao: observacaoDoMaterial(registro),
+        created_at: texto(registro.created_at) || texto(aula?.created_at) || new Date().toISOString(),
+        updated_at: texto(registro.updated_at) || null,
+        origem: "aula",
+        modulo_id: moduloId || null,
+        modulo_nome: moduloNome,
+        aula_id: aulaId || null,
+        aula_nome: aulaNome,
+      });
+    }
+  }
+
+  return materiais;
+}
+
+async function buscarMateriaisDasAulas(podeVerTudo: boolean) {
+  const materiaisNasAulas = await buscarMateriaisNasAulas(podeVerTudo);
+  const materiaisTabelasSeparadas = await buscarMateriaisEmTabelasSeparadas(podeVerTudo);
+
+  const todos = [...materiaisNasAulas, ...materiaisTabelasSeparadas];
+
+  const chaves = new Set<string>();
+
+  return todos.filter((item) => {
     if (!item.url) return false;
 
-    const chave = `${item.aula_id}-${item.url}`;
+    const chave = `${item.aula_id || "sem-aula"}-${item.url}`;
 
-    if (urls.has(chave)) return false;
+    if (chaves.has(chave)) return false;
 
-    urls.add(chave);
+    chaves.add(chave);
     return true;
   });
 }
@@ -405,7 +766,7 @@ function normalizarArquivoBiblioteca(arquivo: Record<string, unknown>): Bibliote
     tipo: texto(arquivo.tipo) || tipoPorUrl(url),
     url,
     storage_path: texto(arquivo.storage_path) || null,
-    tamanho_bytes: Number(arquivo.tamanho_bytes) || null,
+    tamanho_bytes: numero(arquivo.tamanho_bytes),
     observacao: texto(arquivo.observacao) || null,
     created_at: texto(arquivo.created_at) || new Date().toISOString(),
     updated_at: texto(arquivo.updated_at) || null,
