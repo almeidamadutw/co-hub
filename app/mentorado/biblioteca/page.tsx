@@ -1,25 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import MentoradoSidebar from "@/components/MentoradoSidebar";
 import MentoradoLoading from "@/components/MentoradoLoading";
 
+type BibliotecaOrigem = "biblioteca" | "aula";
+
 type BibliotecaArquivo = {
   id: string;
-  mentorado_id: string;
-  criado_por: string | null;
+  mentorado_id?: string | null;
+  criado_por?: string | null;
   nome: string;
   categoria: string;
   tipo: string;
   url: string;
-  storage_path: string | null;
-  tamanho_bytes: number | null;
-  observacao: string | null;
+  storage_path?: string | null;
+  tamanho_bytes?: number | null;
+  observacao?: string | null;
   created_at: string;
-  updated_at: string;
+  updated_at?: string | null;
+  origem?: BibliotecaOrigem;
+  modulo_id?: string | null;
+  modulo_nome?: string | null;
+  aula_id?: string | null;
+  aula_nome?: string | null;
 };
 
 const categorias: Record<string, string> = {
@@ -30,6 +37,11 @@ const categorias: Record<string, string> = {
   video: "Vídeo",
   link: "Link",
   outro: "Outro",
+};
+
+const origemLabel: Record<BibliotecaOrigem, string> = {
+  biblioteca: "Material individual",
+  aula: "Material da aula",
 };
 
 function formatarTamanho(bytes?: number | null) {
@@ -65,6 +77,19 @@ export default function MentoradoBibliotecaPage() {
   const [arquivos, setArquivos] = useState<BibliotecaArquivo[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
+  const [filtroOrigem, setFiltroOrigem] = useState<"todos" | BibliotecaOrigem>("todos");
+  const [filtroCategoria, setFiltroCategoria] = useState("todos");
+
+  const arquivosFiltrados = useMemo(() => {
+    return arquivos.filter((arquivo) => {
+      const origem = arquivo.origem ?? "biblioteca";
+      const passouOrigem = filtroOrigem === "todos" || origem === filtroOrigem;
+      const passouCategoria =
+        filtroCategoria === "todos" || arquivo.categoria === filtroCategoria;
+
+      return passouOrigem && passouCategoria;
+    });
+  }, [arquivos, filtroOrigem, filtroCategoria]);
 
   useEffect(() => {
     const user = getUsuarioLogado();
@@ -105,7 +130,9 @@ export default function MentoradoBibliotecaPage() {
       }
 
       const response = await fetch(
-        `/api/biblioteca?mentoradoId=${encodeURIComponent(mentoradoId)}`,
+        `/api/biblioteca?mentoradoId=${encodeURIComponent(
+          mentoradoId
+        )}&perfil=mentorado`,
         { cache: "no-store" }
       );
 
@@ -170,10 +197,11 @@ export default function MentoradoBibliotecaPage() {
               Biblioteca do mentorado
             </p>
             <h2 className="mt-3 max-w-4xl break-words text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
-              Seus materiais, reuniões e atividades em um só lugar.
+              Seus materiais, aulas e atividades em uma galeria só.
             </h2>
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-blue-100 sm:text-base">
-              Tudo que sua mentora enviar para você fica salvo aqui, mesmo depois de sair e entrar novamente no sistema.
+              Aqui ficam os materiais enviados diretamente para você e também os documentos
+              vinculados às aulas liberadas. Sem caça ao tesouro dentro dos módulos.
             </p>
           </section>
 
@@ -190,7 +218,7 @@ export default function MentoradoBibliotecaPage() {
                   Arquivos disponíveis
                 </p>
                 <h2 className="mt-2 text-xl font-black sm:text-2xl">
-                  {arquivos.length} material(is)
+                  {arquivosFiltrados.length} de {arquivos.length} material(is)
                 </h2>
               </div>
 
@@ -203,54 +231,120 @@ export default function MentoradoBibliotecaPage() {
               </button>
             </div>
 
+            <div className="mt-5 grid gap-3 rounded-[22px] bg-slate-50 p-3 sm:grid-cols-2">
+              <label>
+                <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                  Origem
+                </p>
+                <select
+                  value={filtroOrigem}
+                  onChange={(e) =>
+                    setFiltroOrigem(e.target.value as "todos" | BibliotecaOrigem)
+                  }
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-[#08163F] outline-none"
+                >
+                  <option value="todos">Todos os materiais</option>
+                  <option value="biblioteca">Materiais individuais</option>
+                  <option value="aula">Materiais das aulas</option>
+                </select>
+              </label>
+
+              <label>
+                <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                  Categoria
+                </p>
+                <select
+                  value={filtroCategoria}
+                  onChange={(e) => setFiltroCategoria(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-[#08163F] outline-none"
+                >
+                  <option value="todos">Todas as categorias</option>
+                  {Object.entries(categorias).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
             <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {arquivos.length === 0 ? (
+              {arquivosFiltrados.length === 0 ? (
                 <div className="rounded-[22px] bg-slate-50 p-6 text-center md:col-span-2 xl:col-span-3">
-                  <p className="text-lg font-black">Nenhum material enviado ainda</p>
+                  <p className="text-lg font-black">Nenhum material encontrado</p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                    Quando sua mentora enviar PDFs, links, atividades ou gravações, tudo aparece aqui.
+                    Quando sua mentora enviar materiais ou liberar documentos nas aulas,
+                    tudo aparece aqui.
                   </p>
                 </div>
               ) : (
-                arquivos.map((arquivo) => (
-                  <article
-                    key={arquivo.id}
-                    className="flex min-w-0 flex-col rounded-[22px] border border-slate-100 bg-[#f9fafb] p-4"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xl">{iconeTipo(arquivo.tipo)}</span>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500 shadow-sm">
-                        {categorias[arquivo.categoria] ?? "Material"}
-                      </span>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500 shadow-sm">
-                        {formatarTamanho(arquivo.tamanho_bytes)}
-                      </span>
-                    </div>
+                arquivosFiltrados.map((arquivo) => {
+                  const origem = arquivo.origem ?? "biblioteca";
 
-                    <h3 className="mt-3 break-words text-lg font-black text-[#08163F]">
-                      {arquivo.nome}
-                    </h3>
-
-                    {arquivo.observacao && (
-                      <p className="mt-2 whitespace-pre-line break-words text-sm font-semibold leading-6 text-slate-500">
-                        {arquivo.observacao}
-                      </p>
-                    )}
-
-                    <p className="mt-3 text-xs font-bold text-slate-400">
-                      Enviado em {formatarData(arquivo.created_at)}
-                    </p>
-
-                    <a
-                      href={arquivo.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-4 inline-flex justify-center rounded-2xl bg-[#08163F] px-4 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                  return (
+                    <article
+                      key={`${origem}-${arquivo.id}`}
+                      className="flex min-w-0 flex-col rounded-[22px] border border-slate-100 bg-[#f9fafb] p-4"
                     >
-                      Abrir material →
-                    </a>
-                  </article>
-                ))
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xl">{iconeTipo(arquivo.tipo)}</span>
+
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-black shadow-sm ${
+                            origem === "aula"
+                              ? "bg-blue-50 text-blue-700"
+                              : "bg-white text-slate-500"
+                          }`}
+                        >
+                          {origemLabel[origem]}
+                        </span>
+
+                        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500 shadow-sm">
+                          {categorias[arquivo.categoria] ?? "Material"}
+                        </span>
+
+                        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500 shadow-sm">
+                          {formatarTamanho(arquivo.tamanho_bytes)}
+                        </span>
+                      </div>
+
+                      <h3 className="mt-3 break-words text-lg font-black text-[#08163F]">
+                        {arquivo.nome}
+                      </h3>
+
+                      {arquivo.modulo_nome && (
+                        <p className="mt-2 text-xs font-black uppercase tracking-[0.16em] text-blue-700">
+                          {arquivo.modulo_nome}
+                        </p>
+                      )}
+
+                      {arquivo.aula_nome && (
+                        <p className="mt-1 text-sm font-bold text-slate-500">
+                          Aula: {arquivo.aula_nome}
+                        </p>
+                      )}
+
+                      {arquivo.observacao && (
+                        <p className="mt-2 whitespace-pre-line break-words text-sm font-semibold leading-6 text-slate-500">
+                          {arquivo.observacao}
+                        </p>
+                      )}
+
+                      <p className="mt-3 text-xs font-bold text-slate-400">
+                        Enviado em {formatarData(arquivo.created_at)}
+                      </p>
+
+                      <a
+                        href={arquivo.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-4 inline-flex justify-center rounded-2xl bg-[#08163F] px-4 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                      >
+                        Abrir material →
+                      </a>
+                    </article>
+                  );
+                })
               )}
             </div>
           </section>
