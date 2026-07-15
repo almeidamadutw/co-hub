@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/utils/supabase";
+import { obterCabecalhoAutorizacao } from "@/utils/apiAuthClient";
 import { getUsuarioLogado, usuarioTemPermissao, User } from "@/utils/auth";
 
 type MentoradoResumo = {
@@ -195,11 +196,13 @@ export default function SuporteBibliotecaPage() {
       setCarregandoArquivos(true);
       setErro("");
 
+      const headers = await obterCabecalhoAutorizacao();
+
       const response = await fetch(
         `/api/biblioteca?mentoradoId=${encodeURIComponent(
           mentoradoId
-        )}&perfil=${encodeURIComponent(usuario?.role ?? "mentor")}`,
-        { cache: "no-store" }
+        )}`,
+        { cache: "no-store", headers }
       );
 
       const payload = await response.json().catch(() => null);
@@ -250,7 +253,6 @@ export default function SuporteBibliotecaPage() {
 
       const data = new FormData();
       data.append("mentoradoId", form.mentoradoId);
-      data.append("criadoPor", (usuario as User & { id?: string })?.id ?? "");
       data.append("nome", form.nome.trim());
       data.append("categoria", form.categoria);
       data.append("observacao", form.observacao.trim());
@@ -261,8 +263,11 @@ export default function SuporteBibliotecaPage() {
         data.append("arquivo", form.arquivo);
       }
 
+      const headers = await obterCabecalhoAutorizacao();
+
       const response = await fetch("/api/biblioteca", {
         method: "POST",
+        headers,
         body: data,
       });
 
@@ -298,9 +303,14 @@ export default function SuporteBibliotecaPage() {
       setErro("");
       setSucesso("");
 
+      const authHeaders = await obterCabecalhoAutorizacao();
+
       const response = await fetch("/api/biblioteca", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          ...authHeaders,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ id: arquivo.id }),
       });
 

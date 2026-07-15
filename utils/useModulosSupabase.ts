@@ -56,6 +56,10 @@ export type PayloadModulo = {
   criadoPor?: string | null;
 };
 
+type ModuloComAulas = Omit<ModuloMentoria, "aulas"> & {
+  aulas?: AulaModulo[] | null;
+};
+
 export function getModuloPremium(modulo: ModuloMentoria) {
   return modulo.nome_premium?.trim() || modulo.titulo;
 }
@@ -147,7 +151,7 @@ export function useModulosSupabase() {
       return;
     }
 
-    const modulosTratados = (data ?? []).map((modulo: any) => ({
+    const modulosTratados = ((data ?? []) as ModuloComAulas[]).map((modulo) => ({
       ...modulo,
       aulas: [...(modulo.aulas ?? [])]
         .sort(
@@ -168,7 +172,11 @@ export function useModulosSupabase() {
   }, []);
 
   useEffect(() => {
-    carregarModulos();
+    const iniciarCarregamento = window.setTimeout(() => {
+      void carregarModulos();
+    }, 0);
+
+    return () => window.clearTimeout(iniciarCarregamento);
   }, [carregarModulos]);
 
   const totalAulas = useMemo(() => {

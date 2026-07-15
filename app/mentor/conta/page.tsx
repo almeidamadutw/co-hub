@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario } from "@/utils/auth";
 import type { User } from "@/utils/auth";
@@ -113,12 +114,12 @@ export default function ContaPage() {
     if (!usuario) return;
 
     if (usuario.role === "mentor") {
-      router.push("/dashboard");
+      router.push("/mentor/dashboard");
       return;
     }
 
     if (usuario.role === "financeiro") {
-      router.push("/financeiro");
+      router.push("/mentor/financeiro");
       return;
     }
 
@@ -282,9 +283,12 @@ export default function ContaPage() {
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 p-1.5 shadow-lg sm:h-24 sm:w-24">
                   {fotoPerfil ? (
-                    <img
+                    <Image
                       src={fotoPerfil}
                       alt="Foto de perfil"
+                      width={96}
+                      height={96}
+                      unoptimized
                       className="h-full w-full rounded-full object-cover"
                     />
                   ) : (

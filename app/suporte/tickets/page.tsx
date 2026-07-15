@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
-import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import {
+  logoutUsuario,
+  sincronizarUsuarioComSessao,
+  User,
+} from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
 
 type Ticket = {
@@ -88,29 +92,6 @@ export default function TicketsSuportePage() {
   const [erro, setErro] = useState("");
   const [mensagemSucesso, setMensagemSucesso] = useState("");
 
-  useEffect(() => {
-    async function carregar() {
-      const user = getUsuarioLogado();
-
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-
-      if (user.role !== "suporte") {
-        logoutUsuario();
-        router.replace("/login");
-        return;
-      }
-
-      setUsuario(user);
-      await carregarTickets();
-      setCarregando(false);
-    }
-
-    carregar();
-  }, [router]);
-
   async function carregarTickets() {
     setErro("");
 
@@ -129,6 +110,29 @@ export default function TicketsSuportePage() {
 
     setTickets((data || []) as Ticket[]);
   }
+
+  useEffect(() => {
+    async function carregar() {
+      const user = await sincronizarUsuarioComSessao();
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      if (user.role !== "suporte") {
+        await logoutUsuario();
+        router.replace("/login");
+        return;
+      }
+
+      setUsuario(user);
+      await carregarTickets();
+      setCarregando(false);
+    }
+
+    void carregar();
+  }, [router]);
 
   async function carregarMensagens(ticketId: string) {
     setCarregandoChat(true);
@@ -153,7 +157,7 @@ export default function TicketsSuportePage() {
     setMensagens((data || []) as MensagemTicket[]);
   }
 
-  const ticketsFiltrados = useMemo(() => {
+  const ticketsFiltrados = (() => {
     const termo = busca.trim().toLowerCase();
 
     return tickets.filter((ticket) => {
@@ -180,9 +184,9 @@ export default function TicketsSuportePage() {
 
       return passaStatus && passaCategoria && passaBusca;
     });
-  }, [tickets, busca, statusFiltro, categoriaFiltro]);
+  })();
 
-  const resumo = useMemo(() => {
+  const resumo = (() => {
     return {
       total: tickets.length,
       abertos: tickets.filter((ticket) => normalizar(ticket.status) === "aberto")
@@ -197,7 +201,7 @@ export default function TicketsSuportePage() {
         (ticket) => normalizar(ticket.status) === "resolvido"
       ).length,
     };
-  }, [tickets]);
+  })();
 
   function normalizar(valor: string | null) {
     return (valor || "").trim().toLowerCase();

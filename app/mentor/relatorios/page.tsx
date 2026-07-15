@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Area,
@@ -167,11 +167,7 @@ export default function RelatoriosPage() {
   const [filtroPeriodo, setFiltroPeriodo] = useState<PeriodoFiltro>("365");
   const [filtroMentorado, setFiltroMentorado] = useState("Todos");
 
-  useEffect(() => {
-    iniciarTela();
-  }, []);
-
-  async function iniciarTela() {
+  const iniciarTela = useCallback(async () => {
     setCarregando(true);
     setErro("");
     setAvisos([]);
@@ -284,7 +280,15 @@ export default function RelatoriosPage() {
     setCobrancas((cobrancasData ?? []) as Cobranca[]);
     setAvisos(avisosTemporarios);
     setCarregando(false);
-  }
+  }, [router]);
+
+  useEffect(() => {
+    const iniciarCarregamento = window.setTimeout(() => {
+      void iniciarTela();
+    }, 0);
+
+    return () => window.clearTimeout(iniciarCarregamento);
+  }, [iniciarTela]);
 
   const mentoradosFiltrados = useMemo(() => {
     if (filtroMentorado === "Todos") return mentorados;
@@ -704,14 +708,14 @@ export default function RelatoriosPage() {
       if (atual) atual.novos += 1;
     });
 
-    let acumulado = 0;
-
     return Array.from(mapa.values())
       .sort((a, b) => a.chave.localeCompare(b.chave))
-      .map((item) => {
-        acumulado += item.novos;
-        return { ...item, acumulado };
-      });
+      .map((item, indice, itens) => ({
+        ...item,
+        acumulado: itens
+          .slice(0, indice + 1)
+          .reduce((total, atual) => total + atual.novos, 0),
+      }));
   }, [mentorados]);
 
   const distribuicaoStatus = useMemo(() => {
@@ -758,7 +762,7 @@ export default function RelatoriosPage() {
 
   return (
     <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-      <Sidebar nome={usuario.nome} role="mentor" acessoSuporte={usuario.role === "suporte"} />
+      <Sidebar nome={usuario.nome} role={usuario.role} acessoSuporte={usuario.role === "suporte"} />
 
       <section className="ceo-content no-scrollbar !p-4 sm:!p-5 lg:!p-6">
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#12317C]/15 blur-3xl" />
@@ -787,7 +791,7 @@ export default function RelatoriosPage() {
             </button>
 
             <button
-              onClick={() => router.push("/financeiro")}
+              onClick={() => router.push("/mentor/financeiro")}
               className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 sm:text-sm"
             >
               Abrir financeiro
@@ -1096,7 +1100,7 @@ export default function RelatoriosPage() {
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => router.push("/financeiro")}
+                      onClick={() => router.push("/mentor/financeiro")}
                       className="min-w-0 rounded-2xl bg-[#f9fafb] p-4 text-left transition hover:bg-slate-100"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1133,7 +1137,7 @@ export default function RelatoriosPage() {
               </div>
 
               <button
-                onClick={() => router.push("/financeiro")}
+                onClick={() => router.push("/mentor/financeiro")}
                 className="rounded-2xl bg-[#08163F] px-5 py-2.5 text-sm font-black text-white shadow-lg transition hover:brightness-110"
               >
                 Gerenciar cobranças

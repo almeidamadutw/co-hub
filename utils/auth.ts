@@ -1,4 +1,9 @@
 import { User, UserRole } from "@/data/users";
+import { supabase } from "@/utils/supabase";
+import {
+  definirPersistenciaSessao,
+  sessaoDevePersistir,
+} from "@/utils/sessionPersistence";
 
 const STORAGE_KEY = "ceoclub_user";
 const OLD_STORAGE_KEY = "cohub_user";
@@ -7,6 +12,8 @@ export type { User, UserRole };
 
 export function salvarUsuarioLogado(usuario: User, manterConectado = false) {
   if (typeof window === "undefined") return;
+
+  definirPersistenciaSessao(manterConectado);
 
   localStorage.removeItem(OLD_STORAGE_KEY);
   sessionStorage.removeItem(OLD_STORAGE_KEY);
@@ -36,7 +43,7 @@ export function getUsuarioLogado(): User | null {
   }
 }
 
-export function logoutUsuario() {
+export function limparUsuarioLogado() {
   if (typeof window === "undefined") return;
 
   localStorage.removeItem(OLD_STORAGE_KEY);
@@ -44,6 +51,74 @@ export function logoutUsuario() {
 
   localStorage.removeItem(STORAGE_KEY);
   sessionStorage.removeItem(STORAGE_KEY);
+}
+
+export async function logoutUsuario() {
+  limparUsuarioLogado();
+
+  try {
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+
+    if (error) {
+      console.error("Não foi possível encerrar a sessão do Supabase:", error);
+    }
+  } catch (error) {
+    console.error("Não foi possível encerrar a sessão do Supabase:", error);
+  }
+}
+
+export async function sincronizarUsuarioComSessao(): Promise<User | null> {
+  if (typeof window === "undefined") return null;
+
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !authData.user) {
+    limparUsuarioLogado();
+    return null;
+  }
+
+  const { data: perfil, error: perfilError } = await supabase
+    .from("profiles")
+    .select("nome, email, role, acesso_suporte, status")
+    .eq("id", authData.user.id)
+    .single();
+
+  const role = String(perfil?.role ?? "")
+    .trim()
+    .toLowerCase() as UserRole;
+  const status = String(perfil?.status ?? "").trim().toLowerCase();
+  const rolesValidas: UserRole[] = [
+    "mentor",
+    "mentorado",
+    "financeiro",
+    "suporte",
+  ];
+
+  if (
+    perfilError ||
+    !perfil ||
+    !rolesValidas.includes(role) ||
+    (status && status !== "ativo")
+  ) {
+    await logoutUsuario();
+    return null;
+  }
+
+  const usuario: User = {
+    id: authData.user.id,
+    nome: perfil.nome || authData.user.email || "Usuário",
+    email: perfil.email || authData.user.email || "",
+    role,
+    acesso_suporte: Boolean(perfil.acesso_suporte),
+  };
+
+  const usuarioAtual = getUsuarioLogado();
+  const manterConectado = usuarioAtual
+    ? Boolean(localStorage.getItem(STORAGE_KEY))
+    : sessaoDevePersistir();
+
+  salvarUsuarioLogado(usuario, manterConectado);
+  return usuario;
 }
 
 export function usuarioTemPermissao(

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import AuthSessionSync from "@/components/AuthSessionSync";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,7 +28,10 @@ export default function RootLayout({
       lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-dvh bg-[#f3f6fa]">{children}</body>
+      <body className="min-h-dvh bg-[#f3f6fa]">
+        <AuthSessionSync />
+        {children}
+      </body>
     </html>
   );
 }

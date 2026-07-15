@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { supabaseAuthStorage } from "@/utils/sessionPersistence";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey =
@@ -15,4 +16,12 @@ if (!supabaseKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    storage: supabaseAuthStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    // A página /redefinir-senha trata explicitamente links PKCE e implicit.
+    detectSessionInUrl: false,
+  },
+});

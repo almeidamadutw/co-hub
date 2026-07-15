@@ -189,7 +189,7 @@ export default function SuportePage() {
 
           <button
             type="button"
-            onClick={() => router.push("/conta")}
+            onClick={() => router.push("/suporte/conta")}
             className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 sm:text-sm"
           >
             Minha conta

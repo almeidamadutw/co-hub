@@ -63,7 +63,11 @@ export function useAgendaSupabase() {
   }, []);
 
   useEffect(() => {
-    carregarEventos();
+    const iniciarCarregamento = window.setTimeout(() => {
+      void carregarEventos();
+    }, 0);
+
+    return () => window.clearTimeout(iniciarCarregamento);
   }, [carregarEventos]);
 
   const totalEventos = eventos.length;

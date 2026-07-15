@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/utils/supabase";
+import { obterCabecalhoAutorizacao } from "@/utils/apiAuthClient";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import MentoradoSidebar from "@/components/MentoradoSidebar";
 import MentoradoLoading from "@/components/MentoradoLoading";
@@ -100,7 +100,7 @@ export default function MentoradoBibliotecaPage() {
     }
 
     if (user.role === "mentor") {
-      router.replace("/dashboard");
+      router.replace("/mentor/dashboard");
       return;
     }
 
@@ -113,12 +113,7 @@ export default function MentoradoBibliotecaPage() {
     setUsuario(user);
   }, [router]);
 
-  useEffect(() => {
-    if (!usuario) return;
-    carregarBiblioteca();
-  }, [usuario]);
-
-  async function carregarBiblioteca() {
+  const carregarBiblioteca = useCallback(async () => {
     try {
       setCarregando(true);
       setErro("");
@@ -129,11 +124,13 @@ export default function MentoradoBibliotecaPage() {
         throw new Error("Não foi possível identificar seu perfil.");
       }
 
+      const headers = await obterCabecalhoAutorizacao();
+
       const response = await fetch(
         `/api/biblioteca?mentoradoId=${encodeURIComponent(
           mentoradoId
-        )}&perfil=mentorado`,
-        { cache: "no-store" }
+        )}`,
+        { cache: "no-store", headers }
       );
 
       const payload = await response.json().catch(() => null);
@@ -148,11 +145,15 @@ export default function MentoradoBibliotecaPage() {
     } finally {
       setCarregando(false);
     }
-  }
+  }, [usuario]);
+
+  useEffect(() => {
+    if (!usuario) return;
+    void carregarBiblioteca();
+  }, [carregarBiblioteca, usuario]);
 
   async function sair() {
-    logoutUsuario();
-    await supabase.auth.signOut();
+    await logoutUsuario();
     router.replace("/login");
   }
 

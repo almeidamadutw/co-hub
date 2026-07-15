@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Image from "next/image";
 import { supabase } from "@/utils/supabase";
-import { getUsuarioLogado } from "@/utils/auth";
+import { getUsuarioLogado, logoutUsuario } from "@/utils/auth";
 
 type MentoradoSidebarProps = {
   nome: string;
@@ -95,11 +96,8 @@ export default function MentoradoSidebar({
     };
   }, [codigoInscricao]);
 
-  function sair() {
-    localStorage.removeItem("cohub_user");
-    localStorage.removeItem("ceoclub_user");
-    sessionStorage.removeItem("cohub_user");
-    sessionStorage.removeItem("ceoclub_user");
+  async function sair() {
+    await logoutUsuario();
     router.replace("/login");
   }
 
@@ -123,9 +121,11 @@ export default function MentoradoSidebar({
           <div className="shrink-0 rounded-[20px] bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.055)]">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[16px] bg-[#080D2D] p-1 shadow-md xl:h-12 xl:w-12">
-                <img
+                <Image
                   src="/images/logo.jpeg"
                   alt="Logo CEO Club"
+                  width={48}
+                  height={48}
                   className="h-full w-full rounded-[12px] object-cover"
                 />
               </div>
@@ -209,9 +209,11 @@ export default function MentoradoSidebar({
             <div className="mb-4 flex shrink-0 items-center justify-between gap-3 rounded-[20px] bg-white p-3 shadow-sm">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[16px] bg-[#080D2D] p-1 shadow-md">
-                  <img
+                  <Image
                     src="/images/logo.jpeg"
                     alt="Logo CEO Club"
+                    width={48}
+                    height={48}
                     className="h-full w-full rounded-[12px] object-cover"
                   />
                 </div>

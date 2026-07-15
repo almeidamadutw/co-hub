@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
@@ -103,7 +103,7 @@ export default function MentoradoModulosPage() {
     }
 
     if (user.role === "mentor") {
-      router.replace("/dashboard");
+      router.replace("/mentor/dashboard");
       return;
     }
 
@@ -210,14 +210,14 @@ export default function MentoradoModulosPage() {
       }));
   }, [modulos]);
 
-  function obterLiberacaoModulo(moduloId: string) {
+  const obterLiberacaoModulo = useCallback((moduloId: string) => {
     return (
       liberacoesGlobais.find((liberacao) => liberacao.modulo_id === moduloId) ??
       null
     );
-  }
+  }, [liberacoesGlobais]);
 
-  function moduloLiberado(moduloId: string) {
+  const moduloLiberado = useCallback((moduloId: string) => {
     const liberacao = obterLiberacaoModulo(moduloId);
     if (!liberacao) return false;
 
@@ -230,7 +230,7 @@ export default function MentoradoModulosPage() {
     }
 
     return false;
-  }
+  }, [obterLiberacaoModulo]);
 
   function textoBloqueioModulo(moduloId: string) {
     const liberacao = obterLiberacaoModulo(moduloId);
@@ -248,11 +248,11 @@ export default function MentoradoModulosPage() {
 
   const modulosDisponiveis = useMemo(() => {
     return modulosVisiveis.filter((modulo) => moduloLiberado(modulo.id));
-  }, [modulosVisiveis, liberacoesGlobais]);
+  }, [modulosVisiveis, moduloLiberado]);
 
   const modulosBloqueados = useMemo(() => {
     return modulosVisiveis.filter((modulo) => !moduloLiberado(modulo.id));
-  }, [modulosVisiveis, liberacoesGlobais]);
+  }, [modulosVisiveis, moduloLiberado]);
 
   const aulasDisponiveis = useMemo(() => {
     return modulosDisponiveis.flatMap((modulo) => modulo.aulas);
@@ -403,8 +403,7 @@ export default function MentoradoModulosPage() {
   }
 
   async function sair() {
-    logoutUsuario();
-    await supabase.auth.signOut();
+    await logoutUsuario();
     router.replace("/login");
   }
 
@@ -1007,4 +1006,3 @@ function StatusMentoradoBadge({ status }: { status: string }) {
     </span>
   );
 }
-

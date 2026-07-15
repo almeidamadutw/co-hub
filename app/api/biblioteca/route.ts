@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/utils/supabase";
+import {
+  criarClienteAdmin,
+  erroConfig,
+  responderPermissaoNegada,
+  verificarAcesso,
+} from "@/utils/apiAuth";
 
 const BUCKET_BIBLIOTECA = "ceo-club-biblioteca";
 const LIMITE_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+let clienteAdmin: ReturnType<typeof criarClienteAdmin> | null = null;
+
+function supabaseAdmin() {
+  clienteAdmin ??= criarClienteAdmin();
+  return clienteAdmin;
+}
 
 const BUCKETS_POSSIVEIS_AULAS = Array.from(
   new Set([
@@ -268,7 +280,7 @@ function nomeAula(aula: Record<string, unknown>) {
 function publicUrl(bucket: string, path: string) {
   const pathLimpo = path.replace(/^\/+/, "");
 
-  const { data } = supabase.storage.from(bucket).getPublicUrl(pathLimpo);
+  const { data } = supabaseAdmin().storage.from(bucket).getPublicUrl(pathLimpo);
 
   return data.publicUrl;
 }
@@ -352,7 +364,7 @@ async function descobrirBucketPorPath(path: string) {
 
   for (const bucket of BUCKETS_POSSIVEIS_AULAS) {
     try {
-      const { data, error } = await supabase.storage
+      const { data, error } = await supabaseAdmin().storage
         .from(bucket)
         .list(pasta || undefined, {
           search: nomeArquivo,
@@ -595,7 +607,7 @@ async function extrairMaterialSimples(
 }
 
 async function buscarAulasComModulos() {
-  const tentativaComRelacao = await supabase
+  const tentativaComRelacao = await supabaseAdmin()
     .from("aulas")
     .select("*, modulos(*)")
     .order("created_at", { ascending: false });
@@ -604,7 +616,7 @@ async function buscarAulasComModulos() {
     return (tentativaComRelacao.data ?? []) as Record<string, unknown>[];
   }
 
-  const tentativaSimples = await supabase.from("aulas").select("*");
+  const tentativaSimples = await supabaseAdmin().from("aulas").select("*");
 
   const aulas = (tentativaSimples.data ?? []) as Record<string, unknown>[];
 
@@ -614,7 +626,10 @@ async function buscarAulasComModulos() {
 
   if (moduloIds.length === 0) return aulas;
 
-  const { data: modulos } = await supabase.from("modulos").select("*").in("id", moduloIds);
+  const { data: modulos } = await supabaseAdmin()
+    .from("modulos")
+    .select("*")
+    .in("id", moduloIds);
 
   const mapaModulos = new Map(
     ((modulos ?? []) as Record<string, unknown>[]).map((modulo) => [
@@ -648,7 +663,7 @@ async function buscarMateriaisNasAulas(podeVerTudo: boolean) {
 }
 
 async function buscarMapasAulasEModulos() {
-  const { data: aulasData } = await supabase.from("aulas").select("*");
+  const { data: aulasData } = await supabaseAdmin().from("aulas").select("*");
   const aulas = (aulasData ?? []) as Record<string, unknown>[];
 
   const moduloIds = Array.from(
@@ -657,7 +672,7 @@ async function buscarMapasAulasEModulos() {
 
   const { data: modulosData } =
     moduloIds.length > 0
-      ? await supabase.from("modulos").select("*").in("id", moduloIds)
+      ? await supabaseAdmin().from("modulos").select("*").in("id", moduloIds)
       : { data: [] };
 
   const modulos = (modulosData ?? []) as Record<string, unknown>[];
@@ -676,7 +691,7 @@ async function buscarMateriaisEmTabelasSeparadas(podeVerTudo: boolean) {
   const { mapaAulas, mapaModulos } = await buscarMapasAulasEModulos();
 
   for (const tabela of TABELAS_MATERIAIS_AULA) {
-    const { data, error } = await supabase.from(tabela).select("*");
+    const { data, error } = await supabaseAdmin().from(tabela).select("*");
 
     if (error || !data) continue;
 
@@ -776,14 +791,36 @@ function normalizarArquivoBiblioteca(arquivo: Record<string, unknown>): Bibliote
 
 export async function GET(request: NextRequest) {
   try {
+    const erroConfiguracao = erroConfig();
+
+    if (erroConfiguracao) {
+      return NextResponse.json(
+        { ok: false, error: erroConfiguracao },
+        { status: 500 }
+      );
+    }
+
+    const permissao = await verificarAcesso(request, [
+      "mentor",
+      "mentorado",
+      "financeiro",
+      "suporte",
+    ]);
+
+    if (!permissao.ok) {
+      return responderPermissaoNegada(permissao);
+    }
+
     const { searchParams } = new URL(request.url);
 
-    const mentoradoId = searchParams.get("mentoradoId");
-    const perfil = searchParams.get("perfil");
+    const mentoradoIdSolicitado = searchParams.get("mentoradoId");
+    const mentoradoId =
+      permissao.role === "mentorado"
+        ? permissao.userId
+        : mentoradoIdSolicitado;
+    const podeVerTudo = permissao.role !== "mentorado";
 
-    const podeVerTudo = ["mentor", "suporte", "financeiro"].includes(perfil ?? "");
-
-    let query = supabase
+    let query = supabaseAdmin()
       .from("biblioteca_arquivos")
       .select("*")
       .order("created_at", { ascending: false });
@@ -826,10 +863,28 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const erroConfiguracao = erroConfig();
+
+    if (erroConfiguracao) {
+      return NextResponse.json(
+        { ok: false, error: erroConfiguracao },
+        { status: 500 }
+      );
+    }
+
+    const permissao = await verificarAcesso(request, [
+      "mentor",
+      "financeiro",
+      "suporte",
+    ]);
+
+    if (!permissao.ok) {
+      return responderPermissaoNegada(permissao);
+    }
+
     const formData = await request.formData();
 
     const mentoradoId = texto(formData.get("mentoradoId"));
-    const criadoPor = texto(formData.get("criadoPor"));
     const nome = texto(formData.get("nome"));
     const categoria = texto(formData.get("categoria")) || "material";
     const observacao = texto(formData.get("observacao"));
@@ -884,7 +939,7 @@ export async function POST(request: NextRequest) {
       const nomeLimpo = limparNomeArquivo(arquivo.name || "arquivo");
       const caminho = `${mentoradoId}/${Date.now()}-${nomeLimpo}`;
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabaseAdmin().storage
         .from(BUCKET_BIBLIOTECA)
         .upload(caminho, arquivo, {
           cacheControl: "3600",
@@ -894,7 +949,7 @@ export async function POST(request: NextRequest) {
 
       if (uploadError) throw uploadError;
 
-      const { data: publicData } = supabase.storage
+      const { data: publicData } = supabaseAdmin().storage
         .from(BUCKET_BIBLIOTECA)
         .getPublicUrl(caminho);
 
@@ -904,11 +959,11 @@ export async function POST(request: NextRequest) {
       tipo = tipoPorArquivo(arquivo);
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin()
       .from("biblioteca_arquivos")
       .insert({
         mentorado_id: mentoradoId,
-        criado_por: criadoPor || null,
+        criado_por: permissao.userId,
         nome,
         categoria,
         tipo,
@@ -942,6 +997,25 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const erroConfiguracao = erroConfig();
+
+    if (erroConfiguracao) {
+      return NextResponse.json(
+        { ok: false, error: erroConfiguracao },
+        { status: 500 }
+      );
+    }
+
+    const permissao = await verificarAcesso(request, [
+      "mentor",
+      "financeiro",
+      "suporte",
+    ]);
+
+    if (!permissao.ok) {
+      return responderPermissaoNegada(permissao);
+    }
+
     const body = await request.json().catch(() => null);
     const id = texto(body?.id);
 
@@ -952,7 +1026,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { data: arquivo, error: buscaError } = await supabase
+    const { data: arquivo, error: buscaError } = await supabaseAdmin()
       .from("biblioteca_arquivos")
       .select("id, storage_path")
       .eq("id", id)
@@ -962,7 +1036,7 @@ export async function DELETE(request: NextRequest) {
 
     const storagePath = texto((arquivo as Record<string, unknown>)?.storage_path);
 
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await supabaseAdmin()
       .from("biblioteca_arquivos")
       .delete()
       .eq("id", id);
@@ -970,7 +1044,9 @@ export async function DELETE(request: NextRequest) {
     if (deleteError) throw deleteError;
 
     if (storagePath) {
-      await supabase.storage.from(BUCKET_BIBLIOTECA).remove([storagePath]);
+      await supabaseAdmin().storage
+        .from(BUCKET_BIBLIOTECA)
+        .remove([storagePath]);
     }
 
     return NextResponse.json({

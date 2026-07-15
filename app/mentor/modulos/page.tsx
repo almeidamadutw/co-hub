@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/utils/supabase";
+import { obterCabecalhoAutorizacao } from "@/utils/apiAuthClient";
 import {
   AulaModulo,
   ModuloMentoria,
@@ -78,6 +79,22 @@ type AtividadePersonalizada = {
   } | null;
 };
 
+type AtividadePersonalizadaConsulta = Omit<
+  AtividadePersonalizada,
+  "profiles"
+> & {
+  profiles:
+    | {
+        nome: string | null;
+        email: string | null;
+      }
+    | Array<{
+        nome: string | null;
+        email: string | null;
+      }>
+    | null;
+};
+
 type StatusLiberacaoModulo = "aberto" | "fechado" | "agendado";
 
 type ModuloLiberacaoGlobal = {
@@ -148,16 +165,6 @@ const statusAtividadeOptions: StatusAtividadePersonalizada[] = [
   "Concluída",
 ];
 
-const MATERIAIS_BUCKET = "ceo-club-materiais";
-
-function limparNomeArquivo(nome: string) {
-  return nome
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]/g, "-")
-    .toLowerCase();
-}
-
 function detectarTipoMaterial(file: File | null): TipoMaterial {
   if (!file) return "outro";
 
@@ -188,21 +195,6 @@ function detectarTipoMaterial(file: File | null): TipoMaterial {
   }
 
   return "outro";
-}
-
-function labelTipoMaterial(tipo: TipoMaterial) {
-  const labels: Record<TipoMaterial, string> = {
-    pdf: "PDF",
-    video: "Vídeo",
-    link: "Link",
-    imagem: "Imagem",
-    documento: "Documento",
-    atividade: "Atividade",
-    reuniao: "Reunião",
-    outro: "Material",
-  };
-
-  return labels[tipo];
 }
 
 export default function ModulosPage() {
@@ -272,7 +264,6 @@ export default function ModulosPage() {
     criarAula,
     atualizarAula,
     excluirAula,
-    adicionarMaterial,
     removerMaterial,
     carregarModulos,
   } = useModulosSupabase();
@@ -290,7 +281,7 @@ export default function ModulosPage() {
         usuarioLogado.role === "mentorado"
           ? "/mentorado/dashboard"
           : usuarioLogado.role === "financeiro"
-            ? "/financeiro"
+            ? "/mentor/financeiro"
             : "/login";
 
       router.push(destino);
@@ -299,21 +290,6 @@ export default function ModulosPage() {
 
     setUsuario(usuarioLogado);
   }, [router]);
-
-  useEffect(() => {
-    if (!usuario) return;
-    carregarMentorados();
-    carregarLiberacoesGlobais();
-  }, [usuario]);
-
-  useEffect(() => {
-    if (!moduloSelecionado?.id) {
-      setAtividadesPersonalizadas([]);
-      return;
-    }
-
-    carregarAtividadesPersonalizadas(moduloSelecionado.id);
-  }, [moduloSelecionado?.id]);
 
   const modulosFiltrados = useMemo(() => {
     const termo = busca.toLowerCase().trim();
@@ -389,7 +365,7 @@ export default function ModulosPage() {
     return modulosOrdenados.findIndex((modulo) => modulo.id === moduloId);
   }
 
-  async function carregarMentorados() {
+  const carregarMentorados = useCallback(async () => {
     const { data, error } = await supabase
       .from("profiles")
       .select("id, nome, email")
@@ -402,9 +378,9 @@ export default function ModulosPage() {
     }
 
     setMentorados((data ?? []) as MentoradoResumo[]);
-  }
+  }, [setErro]);
 
-  async function carregarAtividadesPersonalizadas(moduloId: string) {
+  const carregarAtividadesPersonalizadas = useCallback(async (moduloId: string) => {
     setCarregandoAtividades(true);
 
     const { data, error } = await supabase
@@ -435,7 +411,9 @@ export default function ModulosPage() {
       return;
     }
 
-    const atividadesTratadas = (data ?? []).map((item: any) => ({
+    const atividadesTratadas = (
+      (data ?? []) as AtividadePersonalizadaConsulta[]
+    ).map((item) => ({
       ...item,
       profiles: Array.isArray(item.profiles)
         ? (item.profiles[0] ?? null)
@@ -444,9 +422,9 @@ export default function ModulosPage() {
 
     setAtividadesPersonalizadas(atividadesTratadas);
     setCarregandoAtividades(false);
-  }
+  }, [setErro]);
 
-  async function carregarLiberacoesGlobais() {
+  const carregarLiberacoesGlobais = useCallback(async () => {
     setCarregandoLiberacoes(true);
 
     const { data, error } = await supabase
@@ -464,7 +442,22 @@ export default function ModulosPage() {
 
     setLiberacoesGlobais((data ?? []) as ModuloLiberacaoGlobal[]);
     setCarregandoLiberacoes(false);
-  }
+  }, [setErro]);
+
+  useEffect(() => {
+    if (!usuario) return;
+    void carregarMentorados();
+    void carregarLiberacoesGlobais();
+  }, [carregarLiberacoesGlobais, carregarMentorados, usuario]);
+
+  useEffect(() => {
+    if (!moduloSelecionado?.id) {
+      setAtividadesPersonalizadas([]);
+      return;
+    }
+
+    void carregarAtividadesPersonalizadas(moduloSelecionado.id);
+  }, [carregarAtividadesPersonalizadas, moduloSelecionado?.id]);
 
   function obterLiberacaoGlobal(moduloId: string) {
     return (
@@ -885,8 +878,11 @@ export default function ModulosPage() {
         dados.append("arquivo", formMaterial.arquivo);
       }
 
+      const headers = await obterCabecalhoAutorizacao();
+
       const resposta = await fetch("/api/materiais", {
         method: "POST",
+        headers,
         body: dados,
         signal: controller.signal,
       });
@@ -1041,7 +1037,7 @@ export default function ModulosPage() {
 
   return (
     <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-      <Sidebar nome={usuario.nome} role="mentor" acessoSuporte={usuario.role === "suporte"} />
+      <Sidebar nome={usuario.nome} role={usuario.role} acessoSuporte={usuario.role === "suporte"} />
 
       <section className="ceo-content no-scrollbar !p-4 sm:!p-5 lg:!p-6">
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#12317C]/15 blur-3xl" />
@@ -2303,6 +2299,19 @@ function LiberacaoBadge({
   liberacao: ModuloLiberacaoGlobal | null;
   carregando: boolean;
 }) {
+  const [agora, setAgora] = useState(0);
+
+  useEffect(() => {
+    const atualizarHorario = () => setAgora(Date.now());
+    const primeiroUpdate = window.setTimeout(atualizarHorario, 0);
+    const intervalo = window.setInterval(atualizarHorario, 30_000);
+
+    return () => {
+      window.clearTimeout(primeiroUpdate);
+      window.clearInterval(intervalo);
+    };
+  }, []);
+
   if (carregando) {
     return (
       <span className="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
@@ -2315,7 +2324,8 @@ function LiberacaoBadge({
   const liberacaoVencida =
     status === "agendado" &&
     liberacao?.liberar_em &&
-    new Date(liberacao.liberar_em).getTime() <= Date.now();
+    agora > 0 &&
+    new Date(liberacao.liberar_em).getTime() <= agora;
 
   const label =
     status === "aberto" || liberacaoVencida

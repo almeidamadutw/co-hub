@@ -5,14 +5,17 @@ import { useRouter } from "next/navigation";
 import MentoradoSidebar from "@/components/MentoradoSidebar";
 import MentoradoLoading from "@/components/MentoradoLoading";
 import { supabase } from "@/utils/supabase";
-import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import {
+  logoutUsuario,
+  sincronizarUsuarioComSessao,
+  User,
+} from "@/utils/auth";
 import { useModulosSupabase } from "@/utils/useModulosSupabase";
 
 export default function MentoradoProgressoPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [mentoradoId, setMentoradoId] = useState("");
   const [aulasConcluidas, setAulasConcluidas] = useState<string[]>([]);
   const [carregandoProgresso, setCarregandoProgresso] = useState(true);
   const [erro, setErro] = useState("");
@@ -20,25 +23,37 @@ export default function MentoradoProgressoPage() {
   const { carregando, modulos } = useModulosSupabase();
 
   useEffect(() => {
-    const user = getUsuarioLogado();
+    let componenteAtivo = true;
 
-    if (!user) {
-      router.replace("/login");
-      return;
+    async function validarAcesso() {
+      const user = await sincronizarUsuarioComSessao();
+
+      if (!componenteAtivo) return;
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      if (user.role === "mentor") {
+        router.replace("/mentor/dashboard");
+        return;
+      }
+
+      if (user.role !== "mentorado") {
+        await logoutUsuario();
+        router.replace("/login");
+        return;
+      }
+
+      setUsuario(user);
     }
 
-    if (user.role === "mentor") {
-      router.replace("/dashboard");
-      return;
-    }
+    void validarAcesso();
 
-    if (user.role !== "mentorado") {
-      logoutUsuario();
-      router.replace("/login");
-      return;
-    }
-
-    setUsuario(user);
+    return () => {
+      componenteAtivo = false;
+    };
   }, [router]);
 
   useEffect(() => {
@@ -76,8 +91,6 @@ export default function MentoradoProgressoPage() {
       }
 
       const idPerfil = perfil.id;
-
-      setMentoradoId(idPerfil);
 
       const { data, error } = await supabase
         .from("progresso_aulas")
@@ -489,4 +502,3 @@ function ModuloProgressoCard({
     </article>
   );
 }
-

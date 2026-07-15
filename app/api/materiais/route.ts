@@ -1,5 +1,10 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  criarClienteAdmin,
+  erroConfig,
+  responderPermissaoNegada,
+  verificarAcesso,
+} from "@/utils/apiAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,25 +101,6 @@ function normalizarTipo(valor: FormDataEntryValue | null): TipoMaterial {
   return tiposPermitidos.includes(tipo) ? tipo : "outro";
 }
 
-function criarSupabaseAdmin() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error(
-      "Configuração do Supabase ausente. Verifique NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no .env.local."
-    );
-  }
-
-  return createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-}
-
 async function withTimeout<T>(
   promise: PromiseLike<T>,
   timeoutMs: number,
@@ -135,11 +121,23 @@ async function withTimeout<T>(
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   let caminhoArquivoEnviado: string | null = null;
 
   try {
-    const supabaseAdmin = criarSupabaseAdmin();
+    const erroConfiguracao = erroConfig();
+
+    if (erroConfiguracao) {
+      return jsonError(erroConfiguracao, 500);
+    }
+
+    const permissao = await verificarAcesso(request, ["mentor", "suporte"]);
+
+    if (!permissao.ok) {
+      return responderPermissaoNegada(permissao);
+    }
+
+    const supabaseAdmin = criarClienteAdmin();
     const formData = await request.formData();
 
     const aulaId = String(formData.get("aulaId") ?? "").trim();

@@ -1,6 +1,6 @@
 "use client";
 
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 
 export function useLocalStorage<T>(
   key: string,
@@ -8,6 +8,7 @@ export function useLocalStorage<T>(
 ): [T, Dispatch<SetStateAction<T>>, boolean] {
   const [storedValue, setStoredValue] = useState<T>(initialValue);
   const [carregou, setCarregou] = useState(false);
+  const initialValueRef = useRef(initialValue);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -18,11 +19,11 @@ export function useLocalStorage<T>(
       if (item !== null) {
         setStoredValue(JSON.parse(item) as T);
       } else {
-        setStoredValue(initialValue);
+        setStoredValue(initialValueRef.current);
       }
     } catch (error) {
       console.error(`Erro ao ler localStorage (${key}):`, error);
-      setStoredValue(initialValue);
+      setStoredValue(initialValueRef.current);
     } finally {
       setCarregou(true);
     }

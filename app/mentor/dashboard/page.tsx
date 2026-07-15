@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
@@ -22,6 +22,11 @@ type UsuarioSistema = {
   status: "Ativo" | "Pendente" | "Inativo" | null;
   created_at: string;
 };
+
+async function obterTokenSessao() {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token;
+}
 
 type CobrancaFinanceira = {
   id: string;
@@ -101,40 +106,12 @@ export default function DashboardPage() {
   const [carregandoDados, setCarregandoDados] = useState(true);
   const [erro, setErro] = useState("");
 
-  useEffect(() => {
-    const user = getUsuarioLogado();
-
-    if (!user) {
-      router.replace("/login");
-      return;
-    }
-
-    if (user.role === "mentorado") {
-      router.replace("/mentorado/dashboard");
-      return;
-    }
-
-    if (user.role !== "mentor") {
-      logoutUsuario();
-      router.replace("/login");
-      return;
-    }
-
-    setUsuario(user);
-    carregarDashboard();
-  }, [router]);
-
-  async function pegarToken() {
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token;
-  }
-
-  async function carregarDashboard() {
+  const carregarDashboard = useCallback(async () => {
     try {
       setCarregandoDados(true);
       setErro("");
 
-      const token = await pegarToken();
+      const token = await obterTokenSessao();
 
       if (!token) {
         throw new Error("Sessão expirada. Entre novamente.");
@@ -242,21 +219,40 @@ export default function DashboardPage() {
     } finally {
       setCarregandoDados(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    const user = getUsuarioLogado();
+
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    if (user.role === "mentorado") {
+      router.replace("/mentorado/dashboard");
+      return;
+    }
+
+    if (user.role !== "mentor") {
+      logoutUsuario();
+      router.replace("/login");
+      return;
+    }
+
+    setUsuario(user);
+    void carregarDashboard();
+  }, [carregarDashboard, router]);
 
   const mentorados = useMemo(() => {
     return usuarios.filter((item) => item.role === "mentorado");
-  }, [usuarios]);
-
-  const mentoras = useMemo(() => {
-    return usuarios.filter((item) => item.role === "mentor");
   }, [usuarios]);
 
   const aulasAtivas = useMemo(() => {
     return aulas.filter((aula) => aula.ativo !== false);
   }, [aulas]);
 
-  function calcularProgressoMentorado(mentoradoId: string) {
+  const calcularProgressoMentorado = useCallback((mentoradoId: string) => {
     const totalAulas = aulasAtivas.length;
 
     if (totalAulas === 0) {
@@ -279,7 +275,7 @@ export default function DashboardPage() {
       aulasConcluidas,
       totalAulas,
     };
-  }
+  }, [aulasAtivas, progressoAulas]);
 
   const mentoradosComResumo = useMemo<MentoradoResumo[]>(() => {
     return mentorados.map((mentorado) => {
@@ -308,7 +304,7 @@ export default function DashboardPage() {
         cobrancasAtrasadas,
       };
     });
-  }, [mentorados, cobrancas, progressoAulas, aulasAtivas]);
+  }, [mentorados, cobrancas, calcularProgressoMentorado]);
 
   const resumoFinanceiro = useMemo(() => {
     const emAberto = cobrancas.filter(
@@ -413,8 +409,7 @@ export default function DashboardPage() {
   }, [mentoradosComResumo]);
 
   async function sair() {
-    logoutUsuario();
-    await supabase.auth.signOut();
+    await logoutUsuario();
     router.replace("/login");
   }
 
@@ -504,7 +499,7 @@ export default function DashboardPage() {
                 </button>
 
                 <button
-                  onClick={() => router.push("/mentorados")}
+                  onClick={() => router.push("/mentor/mentorados/lista")}
                   className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-black text-white transition hover:bg-white/15"
                 >
                   Gerenciar mentorados →
@@ -678,7 +673,7 @@ export default function DashboardPage() {
                   )}
 
                   <button
-                    onClick={() => router.push("/financeiro")}
+                    onClick={() => router.push("/mentor/financeiro")}
                     className="mt-5 rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-[#08163F] transition hover:brightness-95"
                   >
                     Abrir financeiro →
@@ -692,14 +687,14 @@ export default function DashboardPage() {
                     titulo="Nenhum encontro futuro"
                     texto="Quando houver eventos futuros, eles aparecerão aqui."
                     botao="Abrir agenda"
-                    onClick={() => router.push("/agenda")}
+                    onClick={() => router.push("/mentor/agenda")}
                   />
                 ) : (
                   <div className="space-y-3">
                     {proximosEventos.map((evento) => (
                       <button
                         key={evento.id}
-                        onClick={() => router.push("/agenda")}
+                        onClick={() => router.push("/mentor/agenda")}
                         className="w-full min-w-0 rounded-2xl bg-[#f9fafb] p-3 text-left transition hover:bg-white hover:shadow-md"
                       >
                         <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">
@@ -770,7 +765,7 @@ export default function DashboardPage() {
                     titulo="Nenhum módulo cadastrado"
                     texto="Crie módulos e aulas para liberar conteúdo aos mentorados."
                     botao="Gerenciar módulos"
-                    onClick={() => router.push("/modulos")}
+                    onClick={() => router.push("/mentor/modulos")}
                   />
                 )}
               </div>
@@ -785,27 +780,27 @@ export default function DashboardPage() {
 
                 <ActionButton
                   label="Ver mentorados"
-                  onClick={() => router.push("/mentorados")}
+                  onClick={() => router.push("/mentor/mentorados/lista")}
                 />
 
                 <ActionButton
                   label="Gerenciar simulados"
-                  onClick={() => router.push("/simulados")}
+                  onClick={() => router.push("/mentor/simulados")}
                 />
 
                 <ActionButton
                   label="Ver agenda"
-                  onClick={() => router.push("/agenda")}
+                  onClick={() => router.push("/mentor/agenda")}
                 />
 
                 <ActionButton
                   label="Gerenciar módulos"
-                  onClick={() => router.push("/modulos")}
+                  onClick={() => router.push("/mentor/modulos")}
                 />
 
                 <ActionButton
                   label="Abrir financeiro"
-                  onClick={() => router.push("/financeiro")}
+                  onClick={() => router.push("/mentor/financeiro")}
                 />
               </div>
             </Card>

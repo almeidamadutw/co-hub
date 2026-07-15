@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
+import { logoutUsuario } from "@/utils/auth";
 
 export default function RedefinirSenhaPage() {
   const router = useRouter();
@@ -26,11 +28,7 @@ export default function RedefinirSenhaPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    prepararSessaoDeRecuperacao();
-  }, []);
-
-  async function prepararSessaoDeRecuperacao() {
+  const prepararSessaoDeRecuperacao = useCallback(async () => {
     setValidandoLink(true);
     setErro("");
 
@@ -58,7 +56,7 @@ export default function RedefinirSenhaPage() {
           return;
         }
 
-        limparUrl();
+        window.history.replaceState({}, document.title, "/redefinir-senha");
       } else if (accessToken && refreshToken) {
         const { error } = await withTimeout(
           supabase.auth.setSession({
@@ -75,7 +73,7 @@ export default function RedefinirSenhaPage() {
           return;
         }
 
-        limparUrl();
+        window.history.replaceState({}, document.title, "/redefinir-senha");
       }
 
       const { data, error } = await withTimeout(
@@ -95,11 +93,11 @@ export default function RedefinirSenhaPage() {
     } finally {
       setValidandoLink(false);
     }
-  }
+  }, []);
 
-  function limparUrl() {
-    window.history.replaceState({}, document.title, "/redefinir-senha");
-  }
+  useEffect(() => {
+    void prepararSessaoDeRecuperacao();
+  }, [prepararSessaoDeRecuperacao]);
 
   async function handleRedefinirSenha(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -133,43 +131,29 @@ export default function RedefinirSenhaPage() {
         15000
       );
 
-      const usuarioId = sessaoAtual.session?.user.id;
+      const token = sessaoAtual.session?.access_token;
 
-      if (erroSessao || !usuarioId) {
+      if (erroSessao || !token) {
         setErro(
           "Sua sessão de redefinição expirou. Solicite um novo link de recuperação."
         );
         return;
       }
 
-      let trocasAtuais = 0;
+      const validacaoResponse = await withTimeout(
+        fetch("/api/auth/redefinicao-senha", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        }),
+        10000
+      );
+      const validacaoPayload = await validacaoResponse.json().catch(() => null);
 
-      try {
-        const { data: perfilAtual, error: erroPerfil } = await withTimeout(
-          supabase
-            .from("profiles")
-            .select("trocas_senha, ultima_troca_senha")
-            .eq("id", usuarioId)
-            .maybeSingle(),
-          10000
-        );
-
-        if (erroPerfil) {
-          throw erroPerfil;
-        }
-
-        trocasAtuais = Number(perfilAtual?.trocas_senha || 0);
-
-        if (trocasAtuais >= 1) {
-          setErro(
-            "Essa troca de senha já foi utilizada. Para alterar novamente, solicite liberação ao suporte."
-          );
-          return;
-        }
-      } catch (erroValidacao) {
-        console.error("Erro ao validar controle de troca de senha:", erroValidacao);
+      if (!validacaoResponse.ok || !validacaoPayload?.ok) {
         setErro(
-          "Não foi possível validar a liberação desta troca de senha. Solicite ajuda ao suporte."
+          validacaoPayload?.error ||
+            "Não foi possível validar a liberação desta troca de senha. Solicite ajuda ao suporte."
         );
         return;
       }
@@ -189,17 +173,26 @@ export default function RedefinirSenhaPage() {
       let historicoRegistrado = true;
 
       try {
-        await registrarTrocaSenhaNoPerfil(usuarioId, trocasAtuais);
+        const registroResponse = await withTimeout(
+          fetch("/api/auth/redefinicao-senha", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          10000
+        );
+        const registroPayload = await registroResponse.json().catch(() => null);
+
+        if (!registroResponse.ok || !registroPayload?.ok) {
+          throw new Error(
+            registroPayload?.error || "Não foi possível registrar o histórico."
+          );
+        }
       } catch (erroRegistro) {
         historicoRegistrado = false;
         console.error("Erro ao registrar histórico de troca de senha:", erroRegistro);
       }
 
-      try {
-        await supabase.auth.signOut();
-      } catch {
-        // Evita travar a confirmação caso o logout falhe.
-      }
+      await logoutUsuario();
 
       setSenhaAtualizada(true);
       setNovaSenha("");
@@ -219,31 +212,6 @@ export default function RedefinirSenhaPage() {
       );
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function registrarTrocaSenhaNoPerfil(
-    usuarioId: string,
-    trocasAtuais: number
-  ) {
-    const agora = new Date().toISOString();
-
-    const { error } = await withTimeout(
-      supabase
-        .from("profiles")
-        .update({
-          trocas_senha: trocasAtuais + 1,
-          ultima_troca_senha: agora,
-          updated_at: agora,
-        })
-        .eq("id", usuarioId)
-        .select("id")
-        .maybeSingle(),
-      10000
-    );
-
-    if (error) {
-      throw error;
     }
   }
 
@@ -269,9 +237,11 @@ export default function RedefinirSenhaPage() {
     <main className="flex min-h-screen items-center justify-center overflow-hidden bg-[#f3f5f8] p-3 sm:p-4">
       <section className="grid w-full max-w-6xl overflow-hidden rounded-[24px] bg-white shadow-[0_20px_50px_rgba(15,23,42,0.10)] lg:min-h-[640px] lg:grid-cols-[0.95fr_1.05fr] xl:min-h-[680px]">
         <div className="relative hidden lg:flex">
-          <img
+          <Image
             src="/images/luciana.jpg"
             alt="Mentora Dra. Luciana Rocha"
+            fill
+            sizes="(min-width: 1024px) 48vw, 0px"
             className={`absolute inset-0 h-full w-full object-cover transition-all duration-[1400ms] ease-out ${
               animar ? "scale-100 opacity-100" : "scale-110 opacity-0"
             }`}
@@ -322,9 +292,11 @@ export default function RedefinirSenhaPage() {
                   animar ? "scale-100 opacity-100" : "scale-90 opacity-0"
                 }`}
               >
-                <img
+                <Image
                   src="/images/logo.jpeg"
                   alt="Logo CEO Club"
+                  width={112}
+                  height={112}
                   className="h-full w-full rounded-[18px] object-cover"
                 />
               </div>

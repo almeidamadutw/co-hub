@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import MentoradoSidebar from "@/components/MentoradoSidebar";
@@ -53,7 +54,7 @@ export default function ContaMentoradoPage() {
       }
 
       if (user.role === "mentor") {
-        router.replace("/dashboard");
+        router.replace("/mentor/dashboard");
         return;
       }
 
@@ -252,9 +253,12 @@ export default function ContaMentoradoPage() {
                 <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 p-1.5 shadow-lg sm:h-24 sm:w-24">
                     {fotoPerfil ? (
-                      <img
+                      <Image
                         src={fotoPerfil}
                         alt="Foto de perfil"
+                        width={96}
+                        height={96}
+                        unoptimized
                         className="h-full w-full rounded-full object-cover"
                       />
                     ) : (
