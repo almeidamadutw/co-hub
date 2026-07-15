@@ -1,134 +1,314 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import MentoradoLoading from "@/components/MentoradoLoading";
+import MentoradoSidebar from "@/components/MentoradoSidebar";
+import { sincronizarUsuarioComSessao, User } from "@/utils/auth";
+import { supabase } from "@/utils/supabase";
 
-type SidebarProps = {
-  nome: string;
+type TipoAgenda = "Mentoria" | "Módulo" | "Reunião" | "Presencial";
+type StatusAgenda = "Confirmada" | "Aguardando" | "Concluída" | "Cancelada";
+
+type EventoAgenda = {
+  id: string;
+  titulo: string | null;
+  tipo: TipoAgenda;
+  data: string;
+  horario: string;
+  status: StatusAgenda;
+  observacao: string | null;
 };
 
-const menusMentor = [
-  { label: "Dashboard", href: "/mentor/dashboard" },
-  { label: "Agenda", href: "/mentor/agenda" },
-  { label: "Mentorados", href: "/mentorados" },
-  { label: "Módulos", href: "/modulos" },
-  { label: "Simulados", href: "/simulados" },
-  { label: "Financeiro", href: "/financeiro" },
-  { label: "Relatórios", href: "/relatorios" },
-  { label: "Usuários", href: "/usuarios" },
-  { label: "Minha conta", href: "/conta" },
+const tipos: Array<"Todos" | TipoAgenda> = [
+  "Todos",
+  "Mentoria",
+  "Módulo",
+  "Reunião",
+  "Presencial",
 ];
 
-export default function Sidebar({ nome }: SidebarProps) {
+const statusDisponiveis: Array<"Todos" | StatusAgenda> = [
+  "Todos",
+  "Confirmada",
+  "Aguardando",
+  "Concluída",
+  "Cancelada",
+];
+
+export default function AgendaMentoradoPage() {
   const router = useRouter();
-  const pathname = usePathname();
+  const [usuario, setUsuario] = useState<User | null>(null);
+  const [eventos, setEventos] = useState<EventoAgenda[]>([]);
+  const [tipoFiltro, setTipoFiltro] = useState<"Todos" | TipoAgenda>("Todos");
+  const [statusFiltro, setStatusFiltro] =
+    useState<"Todos" | StatusAgenda>("Todos");
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
 
-  function sair() {
-    localStorage.removeItem("cohub_user");
-    localStorage.removeItem("ceoclub_user");
-    sessionStorage.removeItem("cohub_user");
-    sessionStorage.removeItem("ceoclub_user");
-    router.replace("/login");
-  }
+  const carregarEventos = useCallback(async (mentoradoId: string) => {
+    try {
+      setCarregando(true);
+      setErro("");
 
-  function navegar(href: string) {
-    router.push(href);
-  }
+      const { data, error } = await supabase
+        .from("agenda_eventos")
+        .select("id, titulo, tipo, data, horario, status, observacao")
+        .eq("mentorado_id", mentoradoId)
+        .order("data", { ascending: true })
+        .order("horario", { ascending: true });
 
-  function rotaAtiva(href: string) {
-    if (href === "/mentor/dashboard") {
-      return pathname === "/mentor/dashboard" || pathname === "/dashboard";
+      if (error) throw new Error(error.message);
+
+      setEventos((data ?? []) as EventoAgenda[]);
+    } catch (error) {
+      setEventos([]);
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar sua agenda."
+      );
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let telaAtiva = true;
+
+    async function iniciarTela() {
+      const user = await sincronizarUsuarioComSessao();
+
+      if (!telaAtiva) return;
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      if (user.role !== "mentorado") {
+        const destino =
+          user.role === "mentor"
+            ? "/mentor/agenda"
+            : user.role === "suporte"
+              ? "/suporte"
+              : "/mentor/financeiro";
+
+        router.replace(destino);
+        return;
+      }
+
+      setUsuario(user);
+      await carregarEventos(user.id);
     }
 
-    return pathname === href || pathname.startsWith(`${href}/`);
+    void iniciarTela();
+
+    return () => {
+      telaAtiva = false;
+    };
+  }, [carregarEventos, router]);
+
+  const eventosFiltrados = useMemo(() => {
+    return eventos.filter((evento) => {
+      const correspondeAoTipo =
+        tipoFiltro === "Todos" || evento.tipo === tipoFiltro;
+      const correspondeAoStatus =
+        statusFiltro === "Todos" || evento.status === statusFiltro;
+
+      return correspondeAoTipo && correspondeAoStatus;
+    });
+  }, [eventos, statusFiltro, tipoFiltro]);
+
+  const resumo = useMemo(
+    () => ({
+      total: eventos.length,
+      confirmadas: eventos.filter((evento) => evento.status === "Confirmada")
+        .length,
+      aguardando: eventos.filter((evento) => evento.status === "Aguardando")
+        .length,
+      concluidas: eventos.filter((evento) => evento.status === "Concluída")
+        .length,
+    }),
+    [eventos]
+  );
+
+  if (!usuario) {
+    return <MentoradoLoading mensagem="Carregando sua agenda..." />;
   }
 
   return (
-    <>
-      <aside className="fixed left-0 top-0 z-50 flex h-screen w-[250px] flex-col overflow-hidden border-r border-white/10 bg-gradient-to-b from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-4 text-white shadow-[0_18px_50px_rgba(8,22,63,0.22)]">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgba(229,231,235,0.16),transparent)]" />
-        <div className="pointer-events-none absolute -left-14 bottom-10 h-36 w-36 rounded-full bg-[radial-gradient(circle,rgba(191,195,201,0.10),transparent)]" />
+    <main className="flex min-h-screen overflow-x-hidden bg-[#f6f7fb] text-[#08163F]">
+      <MentoradoSidebar nome={usuario.nome} />
 
-        <div className="relative z-10 shrink-0">
-          <div className="mb-3 flex items-center gap-3 rounded-[18px] border border-white/10 bg-white/10 p-2.5 backdrop-blur-sm">
-            <div className="h-11 w-11 overflow-hidden rounded-xl border border-white/10 bg-white/10 p-1">
-              <img
-                src="/images/logo.jpeg"
-                alt="Logo CEO Club"
-                className="h-full w-full rounded-lg object-cover"
-              />
-            </div>
+      <section className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:ml-[220px] lg:px-7 lg:py-7 xl:ml-[230px] xl:px-9">
+        <div className="mx-auto w-full max-w-[1320px]">
+          <header className="overflow-hidden rounded-[28px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:p-7">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#C9CED6] sm:text-xs">
+                  Sua jornada CEO Club
+                </p>
+                <h1 className="mt-2 text-2xl font-black sm:text-3xl">
+                  Minha agenda
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-[#D9DEE7]">
+                  Acompanhe mentorias, reuniões e compromissos programados pela
+                  equipe.
+                </p>
+              </div>
 
-            <div className="min-w-0">
-              <h1 className="truncate text-base font-bold leading-tight text-white">
-                CEO Club
-              </h1>
-
-              <p className="text-[11px] font-medium text-[#C9CED6]">
-                Painel da mentora
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-3 rounded-[18px] border border-white/10 bg-white/10 p-3 backdrop-blur-sm">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[#C9CED6]">
-              Mentora
-            </p>
-
-            <p className="mt-2 break-words text-sm font-bold text-white">
-              {nome}
-            </p>
-
-            <p className="mt-1 text-xs font-semibold text-[#D9DEE7]">
-              Gestão CEO Club
-            </p>
-          </div>
-        </div>
-
-        <nav className="relative z-10 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {menusMentor.map((item) => {
-            const ativo = rotaAtiva(item.href);
-
-            return (
               <button
-                key={item.href}
                 type="button"
-                onClick={() => navegar(item.href)}
-                className={`flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-xs font-bold transition ${
-                  ativo
-                    ? "border-white/20 bg-white text-[#08163F] shadow-[0_10px_25px_rgba(255,255,255,0.14)]"
-                    : "border-transparent bg-white/10 text-[#E5E7EB] hover:border-white/10 hover:bg-white/15 hover:text-white"
-                }`}
+                onClick={() => void carregarEventos(usuario.id)}
+                disabled={carregando}
+                className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#08163F] shadow-lg transition hover:brightness-95 disabled:cursor-wait disabled:opacity-70"
               >
-                <span className="truncate">{item.label}</span>
-
-                <span
-                  className={`ml-3 shrink-0 ${
-                    ativo ? "text-[#08163F]" : "text-[#BFC3C9]"
-                  }`}
-                >
-                  →
-                </span>
+                {carregando ? "Atualizando..." : "Atualizar agenda"}
               </button>
-            );
-          })}
-        </nav>
+            </div>
+          </header>
 
-        <div className="relative z-10 shrink-0 border-t border-white/10 pt-3">
-          <button
-            type="button"
-            onClick={sair}
-            className="w-full rounded-xl py-2.5 text-sm font-bold text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105"
-            style={{
-              background:
-                "linear-gradient(180deg, #F3F4F6 0%, #D1D5DB 55%, #9CA3AF 100%)",
-            }}
-          >
-            Sair
-          </button>
+          <section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <ResumoCard label="Compromissos" valor={resumo.total} />
+            <ResumoCard label="Confirmados" valor={resumo.confirmadas} />
+            <ResumoCard label="Aguardando" valor={resumo.aguardando} />
+            <ResumoCard label="Concluídos" valor={resumo.concluidas} />
+          </section>
+
+          <section className="mt-5 rounded-[26px] border border-white/70 bg-white/90 p-4 shadow-xl shadow-slate-200/60 sm:p-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-black">Compromissos</h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Filtre por tipo ou situação para localizar um evento.
+                </p>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select
+                  value={tipoFiltro}
+                  onChange={(event) =>
+                    setTipoFiltro(event.target.value as "Todos" | TipoAgenda)
+                  }
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C] focus:ring-4 focus:ring-[#12317C]/10"
+                >
+                  {tipos.map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                      {tipo === "Todos" ? "Todos os tipos" : tipo}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={statusFiltro}
+                  onChange={(event) =>
+                    setStatusFiltro(
+                      event.target.value as "Todos" | StatusAgenda
+                    )
+                  }
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C] focus:ring-4 focus:ring-[#12317C]/10"
+                >
+                  {statusDisponiveis.map((status) => (
+                    <option key={status} value={status}>
+                      {status === "Todos" ? "Todos os status" : status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {erro && (
+              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {erro}
+              </div>
+            )}
+
+            {carregando ? (
+              <div className="mt-5 rounded-[22px] bg-slate-50 px-5 py-12 text-center text-sm font-bold text-slate-500">
+                Carregando compromissos...
+              </div>
+            ) : eventosFiltrados.length === 0 ? (
+              <div className="mt-5 rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-5 py-12 text-center">
+                <p className="font-black">Nenhum compromisso encontrado.</p>
+                <p className="mt-2 text-sm font-medium text-slate-500">
+                  Quando a equipe agendar um evento, ele aparecerá aqui.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-5 grid gap-3 lg:grid-cols-2">
+                {eventosFiltrados.map((evento) => (
+                  <article
+                    key={evento.id}
+                    className="rounded-[22px] border border-slate-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-5"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                          {evento.tipo}
+                        </p>
+                        <h3 className="mt-2 break-words text-base font-black sm:text-lg">
+                          {evento.titulo || evento.tipo}
+                        </h3>
+                      </div>
+
+                      <span
+                        className={`rounded-full px-3 py-1.5 text-[11px] font-black ${corStatus(evento.status)}`}
+                      >
+                        {evento.status}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid gap-2 rounded-2xl bg-[#f6f7fb] p-3 text-sm font-bold text-slate-600 sm:grid-cols-2">
+                      <p>{formatarData(evento.data)}</p>
+                      <p className="sm:text-right">
+                        {limparHorario(evento.horario)}
+                      </p>
+                    </div>
+
+                    {evento.observacao && (
+                      <p className="mt-4 break-words text-sm font-medium leading-6 text-slate-500">
+                        {evento.observacao}
+                      </p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
-      </aside>
-
-      <div className="h-screen w-[250px] shrink-0" aria-hidden="true" />
-    </>
+      </section>
+    </main>
   );
+}
+
+function ResumoCard({ label, valor }: { label: string; valor: number }) {
+  return (
+    <article className="rounded-[22px] border border-white/70 bg-white/90 p-4 shadow-lg shadow-slate-200/50">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-black text-[#08163F]">{valor}</p>
+    </article>
+  );
+}
+
+function formatarData(data: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(`${data}T12:00:00`));
+}
+
+function limparHorario(horario: string) {
+  return horario.slice(0, 5);
+}
+
+function corStatus(status: StatusAgenda) {
+  if (status === "Confirmada") return "bg-emerald-100 text-emerald-700";
+  if (status === "Aguardando") return "bg-amber-100 text-amber-700";
+  if (status === "Concluída") return "bg-blue-100 text-blue-700";
+  return "bg-slate-100 text-slate-600";
 }

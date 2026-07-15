@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
@@ -103,35 +103,7 @@ export default function SuporteMentoradoPage() {
   const [erro, setErro] = useState("");
   const [mensagemSucesso, setMensagemSucesso] = useState("");
 
-  useEffect(() => {
-    async function carregar() {
-      const user = getUsuarioLogado();
-
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-
-      if (user.role === "mentor") {
-        router.replace("/dashboard");
-        return;
-      }
-
-      if (user.role !== "mentorado") {
-        logoutUsuario();
-        router.replace("/login");
-        return;
-      }
-
-      setUsuario(user);
-      await carregarTickets(user.id);
-      setCarregando(false);
-    }
-
-    carregar();
-  }, [router]);
-
-  async function carregarTickets(usuarioId = usuario?.id) {
+  const carregarTickets = useCallback(async (usuarioId?: string) => {
     if (!usuarioId) return [];
 
     setErro("");
@@ -153,7 +125,35 @@ export default function SuporteMentoradoPage() {
     const lista = (data || []) as Ticket[];
     setTickets(lista);
     return lista;
-  }
+  }, []);
+
+  useEffect(() => {
+    async function carregar() {
+      const user = getUsuarioLogado();
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      if (user.role === "mentor") {
+        router.replace("/mentor/dashboard");
+        return;
+      }
+
+      if (user.role !== "mentorado") {
+        logoutUsuario();
+        router.replace("/login");
+        return;
+      }
+
+      setUsuario(user);
+      await carregarTickets(user.id);
+      setCarregando(false);
+    }
+
+    void carregar();
+  }, [carregarTickets, router]);
 
   async function carregarMensagens(ticketId: string) {
     setCarregandoChat(true);
@@ -178,7 +178,7 @@ export default function SuporteMentoradoPage() {
     setMensagens((data || []) as MensagemTicket[]);
   }
 
-  const ticketsFiltrados = useMemo(() => {
+  const ticketsFiltrados = (() => {
     const termo = busca.trim().toLowerCase();
 
     return tickets.filter((ticket) => {
@@ -199,9 +199,9 @@ export default function SuporteMentoradoPage() {
 
       return passaStatus && passaBusca;
     });
-  }, [tickets, busca, statusFiltro]);
+  })();
 
-  const resumo = useMemo(() => {
+  const resumo = (() => {
     return {
       total: tickets.length,
       abertos: tickets.filter((ticket) => normalizar(ticket.status) === "aberto")
@@ -213,7 +213,7 @@ export default function SuporteMentoradoPage() {
         (ticket) => normalizar(ticket.status) === "resolvido"
       ).length,
     };
-  }, [tickets]);
+  })();
 
   function normalizar(valor: string | null) {
     return (valor || "").trim().toLowerCase();

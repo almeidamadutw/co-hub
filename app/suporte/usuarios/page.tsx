@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
-import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import {
+  logoutUsuario,
+  sincronizarUsuarioComSessao,
+  User,
+} from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
 
 type Perfil = {
@@ -46,29 +50,6 @@ export default function SuporteUsuariosPage() {
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
 
-  useEffect(() => {
-    async function carregar() {
-      const user = getUsuarioLogado();
-
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-
-      if (user.role !== "suporte") {
-        logoutUsuario();
-        router.replace("/login");
-        return;
-      }
-
-      setUsuario(user);
-      await carregarUsuarios();
-      setCarregando(false);
-    }
-
-    carregar();
-  }, [router]);
-
   async function carregarUsuarios() {
     setErro("");
 
@@ -88,7 +69,30 @@ export default function SuporteUsuariosPage() {
     setPerfis((data || []) as Perfil[]);
   }
 
-  const perfisFiltrados = useMemo(() => {
+  useEffect(() => {
+    async function carregar() {
+      const user = await sincronizarUsuarioComSessao();
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      if (user.role !== "suporte") {
+        await logoutUsuario();
+        router.replace("/login");
+        return;
+      }
+
+      setUsuario(user);
+      await carregarUsuarios();
+      setCarregando(false);
+    }
+
+    void carregar();
+  }, [router]);
+
+  const perfisFiltrados = (() => {
     const termo = busca.trim().toLowerCase();
 
     return perfis.filter((perfil) => {
@@ -115,9 +119,9 @@ export default function SuporteUsuariosPage() {
 
       return passaPerfil && passaStatus && passaBusca;
     });
-  }, [perfis, busca, perfilFiltro, statusFiltro]);
+  })();
 
-  const resumo = useMemo(() => {
+  const resumo = (() => {
     return {
       total: perfis.length,
       mentorados: perfis.filter((p) => normalizar(p.role) === "mentorado")
@@ -129,7 +133,7 @@ export default function SuporteUsuariosPage() {
       semPerfil: perfis.filter((p) => !normalizar(p.role)).length,
       semStatus: perfis.filter((p) => !normalizar(p.status)).length,
     };
-  }, [perfis]);
+  })();
 
   function normalizar(valor: string | null) {
     return (valor || "").trim().toLowerCase();
@@ -145,17 +149,6 @@ export default function SuporteUsuariosPage() {
       hour: "2-digit",
       minute: "2-digit",
     }).format(new Date(data));
-  }
-
-  function formatarPerfil(role: string | null) {
-    const perfilAtual = normalizar(role);
-
-    if (perfilAtual === "mentor") return "Mentor";
-    if (perfilAtual === "mentorado") return "Mentorado";
-    if (perfilAtual === "financeiro") return "Financeiro";
-    if (perfilAtual === "suporte") return "Suporte";
-
-    return "Sem perfil";
   }
 
   function formatarStatus(status: string | null) {

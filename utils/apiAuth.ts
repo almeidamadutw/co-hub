@@ -17,14 +17,6 @@ type PermissaoLiberada = {
 
 export type Permissao = PermissaoNegada | PermissaoLiberada;
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-const publishableKey =
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-const secretKey = process.env.SUPABASE_SECRET_KEY;
-
 const rolesValidas: UserRole[] = [
   "mentor",
   "mentorado",
@@ -32,20 +24,47 @@ const rolesValidas: UserRole[] = [
   "suporte",
 ];
 
+function obterConfig() {
+  return {
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    publishableKey:
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    secretKey:
+      process.env.SUPABASE_SECRET_KEY ??
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+  };
+}
+
 export function erroConfig() {
+  const { supabaseUrl, publishableKey, secretKey } = obterConfig();
+
   if (!supabaseUrl) return "NEXT_PUBLIC_SUPABASE_URL não configurada.";
 
   if (!publishableKey) {
     return "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ou NEXT_PUBLIC_SUPABASE_ANON_KEY não configurada.";
   }
 
-  if (!secretKey) return "SUPABASE_SECRET_KEY não configurada.";
+  if (!secretKey) {
+    return "SUPABASE_SECRET_KEY ou SUPABASE_SERVICE_ROLE_KEY não configurada.";
+  }
 
   return "";
 }
 
 export function criarClientePublico(token?: string) {
+  const { supabaseUrl, publishableKey } = obterConfig();
+
+  if (!supabaseUrl || !publishableKey) {
+    throw new Error(erroConfig());
+  }
+
   return createClient(supabaseUrl!, publishableKey!, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
     global: token
       ? {
           headers: {
@@ -57,6 +76,12 @@ export function criarClientePublico(token?: string) {
 }
 
 export function criarClienteAdmin() {
+  const { supabaseUrl, secretKey } = obterConfig();
+
+  if (!supabaseUrl || !secretKey) {
+    throw new Error(erroConfig());
+  }
+
   return createClient(supabaseUrl!, secretKey!, {
     auth: {
       autoRefreshToken: false,
@@ -73,13 +98,21 @@ function extrairToken(req: NextRequest) {
 }
 
 function normalizarRole(role: unknown): UserRole | null {
-  const valor = String(role ?? "").trim();
+  const valor = String(role ?? "").trim().toLowerCase();
 
   if (rolesValidas.includes(valor as UserRole)) {
     return valor as UserRole;
   }
 
   return null;
+}
+
+function statusImpedeAcesso(status: unknown) {
+  const valor = String(status ?? "").trim().toLowerCase();
+
+  // Perfis legados sem status continuam válidos; qualquer status preenchido
+  // precisa representar um usuário ativo.
+  return Boolean(valor) && valor !== "ativo";
 }
 
 export async function verificarAcesso(
@@ -135,7 +168,7 @@ export async function verificarAcesso(
     };
   }
 
-  if (perfil.status && perfil.status !== "Ativo") {
+  if (statusImpedeAcesso(perfil.status)) {
     return {
       ok: false,
       status: 403,

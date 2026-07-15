@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
-import { getUsuarioLogado, logoutUsuario } from "@/utils/auth";
+import {
+  logoutUsuario,
+  sincronizarUsuarioComSessao,
+} from "@/utils/auth";
 import type { User } from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
 
@@ -31,29 +34,6 @@ export default function ResetSenhaSuportePage() {
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
 
-  useEffect(() => {
-    async function carregar() {
-      const user = getUsuarioLogado();
-
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-
-      if (user.role !== "suporte") {
-        logoutUsuario();
-        router.replace("/login");
-        return;
-      }
-
-      setUsuario(user);
-      await carregarUsuarios();
-      setCarregando(false);
-    }
-
-    carregar();
-  }, [router]);
-
   async function carregarUsuarios() {
     setErro("");
 
@@ -72,6 +52,29 @@ export default function ResetSenhaSuportePage() {
 
     setUsuarios((data || []) as UsuarioResetSenha[]);
   }
+
+  useEffect(() => {
+    async function carregar() {
+      const user = await sincronizarUsuarioComSessao();
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      if (user.role !== "suporte") {
+        await logoutUsuario();
+        router.replace("/login");
+        return;
+      }
+
+      setUsuario(user);
+      await carregarUsuarios();
+      setCarregando(false);
+    }
+
+    void carregar();
+  }, [router]);
 
   const usuariosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();

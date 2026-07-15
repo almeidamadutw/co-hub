@@ -2,19 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/utils/supabase";
-
-type PerfilRecuperacao = {
-  id: string;
-  nome: string | null;
-  email: string | null;
-  role: string | null;
-  trocas_senha: number | null;
-  total_resets_senha: number | null;
-  total_solicitacoes_senha: number | null;
-  ultima_troca_senha: string | null;
-  ultima_solicitacao_senha: string | null;
-};
+import Image from "next/image";
 
 export default function EsqueciSenhaPage() {
   const [email, setEmail] = useState("");
@@ -27,25 +15,6 @@ export default function EsqueciSenhaPage() {
     const timer = setTimeout(() => setAnimar(true), 80);
     return () => clearTimeout(timer);
   }, []);
-
-  async function registrarSolicitacaoSenha(
-    perfil: PerfilRecuperacao,
-    agora: string
-  ) {
-    const totalSolicitacoes = Number(perfil.total_solicitacoes_senha ?? 0);
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        total_solicitacoes_senha: totalSolicitacoes + 1,
-        ultima_solicitacao_senha: agora,
-      })
-      .eq("id", perfil.id);
-
-    if (error) {
-      console.error("Erro ao registrar solicitação de senha:", error);
-    }
-  }
 
   async function handleEnviarRecuperacao(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -62,116 +31,43 @@ export default function EsqueciSenhaPage() {
       return;
     }
 
-    const { data: perfil, error: perfilError } = await supabase
-      .from("profiles")
-      .select(
-        "id, nome, email, role, trocas_senha, total_resets_senha, total_solicitacoes_senha, ultima_troca_senha, ultima_solicitacao_senha"
-      )
-      .ilike("email", emailNormalizado)
-      .maybeSingle<PerfilRecuperacao>();
+    try {
+      const response = await fetch("/api/auth/recuperar-senha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailNormalizado }),
+      });
 
-    if (perfilError) {
-      console.error("Erro ao buscar perfil:", perfilError);
+      const payload = await response.json().catch(() => null);
 
-      setLoading(false);
-      setErro("Não foi possível verificar seu cadastro agora. Tente novamente.");
-      return;
-    }
-
-    if (!perfil) {
-      setLoading(false);
-      setMensagem(
-        "Se este e-mail estiver cadastrado no CEO Club, enviaremos um link de recuperação. Verifique também a caixa de spam."
-      );
-      return;
-    }
-
-    const agora = new Date().toISOString();
-    const quantidadeTrocas = Number(perfil.trocas_senha ?? 0);
-    const totalResets = Number(perfil.total_resets_senha ?? 0);
-
-    await registrarSolicitacaoSenha(perfil, agora);
-
-    if (quantidadeTrocas >= 1) {
-      const { error: ticketError } = await supabase
-        .from("suporte_tickets")
-        .insert([
-          {
-            usuario_id: perfil.id,
-            nome_usuario: perfil.nome ?? "Usuário sem nome",
-            email_usuario: perfil.email ?? emailNormalizado,
-            tipo_usuario: perfil.role ?? "mentorado",
-            categoria: "Alteração de senha",
-            assunto: "Solicitação de nova troca de senha",
-            mensagem:
-              "O usuário tentou alterar a senha novamente. Como esta não é a primeira troca, o sistema bloqueou o envio automático e abriu este ticket para análise do suporte/T.I.",
-            status: "aberto",
-            prioridade: "media",
-            origem: "sistema",
-          },
-        ]);
-
-      setLoading(false);
-
-      if (ticketError) {
-        console.error("Erro ao abrir chamado de suporte:", ticketError);
-
-        setErro(
-          "Seu cadastro foi localizado, mas não foi possível abrir o chamado de suporte agora. Tente novamente em alguns instantes."
+      if (!response.ok || !payload?.ok) {
+        throw new Error(
+          payload?.error ||
+            "Não foi possível solicitar a recuperação agora. Tente novamente."
         );
-        return;
       }
 
-      setMensagem(
-        "Você já realizou uma alteração de senha anteriormente. Por segurança, abrimos um chamado para o suporte/T.I. Aguarde o retorno da equipe para continuar."
-      );
-
-      return;
-    }
-
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      emailNormalizado,
-      {
-        redirectTo: `${window.location.origin}/redefinir-senha`,
-      }
-    );
-
-    if (resetError) {
-      console.error("Erro ao enviar recuperação de senha:", resetError);
-
-      setLoading(false);
+      setMensagem(payload.mensagem);
+    } catch (error) {
       setErro(
-        "Não foi possível enviar o e-mail de recuperação agora. Tente novamente em alguns instantes."
+        error instanceof Error
+          ? error.message
+          : "Não foi possível solicitar a recuperação agora. Tente novamente."
       );
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({
-        trocas_senha: quantidadeTrocas + 1,
-        total_resets_senha: totalResets + 1,
-        ultima_troca_senha: agora,
-      })
-      .eq("id", perfil.id);
-
-    if (updateError) {
-      console.error("Erro ao atualizar histórico de senha:", updateError);
-    }
-
-    setLoading(false);
-    setMensagem(
-      "Se este e-mail estiver cadastrado no CEO Club, enviaremos um link de recuperação. Verifique também a caixa de spam."
-    );
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center overflow-hidden bg-[#f3f5f8] p-3 sm:p-4">
       <section className="grid w-full max-w-6xl overflow-hidden rounded-[24px] bg-white shadow-[0_20px_50px_rgba(15,23,42,0.10)] lg:min-h-[640px] lg:grid-cols-[0.95fr_1.05fr] xl:min-h-[680px]">
         <div className="relative hidden lg:flex">
-          <img
+          <Image
             src="/images/luciana.jpg"
             alt="Mentora Dra. Luciana Rocha"
+            fill
+            sizes="(min-width: 1024px) 48vw, 0px"
             className={`absolute inset-0 h-full w-full object-cover transition-all duration-[1400ms] ease-out ${
               animar ? "scale-100 opacity-100" : "scale-110 opacity-0"
             }`}
@@ -222,9 +118,11 @@ export default function EsqueciSenhaPage() {
                   animar ? "scale-100 opacity-100" : "scale-90 opacity-0"
                 }`}
               >
-                <img
+                <Image
                   src="/images/logo.jpeg"
                   alt="Logo CEO Club"
+                  width={112}
+                  height={112}
                   className="h-full w-full rounded-[18px] object-cover"
                 />
               </div>

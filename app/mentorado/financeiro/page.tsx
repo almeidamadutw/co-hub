@@ -89,7 +89,7 @@ export default function FinanceiroMentoradoPage() {
     }
 
     if (!usuarioTemPermissao(usuarioLogado, ["mentorado"])) {
-      router.push("/dashboard");
+      router.push("/mentor/dashboard");
       return;
     }
 

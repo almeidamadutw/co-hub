@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
-import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import {
+  logoutUsuario,
+  sincronizarUsuarioComSessao,
+  User,
+} from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
 
 type Mentorado = {
@@ -42,29 +46,6 @@ export default function SuporteMentoradosPage() {
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
 
-  useEffect(() => {
-    async function carregar() {
-      const user = getUsuarioLogado();
-
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-
-      if (user.role !== "suporte") {
-        logoutUsuario();
-        router.replace("/login");
-        return;
-      }
-
-      setUsuario(user);
-      await carregarMentorados();
-      setCarregando(false);
-    }
-
-    carregar();
-  }, [router]);
-
   async function carregarMentorados() {
     setErro("");
 
@@ -84,7 +65,30 @@ export default function SuporteMentoradosPage() {
     setMentorados((data || []) as Mentorado[]);
   }
 
-  const mentoradosFiltrados = useMemo(() => {
+  useEffect(() => {
+    async function carregar() {
+      const user = await sincronizarUsuarioComSessao();
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      if (user.role !== "suporte") {
+        await logoutUsuario();
+        router.replace("/login");
+        return;
+      }
+
+      setUsuario(user);
+      await carregarMentorados();
+      setCarregando(false);
+    }
+
+    void carregar();
+  }, [router]);
+
+  const mentoradosFiltrados = (() => {
     const termo = busca.trim().toLowerCase();
 
     return mentorados.filter((mentorado) => {
@@ -108,9 +112,9 @@ export default function SuporteMentoradosPage() {
 
       return passaStatus && passaBusca;
     });
-  }, [mentorados, busca, statusFiltro]);
+  })();
 
-  const resumo = useMemo(() => {
+  const resumo = (() => {
     return {
       total: mentorados.length,
       ativos: mentorados.filter((m) => normalizar(m.status) === "ativo")
@@ -120,7 +124,7 @@ export default function SuporteMentoradosPage() {
       ).length,
       semStatus: mentorados.filter((m) => !normalizar(m.status)).length,
     };
-  }, [mentorados]);
+  })();
 
   function normalizar(valor: string | null) {
     return (valor || "").trim().toLowerCase();

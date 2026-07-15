@@ -2,16 +2,9 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
+import { sincronizarUsuarioComSessao } from "@/utils/auth";
 
 type UserRole = "mentor" | "mentorado" | "financeiro" | "suporte";
-
-type UsuarioLocal = {
-  id?: string;
-  nome?: string;
-  email?: string;
-  role?: UserRole;
-  acesso_suporte?: boolean;
-};
 
 type AuthGuardProps = {
   children: ReactNode;
@@ -22,31 +15,11 @@ function rotaInicialPorRole(role: UserRole) {
   const rotas: Record<UserRole, string> = {
     mentor: "/mentor/dashboard",
     mentorado: "/mentorado/dashboard",
-    financeiro: "/financeiro",
+    financeiro: "/mentor/financeiro",
     suporte: "/suporte",
   };
 
   return rotas[role];
-}
-
-function buscarUsuarioLocal(): UsuarioLocal | null {
-  if (typeof window === "undefined") return null;
-
-  const ceoclubUser = localStorage.getItem("ceoclub_user");
-  const cohubUser = localStorage.getItem("cohub_user");
-  const sessionCeoclubUser = sessionStorage.getItem("ceoclub_user");
-  const sessionCohubUser = sessionStorage.getItem("cohub_user");
-
-  const usuarioSalvo =
-    ceoclubUser || cohubUser || sessionCeoclubUser || sessionCohubUser;
-
-  if (!usuarioSalvo) return null;
-
-  try {
-    return JSON.parse(usuarioSalvo) as UsuarioLocal;
-  } catch {
-    return null;
-  }
 }
 
 export default function AuthGuard({ children, permitido }: AuthGuardProps) {
@@ -55,23 +28,35 @@ export default function AuthGuard({ children, permitido }: AuthGuardProps) {
   const [liberado, setLiberado] = useState(false);
 
   useEffect(() => {
-    const usuario = buscarUsuarioLocal();
+    let componenteAtivo = true;
 
-    if (!usuario?.role) {
-      router.replace("/login");
-      return;
+    async function validarAcesso() {
+      const usuario = await sincronizarUsuarioComSessao();
+
+      if (!componenteAtivo) return;
+
+      if (!usuario?.role) {
+        router.replace("/login");
+        return;
+      }
+
+      const podeAcessar =
+        permitido.includes(usuario.role) ||
+        Boolean(usuario.acesso_suporte && pathname.startsWith("/suporte"));
+
+      if (!podeAcessar) {
+        router.replace(rotaInicialPorRole(usuario.role));
+        return;
+      }
+
+      setLiberado(true);
     }
 
-    const podeAcessar =
-      permitido.includes(usuario.role) ||
-      Boolean(usuario.acesso_suporte && pathname.startsWith("/suporte"));
+    void validarAcesso();
 
-    if (!podeAcessar) {
-      router.replace(rotaInicialPorRole(usuario.role));
-      return;
-    }
-
-    setLiberado(true);
+    return () => {
+      componenteAtivo = false;
+    };
   }, [permitido, pathname, router]);
 
   if (!liberado) {

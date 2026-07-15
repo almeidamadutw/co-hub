@@ -101,7 +101,11 @@ export function useFinanceiroSupabase() {
   }, []);
 
   useEffect(() => {
-    carregarFinanceiro();
+    const iniciarCarregamento = window.setTimeout(() => {
+      void carregarFinanceiro();
+    }, 0);
+
+    return () => window.clearTimeout(iniciarCarregamento);
   }, [carregarFinanceiro]);
 
   const cobrancasComMentorado = useMemo<CobrancaComMentorado[]>(() => {

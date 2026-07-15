@@ -1,7 +1,9 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import Image from "next/image";
 import { useState } from "react";
+import { logoutUsuario } from "@/utils/auth";
 
 type MenuItem = {
   label: string;
@@ -42,10 +44,10 @@ const menusPorRole: Record<SidebarRole, MenuItem[]> = {
   ],
 
   financeiro: [
-    { label: "Dashboard", href: "/financeiro" },
-    { label: "Cobranças", href: "/financeiro/cobrancas" },
-    { label: "Relatórios", href: "/financeiro/relatorios" },
-    { label: "Minha conta", href: "/financeiro/conta" },
+    { label: "Dashboard", href: "/mentor/financeiro" },
+    { label: "Cobranças", href: "/mentor/financeiro" },
+    { label: "Relatórios", href: "/mentor/relatorios" },
+    { label: "Minha conta", href: "/mentor/conta" },
   ],
 
   suporte: [
@@ -53,9 +55,9 @@ const menusPorRole: Record<SidebarRole, MenuItem[]> = {
     { label: "Usuários", href: "/suporte/usuarios" },
     { label: "Mentorados", href: "/suporte/mentorados" },
     { label: "Biblioteca", href: "/suporte/biblioteca" },
-    { label: "Financeiro", href: "/suporte/financeiro" },
+    { label: "Financeiro", href: "/mentor/financeiro" },
     { label: "Reset de senha", href: "/suporte/reset-senha" },
-    { label: "Relatórios", href: "/suporte/relatorios" },
+    { label: "Relatórios", href: "/mentor/relatorios" },
     { label: "Minha conta", href: "/suporte/conta" },
   ],
 };
@@ -125,11 +127,8 @@ export default function Sidebar({
       ? [...menusBase, { label: "Área suporte", href: "/suporte" }]
       : menusBase;
 
-  function sair() {
-    localStorage.removeItem("cohub_user");
-    localStorage.removeItem("ceoclub_user");
-    sessionStorage.removeItem("cohub_user");
-    sessionStorage.removeItem("ceoclub_user");
+  async function sair() {
+    await logoutUsuario();
     router.replace("/login");
   }
 
@@ -155,14 +154,10 @@ export default function Sidebar({
       return pathname === "/suporte" || pathname === "/suporte/dashboard";
     }
 
-    if (href === "/financeiro") {
-      return pathname === "/financeiro" || pathname === "/financeiro/dashboard";
-    }
-
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  function ConteudoSidebar() {
+  function renderizarConteudoSidebar() {
     return (
       <>
         <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgba(229,231,235,0.16),transparent)]" />
@@ -171,9 +166,11 @@ export default function Sidebar({
         <div className="relative z-10 shrink-0">
           <div className="mb-4 flex items-center gap-3 rounded-[22px] border border-white/10 bg-white/10 p-3 backdrop-blur-sm">
             <div className="h-12 w-12 overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-1 2xl:h-14 2xl:w-14">
-              <img
+              <Image
                 src="/images/logo.jpeg"
                 alt="Logo CEO Club"
+                width={56}
+                height={56}
                 className="h-full w-full rounded-xl object-cover"
               />
             </div>
@@ -253,7 +250,7 @@ export default function Sidebar({
   return (
     <>
       <aside className="fixed inset-y-0 left-0 z-50 hidden h-dvh w-[240px] flex-col overflow-hidden border-r border-white/10 bg-gradient-to-b from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-4 text-white shadow-[0_18px_50px_rgba(8,22,63,0.22)] lg:flex xl:w-[260px] 2xl:w-[290px] 2xl:p-5">
-        <ConteudoSidebar />
+        {renderizarConteudoSidebar()}
       </aside>
 
       <button
@@ -282,7 +279,7 @@ export default function Sidebar({
               X
             </button>
 
-            <ConteudoSidebar />
+            {renderizarConteudoSidebar()}
           </aside>
         </div>
       )}

@@ -42,7 +42,11 @@ export function useMentoradosSupabase() {
   }, []);
 
   useEffect(() => {
-    carregarMentorados();
+    const iniciarCarregamento = window.setTimeout(() => {
+      void carregarMentorados();
+    }, 0);
+
+    return () => window.clearTimeout(iniciarCarregamento);
   }, [carregarMentorados]);
 
   const ativos = useMemo(() => {

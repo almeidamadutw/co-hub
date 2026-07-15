@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
-import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import {
+  logoutUsuario,
+  sincronizarUsuarioComSessao,
+  User,
+} from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
 
 type LogTecnico = {
@@ -39,29 +43,6 @@ export default function SuporteLogsPage() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
 
-  useEffect(() => {
-    async function carregar() {
-      const user = getUsuarioLogado();
-
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-
-      if (user.role !== "suporte") {
-        logoutUsuario();
-        router.replace("/login");
-        return;
-      }
-
-      setUsuario(user);
-      await carregarLogs();
-      setCarregando(false);
-    }
-
-    carregar();
-  }, [router]);
-
   async function carregarLogs() {
     setErro("");
 
@@ -81,7 +62,30 @@ export default function SuporteLogsPage() {
     setLogs((data || []) as LogTecnico[]);
   }
 
-  const logsFiltrados = useMemo(() => {
+  useEffect(() => {
+    async function carregar() {
+      const user = await sincronizarUsuarioComSessao();
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      if (user.role !== "suporte") {
+        await logoutUsuario();
+        router.replace("/login");
+        return;
+      }
+
+      setUsuario(user);
+      await carregarLogs();
+      setCarregando(false);
+    }
+
+    void carregar();
+  }, [router]);
+
+  const logsFiltrados = (() => {
     const termo = busca.trim().toLowerCase();
 
     return logs.filter((log) => {
@@ -106,9 +110,9 @@ export default function SuporteLogsPage() {
 
       return passaAcao && passaBusca;
     });
-  }, [logs, busca, acaoFiltro]);
+  })();
 
-  const resumo = useMemo(() => {
+  const resumo = (() => {
     return {
       total: logs.length,
       resetSenha: logs.filter((log) => log.acao === "reset_senha").length,
@@ -118,7 +122,7 @@ export default function SuporteLogsPage() {
           log.acao === "ticket_respondido" || log.acao === "ticket_resolvido"
       ).length,
     };
-  }, [logs]);
+  })();
 
   function formatarData(data: string | null) {
     if (!data) return "Sem data";

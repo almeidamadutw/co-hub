@@ -152,6 +152,24 @@ export type PayloadAlternativa = {
   correta?: boolean;
 };
 
+type AlternativaBruta = Partial<AlternativaSupabase> & {
+  id: string | number;
+  pergunta_id: string | number;
+};
+
+type PerguntaBruta = Partial<Omit<PerguntaSupabase, "alternativas">> & {
+  id: string | number;
+  simulado_id: string | number;
+};
+
+type ModuloBruto = Partial<ModuloSupabase> & {
+  id: string | number;
+};
+
+type SimuladoBruto = Partial<Omit<SimuladoSupabase, "perguntas" | "modulos">> & {
+  id: string | number;
+};
+
 function numeroSeguro(valor: unknown, fallback = 0) {
   const numero = Number(valor);
   return Number.isFinite(numero) ? numero : fallback;
@@ -205,7 +223,7 @@ function payloadAlternativaParaBanco(payload: PayloadAlternativa) {
   };
 }
 
-function normalizarAlternativa(item: any): AlternativaSupabase {
+function normalizarAlternativa(item: AlternativaBruta): AlternativaSupabase {
   return {
     id: String(item.id),
     pergunta_id: String(item.pergunta_id),
@@ -218,7 +236,7 @@ function normalizarAlternativa(item: any): AlternativaSupabase {
 }
 
 function normalizarPergunta(
-  item: any,
+  item: PerguntaBruta,
   alternativas: AlternativaSupabase[]
 ): PerguntaSupabase {
   return {
@@ -238,7 +256,7 @@ function normalizarPergunta(
   };
 }
 
-function normalizarModulo(item: any): ModuloSupabase {
+function normalizarModulo(item: ModuloBruto): ModuloSupabase {
   return {
     id: String(item.id),
     titulo: item.titulo ?? null,
@@ -249,7 +267,7 @@ function normalizarModulo(item: any): ModuloSupabase {
 }
 
 function normalizarSimulado(
-  item: any,
+  item: SimuladoBruto,
   perguntas: PerguntaSupabase[],
   modulo: ModuloSupabase | null
 ): SimuladoSupabase {
@@ -315,10 +333,10 @@ export function useSimuladosSupabase() {
         throw new Error(erroSimulados.message);
       }
 
-      const simuladosBrutos = simuladosData ?? [];
-      const simuladoIds = simuladosBrutos.map((item: any) => String(item.id));
+      const simuladosBrutos = (simuladosData ?? []) as SimuladoBruto[];
+      const simuladoIds = simuladosBrutos.map((item) => String(item.id));
 
-      let perguntasBrutas: any[] = [];
+      let perguntasBrutas: PerguntaBruta[] = [];
 
       if (simuladoIds.length > 0) {
         const { data, error } = await supabase
@@ -346,11 +364,11 @@ export function useSimuladosSupabase() {
           throw new Error(error.message);
         }
 
-        perguntasBrutas = data ?? [];
+        perguntasBrutas = (data ?? []) as PerguntaBruta[];
       }
 
       const perguntaIds = perguntasBrutas.map((item) => String(item.id));
-      let alternativasBrutas: any[] = [];
+      let alternativasBrutas: AlternativaBruta[] = [];
 
       if (perguntaIds.length > 0) {
         const { data, error } = await supabase
@@ -373,10 +391,10 @@ export function useSimuladosSupabase() {
           throw new Error(error.message);
         }
 
-        alternativasBrutas = data ?? [];
+        alternativasBrutas = (data ?? []) as AlternativaBruta[];
       }
 
-      let modulosBrutos: any[] = [];
+      let modulosBrutos: ModuloBruto[] = [];
 
       const { data: modulosData, error: erroModulos } = await supabase
         .from("modulos")
@@ -384,7 +402,7 @@ export function useSimuladosSupabase() {
         .order("ordem", { ascending: true });
 
       if (!erroModulos) {
-        modulosBrutos = modulosData ?? [];
+        modulosBrutos = (modulosData ?? []) as ModuloBruto[];
       }
 
       const alternativasPorPergunta = new Map<string, AlternativaSupabase[]>();
@@ -419,7 +437,7 @@ export function useSimuladosSupabase() {
         modulosPorId.set(modulo.id, modulo);
       });
 
-      const simuladosNormalizados = simuladosBrutos.map((item: any) => {
+      const simuladosNormalizados = simuladosBrutos.map((item) => {
         const simuladoId = String(item.id);
         const moduloId = item.modulo_id ? String(item.modulo_id) : null;
 

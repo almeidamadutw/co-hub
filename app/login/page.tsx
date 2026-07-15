@@ -3,8 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/utils/supabase";
-import { getUsuarioLogado, salvarUsuarioLogado } from "@/utils/auth";
+import {
+  logoutUsuario,
+  salvarUsuarioLogado,
+  sincronizarUsuarioComSessao,
+} from "@/utils/auth";
+import { definirPersistenciaSessao } from "@/utils/sessionPersistence";
 
 type UserRole = "mentor" | "mentorado" | "financeiro" | "suporte";
 
@@ -38,7 +44,7 @@ function redirecionarPorRole(
   }
 
   if (role === "financeiro") {
-    router.replace("/financeiro");
+    router.replace("/mentor/financeiro");
     return;
   }
 
@@ -58,6 +64,7 @@ export default function LoginPage() {
   const [erro, setErro] = useState("");
   const [animar, setAnimar] = useState(false);
   const [carregando, setCarregando] = useState(false);
+  const [verificandoSessao, setVerificandoSessao] = useState(true);
   const [manterConectado, setManterConectado] = useState(true);
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
@@ -67,11 +74,32 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    const usuarioSalvo = getUsuarioLogado();
+    let componenteAtivo = true;
 
-    if (usuarioSalvo && rolesValidas.includes(usuarioSalvo.role)) {
-      redirecionarPorRole(usuarioSalvo.role, router);
+    async function restaurarSessao() {
+      try {
+        const usuario = await sincronizarUsuarioComSessao();
+
+        if (!componenteAtivo) return;
+
+        if (usuario && rolesValidas.includes(usuario.role)) {
+          redirecionarPorRole(usuario.role, router);
+          return;
+        }
+      } catch (error) {
+        console.error("Não foi possível restaurar a sessão:", error);
+      } finally {
+        if (componenteAtivo) {
+          setVerificandoSessao(false);
+        }
+      }
     }
+
+    void restaurarSessao();
+
+    return () => {
+      componenteAtivo = false;
+    };
   }, [router]);
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
@@ -89,6 +117,8 @@ export default function LoginPage() {
       return;
     }
 
+    definirPersistenciaSessao(manterConectado);
+
     const { data: loginData, error: loginError } =
       await supabase.auth.signInWithPassword({
         email: emailNormalizado,
@@ -105,7 +135,7 @@ export default function LoginPage() {
 
     const { data: perfil, error: perfilError } = await supabase
       .from("profiles")
-      .select("nome, email, role, acesso_suporte")
+      .select("nome, email, role, acesso_suporte, status")
       .eq("id", user.id)
       .single();
 
@@ -116,13 +146,20 @@ export default function LoginPage() {
       return;
     }
 
-    const role = perfil.role as UserRole;
+    const role = String(perfil.role ?? "")
+      .trim()
+      .toLowerCase() as UserRole;
     const nome = perfil.nome || user.email || "Usuário";
+    const status = String(perfil.status ?? "").trim().toLowerCase();
 
-    if (!rolesValidas.includes(role)) {
+    if (!rolesValidas.includes(role) || (status && status !== "ativo")) {
       setCarregando(false);
-      setErro("Perfil inválido no banco de dados.");
-      await supabase.auth.signOut();
+      setErro(
+        status && status !== "ativo"
+          ? "Seu acesso está inativo ou pendente. Fale com o suporte."
+          : "Perfil inválido no banco de dados."
+      );
+      await logoutUsuario();
       return;
     }
 
@@ -144,9 +181,12 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center overflow-hidden bg-[#f3f5f8] p-3 sm:p-4">
       <section className="grid w-full max-w-6xl overflow-hidden rounded-[24px] bg-white shadow-[0_20px_50px_rgba(15,23,42,0.10)] lg:min-h-[640px] lg:grid-cols-[0.95fr_1.05fr] xl:min-h-[680px]">
         <div className="relative hidden lg:flex">
-          <img
+          <Image
             src="/images/luciana.jpg"
             alt="Mentora Dra. Luciana Rocha"
+            fill
+            priority
+            sizes="(min-width: 1024px) 48vw, 0px"
             className={`absolute inset-0 h-full w-full object-cover transition-all duration-[1400ms] ease-out ${
               animar ? "scale-100 opacity-100" : "scale-110 opacity-0"
             }`}
@@ -197,9 +237,11 @@ export default function LoginPage() {
                   animar ? "scale-100 opacity-100" : "scale-90 opacity-0"
                 }`}
               >
-                <img
+                <Image
                   src="/images/logo.jpeg"
                   alt="Logo CEO Club"
+                  width={112}
+                  height={112}
                   className="h-full w-full rounded-[18px] object-cover"
                 />
               </div>
@@ -286,14 +328,18 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                disabled={carregando}
+                disabled={carregando || verificandoSessao}
                 className="w-full rounded-2xl py-3 text-sm font-bold text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70 sm:text-base"
                 style={{
                   background:
                     "linear-gradient(180deg, #F3F4F6 0%, #D1D5DB 55%, #9CA3AF 100%)",
                 }}
               >
-                {carregando ? "Entrando..." : "Entrar"}
+                {verificandoSessao
+                  ? "Verificando sessão..."
+                  : carregando
+                    ? "Entrando..."
+                    : "Entrar"}
               </button>
             </form>
 

@@ -103,7 +103,7 @@ export default function DashboardMentoradoPage() {
     }
 
     if (user.role === "mentor") {
-      router.replace("/dashboard");
+      router.replace("/mentor/dashboard");
       return;
     }
 
@@ -377,8 +377,7 @@ const { data: perfilData, error: perfilError } = await supabase
   const ultimoResultado = resultados[0] ?? null;
 
   async function sair() {
-    logoutUsuario();
-    await supabase.auth.signOut();
+    await logoutUsuario();
     router.replace("/login");
   }
 

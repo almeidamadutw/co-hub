@@ -122,7 +122,7 @@ export default function FinanceiroPage() {
       return;
     }
 
-    if (!usuarioTemPermissao(usuarioLogado, ["mentor", "financeiro"])) {
+    if (!usuarioTemPermissao(usuarioLogado, ["mentor", "financeiro", "suporte"])) {
       router.push("/mentorado/dashboard");
       return;
     }

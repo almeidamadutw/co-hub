@@ -91,7 +91,7 @@ export default function UsuariosPage() {
         }
 
         if (user.role === "financeiro") {
-          router.replace("/financeiro");
+          router.replace("/mentor/financeiro");
           return;
         }
 

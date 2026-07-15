@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, usuarioTemPermissao, User } from "@/utils/auth";
-import { useCeoClubDados } from "@/utils/useCeoClubDados";
+import { ModuloCeoClub, useCeoClubDados } from "@/utils/useCeoClubDados";
 import {
   AlternativaSupabase,
   PerguntaSupabase,
@@ -267,7 +267,7 @@ export default function SimuladoEditorPage() {
     );
   }
 
-  function nomeModuloSelect(modulo: any) {
+  function nomeModuloSelect(modulo: ModuloCeoClub) {
     return (
       modulo.nome_premium ||
       modulo.nome_explicativo ||
@@ -569,7 +569,7 @@ export default function SimuladoEditorPage() {
 
     try {
       await excluirSimulado(simulado.id);
-      router.push("/simulados");
+      router.push("/mentor/simulados");
     } catch (error) {
       setErroLocal(
         error instanceof Error
@@ -605,7 +605,7 @@ export default function SimuladoEditorPage() {
 
             <button
               type="button"
-              onClick={() => router.push("/simulados")}
+              onClick={() => router.push("/mentor/simulados")}
               className="mt-6 rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
             >
               Voltar para simulados
@@ -625,7 +625,7 @@ export default function SimuladoEditorPage() {
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
-              onClick={() => router.push("/simulados")}
+              onClick={() => router.push("/mentor/simulados")}
               className="rounded-2xl bg-[#f3f5f8] px-3 py-2 text-xs font-black text-[#08163F] transition hover:bg-white hover:shadow-md sm:text-sm"
             >
               ← Voltar
@@ -765,7 +765,7 @@ export default function SimuladoEditorPage() {
                     >
                       <option value="">Sem módulo</option>
 
-                      {modulos.map((modulo: any) => (
+                      {modulos.map((modulo) => (
                         <option key={modulo.id} value={modulo.id}>
                           {nomeModuloSelect(modulo)}
                         </option>
