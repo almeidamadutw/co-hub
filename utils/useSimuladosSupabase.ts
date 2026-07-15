@@ -832,6 +832,8 @@ export function useSimuladosSupabase() {
 
     const respostasPayload = respostasCalculadas.map(
       ({ pergunta, resposta, correcao }) => ({
+        simulado_id: simulado.id,
+        mentorado_id: mentoradoId,
         tentativa_id: tentativa.id,
         pergunta_id: pergunta.id,
         alternativa_id: resposta.alternativaId || null,
