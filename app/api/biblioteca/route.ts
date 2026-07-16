@@ -5,6 +5,12 @@ import {
   responderPermissaoNegada,
   verificarAcesso,
 } from "@/utils/apiAuth";
+import {
+  assinarUrlStorage,
+  CEO_STORAGE_BUCKETS,
+  criarReferenciaStorage,
+  extrairReferenciaStorage,
+} from "@/utils/storageUrls";
 
 const BUCKET_BIBLIOTECA = "ceo-club-biblioteca";
 const LIMITE_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -277,31 +283,21 @@ function nomeAula(aula: Record<string, unknown>) {
   );
 }
 
-function publicUrl(bucket: string, path: string) {
+async function signedUrl(bucket: string, path: string) {
   const pathLimpo = path.replace(/^\/+/, "");
 
-  const { data } = supabaseAdmin().storage.from(bucket).getPublicUrl(pathLimpo);
+  if (!CEO_STORAGE_BUCKETS.includes(bucket as (typeof CEO_STORAGE_BUCKETS)[number])) {
+    const { data } = supabaseAdmin().storage.from(bucket).getPublicUrl(pathLimpo);
+    return data.publicUrl;
+  }
 
-  return data.publicUrl;
-}
-
-function extrairUrlPublicaDeSupabase(valor: string) {
-  if (!valor.includes("/storage/v1/object/public/")) return null;
-
-  const partePublica = valor.split("/storage/v1/object/public/")[1];
-
-  if (!partePublica) return null;
-
-  const [bucket, ...resto] = partePublica.split("/");
-  const path = resto.join("/");
-
-  if (!bucket || !path) return null;
-
-  return {
-    bucket,
-    path,
-    url: valor,
-  };
+  return assinarUrlStorage(
+    supabaseAdmin(),
+    criarReferenciaStorage(
+      bucket as "ceo-club-biblioteca" | "ceo-club-materiais",
+      pathLimpo
+    )
+  );
 }
 
 function separarBucketDoPath(pathOriginal: string, bucketHint?: string | null) {
@@ -314,12 +310,12 @@ function separarBucketDoPath(pathOriginal: string, bucketHint?: string | null) {
     };
   }
 
-  const urlPublica = extrairUrlPublicaDeSupabase(bruto);
+  const referenciaStorage = extrairReferenciaStorage(bruto);
 
-  if (urlPublica) {
+  if (referenciaStorage) {
     return {
-      bucket: urlPublica.bucket,
-      path: urlPublica.path,
+      bucket: referenciaStorage.bucket,
+      path: referenciaStorage.path,
     };
   }
 
@@ -393,6 +389,15 @@ async function resolverUrlMaterial(
     pegarPrimeiroTexto(item, CAMPOS_URL_MATERIAL);
 
   if (url) {
+    const referenciaStorage = extrairReferenciaStorage(url);
+
+    if (referenciaStorage) {
+      return {
+        url: await signedUrl(referenciaStorage.bucket, referenciaStorage.path),
+        storagePath: referenciaStorage.path,
+      };
+    }
+
     if (url.startsWith("http")) {
       return {
         url,
@@ -405,7 +410,7 @@ async function resolverUrlMaterial(
     const bucket = separado.bucket || (await descobrirBucketPorPath(separado.path));
 
     return {
-      url: publicUrl(bucket, separado.path),
+      url: await signedUrl(bucket, separado.path),
       storagePath: separado.path,
     };
   }
@@ -431,7 +436,7 @@ async function resolverUrlMaterial(
   const bucket = bucketHint || separado.bucket || (await descobrirBucketPorPath(separado.path));
 
   return {
-    url: publicUrl(bucket, separado.path),
+    url: await signedUrl(bucket, separado.path),
     storagePath: separado.path,
   };
 }
@@ -753,14 +758,47 @@ async function buscarMateriaisDasAulas(podeVerTudo: boolean) {
   const materiaisNasAulas = await buscarMateriaisNasAulas(podeVerTudo);
   const materiaisTabelasSeparadas = await buscarMateriaisEmTabelasSeparadas(podeVerTudo);
 
-  const todos = [...materiaisNasAulas, ...materiaisTabelasSeparadas];
+  let todos = [...materiaisNasAulas, ...materiaisTabelasSeparadas];
+
+  if (!podeVerTudo) {
+    const { data: liberacoes, error } = await supabaseAdmin()
+      .from("modulo_liberacoes")
+      .select("modulo_id, status_liberacao, liberar_em");
+
+    if (error) throw error;
+
+    const agora = Date.now();
+    const modulosLiberados = new Set(
+      ((liberacoes ?? []) as Record<string, unknown>[])
+        .filter((liberacao) => {
+          const status = texto(liberacao.status_liberacao);
+
+          if (status === "aberto") return true;
+
+          if (status !== "agendado") return false;
+
+          const liberarEm = texto(liberacao.liberar_em);
+          const timestamp = liberarEm ? new Date(liberarEm).getTime() : NaN;
+
+          return Number.isFinite(timestamp) && timestamp <= agora;
+        })
+        .map((liberacao) => texto(liberacao.modulo_id))
+        .filter(Boolean)
+    );
+
+    todos = todos.filter(
+      (item) => item.modulo_id && modulosLiberados.has(item.modulo_id)
+    );
+  }
 
   const chaves = new Set<string>();
 
   return todos.filter((item) => {
     if (!item.url) return false;
 
-    const chave = `${item.aula_id || "sem-aula"}-${item.url}`;
+    const chave = `${item.aula_id || "sem-aula"}-${
+      item.storage_path || item.url
+    }`;
 
     if (chaves.has(chave)) return false;
 
@@ -769,8 +807,14 @@ async function buscarMateriaisDasAulas(podeVerTudo: boolean) {
   });
 }
 
-function normalizarArquivoBiblioteca(arquivo: Record<string, unknown>): BibliotecaItem {
-  const url = texto(arquivo.url);
+async function normalizarArquivoBiblioteca(
+  arquivo: Record<string, unknown>
+): Promise<BibliotecaItem> {
+  const urlOriginal = texto(arquivo.url);
+  const storagePath = texto(arquivo.storage_path) || null;
+  const url = storagePath
+    ? await signedUrl(BUCKET_BIBLIOTECA, storagePath)
+    : await assinarUrlStorage(supabaseAdmin(), urlOriginal);
 
   return {
     id: texto(arquivo.id),
@@ -780,7 +824,7 @@ function normalizarArquivoBiblioteca(arquivo: Record<string, unknown>): Bibliote
     categoria: texto(arquivo.categoria) || "material",
     tipo: texto(arquivo.tipo) || tipoPorUrl(url),
     url,
-    storage_path: texto(arquivo.storage_path) || null,
+    storage_path: storagePath,
     tamanho_bytes: numero(arquivo.tamanho_bytes),
     observacao: texto(arquivo.observacao) || null,
     created_at: texto(arquivo.created_at) || new Date().toISOString(),
@@ -833,9 +877,13 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    const arquivosBiblioteca = ((data ?? []) as Record<string, unknown>[])
-      .map(normalizarArquivoBiblioteca)
-      .filter((arquivo) => Boolean(arquivo.url));
+    const arquivosBiblioteca = (
+      await Promise.all(
+        ((data ?? []) as Record<string, unknown>[]).map(
+          normalizarArquivoBiblioteca
+        )
+      )
+    ).filter((arquivo) => Boolean(arquivo.url));
 
     const materiaisAulas = await buscarMateriaisDasAulas(podeVerTudo);
 
@@ -949,11 +997,7 @@ export async function POST(request: NextRequest) {
 
       if (uploadError) throw uploadError;
 
-      const { data: publicData } = supabaseAdmin().storage
-        .from(BUCKET_BIBLIOTECA)
-        .getPublicUrl(caminho);
-
-      urlFinal = publicData.publicUrl;
+      urlFinal = criarReferenciaStorage(BUCKET_BIBLIOTECA, caminho);
       storagePath = caminho;
       tamanhoBytes = arquivo.size;
       tipo = tipoPorArquivo(arquivo);
@@ -979,7 +1023,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      arquivo: normalizarArquivoBiblioteca(data as Record<string, unknown>),
+      arquivo: await normalizarArquivoBiblioteca(
+        data as Record<string, unknown>
+      ),
     });
   } catch (error) {
     return NextResponse.json(
