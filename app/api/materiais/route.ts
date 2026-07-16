@@ -5,6 +5,7 @@ import {
   responderPermissaoNegada,
   verificarAcesso,
 } from "@/utils/apiAuth";
+import { criarReferenciaStorage } from "@/utils/storageUrls";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ type MaterialAula = {
   aula_id: string;
   nome: string;
   url: string;
+  storage_path: string | null;
   created_at: string | null;
 };
 
@@ -201,11 +203,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const publicUrlResult = supabaseAdmin.storage
-        .from(MATERIAIS_BUCKET)
-        .getPublicUrl(caminhoArquivoEnviado);
-
-      urlFinal = publicUrlResult.data.publicUrl;
+      urlFinal = criarReferenciaStorage(
+        MATERIAIS_BUCKET,
+        caminhoArquivoEnviado
+      );
     }
 
     const nomeComTipo = nome.includes("·")
@@ -219,8 +220,9 @@ export async function POST(request: NextRequest) {
           aula_id: aulaId,
           nome: nomeComTipo,
           url: urlFinal,
+          storage_path: caminhoArquivoEnviado,
         })
-        .select("id, aula_id, nome, url, created_at")
+        .select("id, aula_id, nome, url, storage_path, created_at")
         .single(),
       DATABASE_TIMEOUT_MS,
       "Tempo limite ao salvar o material no banco."

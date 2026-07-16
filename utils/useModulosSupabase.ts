@@ -2,12 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/utils/supabase";
+import {
+  assinarUrlStorage,
+  criarReferenciaStorage,
+  extrairReferenciaStorage,
+} from "@/utils/storageUrls";
 
 export type ArquivoAula = {
   id: string;
   aula_id: string;
   nome: string;
   url: string;
+  storage_path?: string | null;
   created_at?: string;
 };
 
@@ -138,6 +144,7 @@ export function useModulosSupabase() {
             aula_id,
             nome,
             url,
+            storage_path,
             created_at
           )
         )
@@ -151,21 +158,62 @@ export function useModulosSupabase() {
       return;
     }
 
-    const modulosTratados = ((data ?? []) as ModuloComAulas[]).map((modulo) => ({
-      ...modulo,
-      aulas: [...(modulo.aulas ?? [])]
-        .sort(
-          (a: AulaModulo, b: AulaModulo) => Number(a.ordem) - Number(b.ordem)
-        )
-        .map((aula: AulaModulo) => ({
-          ...aula,
-          materiais_aula: [...(aula.materiais_aula ?? [])].sort((a, b) => {
-            const dataA = a.created_at ? new Date(a.created_at).getTime() : 0;
-            const dataB = b.created_at ? new Date(b.created_at).getTime() : 0;
-            return dataB - dataA;
-          }),
-        })),
-    })) as ModuloMentoria[];
+    const modulosTratados = (await Promise.all(
+      ((data ?? []) as ModuloComAulas[]).map(async (modulo) => ({
+        ...modulo,
+        aulas: await Promise.all(
+          [...(modulo.aulas ?? [])]
+            .sort(
+              (a: AulaModulo, b: AulaModulo) =>
+                Number(a.ordem) - Number(b.ordem)
+            )
+            .map(async (aula: AulaModulo) => ({
+              ...aula,
+              materiais_aula: await Promise.all(
+                [...(aula.materiais_aula ?? [])]
+                  .sort((a, b) => {
+                    const dataA = a.created_at
+                      ? new Date(a.created_at).getTime()
+                      : 0;
+                    const dataB = b.created_at
+                      ? new Date(b.created_at).getTime()
+                      : 0;
+                    return dataB - dataA;
+                  })
+                  .map(async (material) => {
+                    const referencia = extrairReferenciaStorage(material.url)
+                      ? material.url
+                      : material.storage_path
+                        ? criarReferenciaStorage(
+                            "ceo-club-materiais",
+                            material.storage_path
+                          )
+                        : material.url;
+
+                    if (!extrairReferenciaStorage(referencia)) {
+                      return material;
+                    }
+
+                    try {
+                      return {
+                        ...material,
+                        url: await assinarUrlStorage(supabase, referencia),
+                      };
+                    } catch (erroAssinatura) {
+                      console.warn(
+                        "Material privado indisponível para este usuário:",
+                        material.id,
+                        erroAssinatura
+                      );
+
+                      return { ...material, url: "" };
+                    }
+                  })
+              ),
+            }))
+        ),
+      }))
+    )) as ModuloMentoria[];
 
     setModulos(modulosTratados);
     setCarregando(false);
@@ -344,7 +392,7 @@ export function useModulosSupabase() {
     const { data, error } = await supabase
       .from("materiais_aula")
       .insert(payload)
-      .select("id, aula_id, nome, url, created_at")
+      .select("id, aula_id, nome, url, storage_path, created_at")
       .single();
 
     if (error) {
@@ -357,12 +405,48 @@ export function useModulosSupabase() {
   }
 
   async function removerMaterial(materialId: string) {
+    const { data: materialExistente, error: erroBusca } = await supabase
+      .from("materiais_aula")
+      .select("url, storage_path")
+      .eq("id", materialId)
+      .maybeSingle();
+
+    if (erroBusca) {
+      throw new Error(
+        mensagemErroSupabase(
+          erroBusca,
+          "Não foi possível localizar o arquivo do material."
+        )
+      );
+    }
+
     const { error } = await supabase
       .from("materiais_aula")
       .delete()
       .eq("id", materialId);
 
     if (error) throw new Error(mensagemErroSupabase(error, "Não foi possível remover o material."));
+
+    const referencia = materialExistente?.storage_path
+      ? {
+          bucket: "ceo-club-materiais" as const,
+          path: materialExistente.storage_path,
+        }
+      : extrairReferenciaStorage(materialExistente?.url);
+
+    if (referencia) {
+      const { error: erroStorage } = await supabase.storage
+        .from(referencia.bucket)
+        .remove([referencia.path]);
+
+      if (erroStorage) {
+        console.warn(
+          "O material foi removido do banco, mas o arquivo precisa de limpeza no Storage:",
+          materialId,
+          erroStorage
+        );
+      }
+    }
 
     await carregarModulos();
   }
