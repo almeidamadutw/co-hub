@@ -249,6 +249,11 @@ export default function Sidebar({
 
   return (
     <>
+      <div
+        aria-hidden="true"
+        className="hidden shrink-0 lg:block lg:w-[240px] xl:w-[260px] 2xl:w-[290px]"
+      />
+
       <aside className="fixed inset-y-0 left-0 z-50 hidden h-dvh w-[240px] flex-col overflow-hidden border-r border-white/10 bg-gradient-to-b from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-4 text-white shadow-[0_18px_50px_rgba(8,22,63,0.22)] lg:flex xl:w-[260px] 2xl:w-[290px] 2xl:p-5">
         {renderizarConteudoSidebar()}
       </aside>
