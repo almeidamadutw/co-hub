@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, usuarioTemPermissao, User } from "@/utils/auth";
+import { aplicarStatusFinanceiroEfetivo } from "@/utils/financeiroStatus";
 import MentoradoLoading from "@/components/MentoradoLoading";
 
 type StatusCobranca = "Pago" | "Pendente" | "Atrasado" | "Cancelado";
@@ -167,7 +168,9 @@ export default function FinanceiroPage() {
     }
 
     setMentorados((mentoradosData ?? []) as Mentorado[]);
-    setCobrancas((cobrancasData ?? []) as Cobranca[]);
+    setCobrancas(
+      aplicarStatusFinanceiroEfetivo((cobrancasData ?? []) as Cobranca[])
+    );
     setCarregando(false);
   }
 

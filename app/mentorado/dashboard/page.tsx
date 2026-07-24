@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import { aplicarStatusFinanceiroEfetivo } from "@/utils/financeiroStatus";
+import {
+  idsModulosLiberados,
+  ModuloLiberacaoGlobal,
+} from "@/utils/moduloLiberacoes";
 import { supabase } from "@/utils/supabase";
 import MentoradoSidebar from "@/components/MentoradoSidebar";
 import MentoradoLoading from "@/components/MentoradoLoading";
@@ -51,10 +56,12 @@ type Simulado = {
   id: string;
   titulo: string;
   ativo: boolean | null;
+  mostrar_resultado: boolean;
 };
 
 type ResultadoSimulado = {
   id: string;
+  simulado_id: string;
   percentual: number | null;
   created_at: string;
 };
@@ -174,7 +181,20 @@ const { data: perfilData, error: perfilError } = await supabase
           throw new Error(modulosError.message);
         }
 
-        const modulosBanco = (modulosData ?? []) as ModuloBanco[];
+        const { data: liberacoesData, error: liberacoesError } = await supabase
+          .from("modulo_liberacoes")
+          .select("modulo_id, status_liberacao, liberar_em");
+
+        if (liberacoesError) {
+          throw new Error(liberacoesError.message);
+        }
+
+        const modulosLiberados = idsModulosLiberados(
+          (liberacoesData ?? []) as ModuloLiberacaoGlobal[]
+        );
+        const modulosBanco = ((modulosData ?? []) as ModuloBanco[]).filter(
+          (modulo) => modulosLiberados.has(modulo.id)
+        );
 
         const { data: aulasData, error: aulasError } = await supabase
           .from("aulas")
@@ -195,7 +215,9 @@ const { data: perfilData, error: perfilError } = await supabase
           throw new Error(progressoError.message);
         }
 
-        const aulasBanco = (aulasData ?? []) as AulaBanco[];
+        const aulasBanco = ((aulasData ?? []) as AulaBanco[]).filter((aula) =>
+          modulosLiberados.has(aula.modulo_id)
+        );
         const progressoBanco = (progressoData ?? []) as ProgressoAula[];
 
         const modulosTratados: ModuloMentorado[] = modulosBanco.map(
@@ -242,8 +264,9 @@ const { data: perfilData, error: perfilError } = await supabase
 
         const { data: simuladosData, error: simuladosError } = await supabase
           .from("simulados")
-          .select("id, titulo, ativo")
+          .select("id, titulo, ativo, mostrar_resultado")
           .eq("ativo", true)
+          .eq("status", "publicado")
           .order("created_at", { ascending: false });
 
         if (simuladosError) {
@@ -253,15 +276,27 @@ const { data: perfilData, error: perfilError } = await supabase
         }
 
         const { data: resultadosData, error: resultadosError } = await supabase
-          .from("resultados_simulado")
-          .select("id, percentual, created_at")
+          .from("simulado_tentativas")
+          .select("id, simulado_id, percentual, created_at")
           .eq("mentorado_id", mentoradoId)
+          .in("status", ["enviado", "corrigido"])
           .order("created_at", { ascending: false });
 
         if (resultadosError) {
           setResultados([]);
         } else {
-          setResultados((resultadosData ?? []) as ResultadoSimulado[]);
+          const simuladosComResultado = new Set(
+            ((simuladosData ?? []) as Simulado[])
+              .filter((simulado) => simulado.mostrar_resultado)
+              .map((simulado) => simulado.id)
+          );
+
+          setResultados(
+            ((resultadosData ?? []) as ResultadoSimulado[]).filter(
+              (resultado) =>
+                simuladosComResultado.has(resultado.simulado_id)
+            )
+          );
         }
 
         const { data: cobrancasData, error: cobrancasError } = await supabase
@@ -275,7 +310,11 @@ const { data: perfilData, error: perfilError } = await supabase
         if (cobrancasError) {
           setCobrancas([]);
         } else {
-          setCobrancas((cobrancasData ?? []) as CobrancaFinanceira[]);
+          setCobrancas(
+            aplicarStatusFinanceiroEfetivo(
+              (cobrancasData ?? []) as CobrancaFinanceira[]
+            )
+          );
         }
       } catch (error) {
         setErro(
@@ -293,6 +332,12 @@ const { data: perfilData, error: perfilError } = await supabase
 
   const resumo = useMemo(() => {
     const totalModulos = modulos.length;
+    const eventosFuturos = eventos.filter(
+      (evento) =>
+        evento.status !== "Cancelada" &&
+        evento.status !== "Concluída" &&
+        eventoNoFuturo(evento)
+    );
 
     const progressoGeral =
       totalModulos > 0
@@ -307,8 +352,8 @@ const { data: perfilData, error: perfilError } = await supabase
       emAndamento: modulos.filter((m) => m.status === "Em andamento").length,
       concluidos: modulos.filter((m) => m.status === "Concluído").length,
       progressoGeral,
-      compromissos: eventos.length,
-      compromissosAguardando: eventos.filter(
+      compromissos: eventosFuturos.length,
+      compromissosAguardando: eventosFuturos.filter(
         (evento) => evento.status === "Aguardando"
       ).length,
       simuladosDisponiveis: simulados.length,
@@ -354,11 +399,7 @@ const { data: perfilData, error: perfilError } = await supabase
     return (
       eventos
         .filter((evento) => {
-          const dataEvento = new Date(
-            `${evento.data}T${limparHorario(evento.horario)}:00`
-          );
-
-          return dataEvento.getTime() >= agora.getTime();
+          return evento.status !== "Cancelada" && eventoNoFuturo(evento, agora);
         })
         .sort((a, b) => {
           const dataA = new Date(
@@ -689,6 +730,14 @@ const { data: perfilData, error: perfilError } = await supabase
 
 function limparHorario(horario: string) {
   return horario?.slice(0, 5) || "";
+}
+
+function eventoNoFuturo(evento: EventoAgenda, agora = new Date()) {
+  const dataEvento = new Date(
+    `${evento.data}T${limparHorario(evento.horario)}:00`
+  );
+
+  return dataEvento.getTime() >= agora.getTime();
 }
 
 function formatarData(data: string) {
