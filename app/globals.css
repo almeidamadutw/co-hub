@@ -122,7 +122,7 @@ select.ceo-field {
 }
 
 /* Layout padrão das páginas com Sidebar fixa.
-   Não usa margin-left na section, então o conteúdo não escapa para a direita. */
+   A própria Sidebar reserva sua largura no flex; este bloco cuida só do conteúdo. */
 .ceo-content {
   position: relative;
   flex: 1 1 auto;
@@ -143,22 +143,7 @@ select.ceo-field {
 
 @media (min-width: 1024px) {
   .ceo-content {
-    padding-top: 1.5rem !important;
-    padding-right: 1.5rem !important;
-    padding-bottom: 1.5rem !important;
-    padding-left: calc(240px + 1.5rem) !important;
-  }
-}
-
-@media (min-width: 1280px) {
-  .ceo-content {
-    padding-left: calc(260px + 1.5rem) !important;
-  }
-}
-
-@media (min-width: 1536px) {
-  .ceo-content {
-    padding-left: calc(290px + 1.5rem) !important;
+    padding: 1.5rem !important;
   }
 }
 
