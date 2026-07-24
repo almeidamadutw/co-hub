@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, usuarioTemPermissao, User } from "@/utils/auth";
+import { aplicarStatusFinanceiroEfetivo } from "@/utils/financeiroStatus";
 import MentoradoSidebar from "@/components/MentoradoSidebar";
 import MentoradoLoading from "@/components/MentoradoLoading";
 
@@ -135,7 +136,9 @@ export default function FinanceiroMentoradoPage() {
       return;
     }
 
-    setCobrancas((cobrancasData ?? []) as Cobranca[]);
+    setCobrancas(
+      aplicarStatusFinanceiroEfetivo((cobrancasData ?? []) as Cobranca[])
+    );
     setCarregando(false);
   }
 

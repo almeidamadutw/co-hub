@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import { aplicarStatusFinanceiroEfetivo } from "@/utils/financeiroStatus";
+import {
+  idsModulosLiberados,
+  ModuloLiberacaoGlobal,
+} from "@/utils/moduloLiberacoes";
 import { supabase } from "@/utils/supabase";
 
 type PerfilUsuario =
@@ -100,6 +105,7 @@ export default function DashboardPage() {
   const [eventos, setEventos] = useState<EventoAgenda[]>([]);
   const [modulos, setModulos] = useState<ModuloBanco[]>([]);
   const [aulas, setAulas] = useState<AulaBanco[]>([]);
+  const [liberacoes, setLiberacoes] = useState<ModuloLiberacaoGlobal[]>([]);
   const [progressoAulas, setProgressoAulas] = useState<ProgressoAula[]>([]);
   const [simulados, setSimulados] = useState<Simulado[]>([]);
 
@@ -150,7 +156,11 @@ export default function DashboardPage() {
         throw new Error(cobrancasError.message);
       }
 
-      setCobrancas((cobrancasData ?? []) as CobrancaFinanceira[]);
+      setCobrancas(
+        aplicarStatusFinanceiroEfetivo(
+          (cobrancasData ?? []) as CobrancaFinanceira[]
+        )
+      );
 
       const { data: eventosData, error: eventosError } = await supabase
         .from("agenda_eventos")
@@ -175,6 +185,18 @@ export default function DashboardPage() {
       }
 
       setModulos((modulosData ?? []) as ModuloBanco[]);
+
+      const { data: liberacoesData, error: liberacoesError } = await supabase
+        .from("modulo_liberacoes")
+        .select("modulo_id, status_liberacao, liberar_em");
+
+      if (liberacoesError) {
+        throw new Error(liberacoesError.message);
+      }
+
+      setLiberacoes(
+        (liberacoesData ?? []) as ModuloLiberacaoGlobal[]
+      );
 
       const { data: aulasData, error: aulasError } = await supabase
         .from("aulas")
@@ -249,8 +271,13 @@ export default function DashboardPage() {
   }, [usuarios]);
 
   const aulasAtivas = useMemo(() => {
-    return aulas.filter((aula) => aula.ativo !== false);
-  }, [aulas]);
+    const modulosLiberados = idsModulosLiberados(liberacoes);
+
+    return aulas.filter(
+      (aula) =>
+        aula.ativo !== false && modulosLiberados.has(aula.modulo_id)
+    );
+  }, [aulas, liberacoes]);
 
   const calcularProgressoMentorado = useCallback((mentoradoId: string) => {
     const totalAulas = aulasAtivas.length;
@@ -386,7 +413,8 @@ export default function DashboardPage() {
       ).length,
       cobrancasAtrasadas: resumoFinanceiro.quantidadeAtrasada,
       eventosAguardando: eventos.filter(
-        (evento) => evento.status === "Aguardando"
+        (evento) =>
+          evento.status === "Aguardando" && eventoNoFuturo(evento)
       ).length,
     };
   }, [usuarios, eventos, resumoFinanceiro.quantidadeAtrasada]);
@@ -827,6 +855,14 @@ function formatarData(data: string) {
 
 function limparHorario(horario: string) {
   return horario?.slice(0, 5) || "";
+}
+
+function eventoNoFuturo(evento: EventoAgenda, agora = new Date()) {
+  const dataEvento = new Date(
+    `${evento.data}T${limparHorario(evento.horario)}:00`
+  );
+
+  return dataEvento.getTime() >= agora.getTime();
 }
 
 function KPI({

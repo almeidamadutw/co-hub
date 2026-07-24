@@ -17,6 +17,11 @@ import {
 } from "recharts";
 import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
+import { aplicarStatusFinanceiroEfetivo } from "@/utils/financeiroStatus";
+import {
+  idsModulosLiberados,
+  ModuloLiberacaoGlobal,
+} from "@/utils/moduloLiberacoes";
 import { supabase } from "@/utils/supabase";
 
 type StatusCobranca = "Pago" | "Pendente" | "Atrasado" | "Cancelado";
@@ -156,6 +161,7 @@ export default function RelatoriosPage() {
   const [agenda, setAgenda] = useState<AgendaEvento[]>([]);
   const [modulos, setModulos] = useState<ModuloMentoria[]>([]);
   const [aulas, setAulas] = useState<AulaMentoria[]>([]);
+  const [liberacoes, setLiberacoes] = useState<ModuloLiberacaoGlobal[]>([]);
   const [progressoAulas, setProgressoAulas] = useState<ProgressoAula[]>([]);
 
   const [carregando, setCarregando] = useState(true);
@@ -248,6 +254,21 @@ export default function RelatoriosPage() {
       setModulos((modulosData ?? []) as ModuloMentoria[]);
     }
 
+    const { data: liberacoesData, error: liberacoesError } = await supabase
+      .from("modulo_liberacoes")
+      .select("modulo_id, status_liberacao, liberar_em");
+
+    if (liberacoesError) {
+      avisosTemporarios.push(
+        "As liberações dos módulos não entraram no cálculo de progresso."
+      );
+      setLiberacoes([]);
+    } else {
+      setLiberacoes(
+        (liberacoesData ?? []) as ModuloLiberacaoGlobal[]
+      );
+    }
+
     const { data: aulasData, error: aulasError } = await supabase
       .from("aulas")
       .select("id, modulo_id, titulo, descricao, objetivo, duracao, video_url, ordem, ativo, created_at, updated_at")
@@ -277,7 +298,9 @@ export default function RelatoriosPage() {
     }
 
     setMentorados((mentoradosData ?? []) as Mentorado[]);
-    setCobrancas((cobrancasData ?? []) as Cobranca[]);
+    setCobrancas(
+      aplicarStatusFinanceiroEfetivo((cobrancasData ?? []) as Cobranca[])
+    );
     setAvisos(avisosTemporarios);
     setCarregando(false);
   }, [router]);
@@ -405,7 +428,11 @@ export default function RelatoriosPage() {
   }, [cobrancasFiltradas]);
 
   const resumoProgresso = useMemo(() => {
-    const aulasAtivas = aulas.filter((aula) => aula.ativo !== false);
+    const modulosLiberados = idsModulosLiberados(liberacoes);
+    const aulasAtivas = aulas.filter(
+      (aula) =>
+        aula.ativo !== false && modulosLiberados.has(aula.modulo_id)
+    );
     const idsAulasAtivas = new Set(aulasAtivas.map((aula) => aula.id));
 
     const progressoConcluido = progressoFiltrado.filter(
@@ -430,7 +457,9 @@ export default function RelatoriosPage() {
         ? 0
         : Math.round(progressoConcluido.length / mentoradosFiltrados.length);
 
-    const modulosComProgresso = modulos.map((modulo) => {
+    const modulosComProgresso = modulos
+      .filter((modulo) => modulosLiberados.has(modulo.id))
+      .map((modulo) => {
       const aulasDoModulo = aulasAtivas.filter((aula) => aula.modulo_id === modulo.id);
       const idsAulasModulo = new Set(aulasDoModulo.map((aula) => aula.id));
 
@@ -452,7 +481,7 @@ export default function RelatoriosPage() {
         conclusoes,
         percentual,
       };
-    });
+      });
 
     const melhorModulo = [...modulosComProgresso].sort(
       (a, b) => b.percentual - a.percentual
@@ -473,7 +502,13 @@ export default function RelatoriosPage() {
       melhorModulo,
       moduloMaisDificil,
     };
-  }, [aulas, modulos, progressoFiltrado, mentoradosFiltrados]);
+  }, [
+    aulas,
+    liberacoes,
+    modulos,
+    progressoFiltrado,
+    mentoradosFiltrados,
+  ]);
 
   const resumoAgenda = useMemo(() => {
     const hoje = formatarDataISO(new Date());

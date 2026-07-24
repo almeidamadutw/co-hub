@@ -112,17 +112,7 @@ const CAMPOS_BUCKET = [
   "storageBucket",
 ];
 
-const TABELAS_MATERIAIS_AULA = [
-  "aula_documentos",
-  "aula_materiais",
-  "aula_arquivos",
-  "aulas_documentos",
-  "aulas_materiais",
-  "aulas_arquivos",
-  "materiais_aula",
-  "documentos_aula",
-  "arquivos_aula",
-];
+const TABELAS_MATERIAIS_AULA = ["materiais_aula"];
 
 function texto(valor: unknown) {
   return typeof valor === "string" ? valor.trim() : "";

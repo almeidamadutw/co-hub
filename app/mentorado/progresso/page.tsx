@@ -10,6 +10,10 @@ import {
   sincronizarUsuarioComSessao,
   User,
 } from "@/utils/auth";
+import {
+  idsModulosLiberados,
+  ModuloLiberacaoGlobal,
+} from "@/utils/moduloLiberacoes";
 import { useModulosSupabase } from "@/utils/useModulosSupabase";
 
 export default function MentoradoProgressoPage() {
@@ -17,6 +21,7 @@ export default function MentoradoProgressoPage() {
 
   const [usuario, setUsuario] = useState<User | null>(null);
   const [aulasConcluidas, setAulasConcluidas] = useState<string[]>([]);
+  const [liberacoes, setLiberacoes] = useState<ModuloLiberacaoGlobal[]>([]);
   const [carregandoProgresso, setCarregandoProgresso] = useState(true);
   const [erro, setErro] = useState("");
 
@@ -105,6 +110,20 @@ export default function MentoradoProgressoPage() {
       }
 
       setAulasConcluidas((data ?? []).map((item) => item.aula_id));
+
+      const { data: liberacoesData, error: erroLiberacoes } = await supabase
+        .from("modulo_liberacoes")
+        .select("modulo_id, status_liberacao, liberar_em");
+
+      if (erroLiberacoes) {
+        setErro(erroLiberacoes.message);
+        setCarregandoProgresso(false);
+        return;
+      }
+
+      setLiberacoes(
+        (liberacoesData ?? []) as ModuloLiberacaoGlobal[]
+      );
       setCarregandoProgresso(false);
     }
 
@@ -112,20 +131,26 @@ export default function MentoradoProgressoPage() {
   }, [usuario]);
 
   const modulosDisponiveis = useMemo(() => {
+    const modulosLiberados = idsModulosLiberados(liberacoes);
+
     return modulos
-      .filter((modulo) => modulo.ativo)
+      .filter(
+        (modulo) => modulo.ativo && modulosLiberados.has(modulo.id)
+      )
       .map((modulo) => ({
         ...modulo,
         aulas: modulo.aulas.filter((aula) => aula.ativo),
       }));
-  }, [modulos]);
+  }, [modulos, liberacoes]);
 
   const aulasDisponiveis = useMemo(() => {
     return modulosDisponiveis.flatMap((modulo) => modulo.aulas);
   }, [modulosDisponiveis]);
 
   const totalAulas = aulasDisponiveis.length;
-  const totalConcluidas = aulasConcluidas.length;
+  const totalConcluidas = aulasDisponiveis.filter((aula) =>
+    aulasConcluidas.includes(aula.id)
+  ).length;
 
   const progressoGeral = useMemo(() => {
     if (totalAulas === 0) return 0;
