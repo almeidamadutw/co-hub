@@ -146,7 +146,7 @@ export async function verificarAcesso(
 
   const { data: perfil, error: perfilError } = await admin
     .from("profiles")
-    .select("role, status, acesso_suporte")
+    .select("role, status, acesso_suporte, excluido_em")
     .eq("id", userData.user.id)
     .single();
 
@@ -155,6 +155,14 @@ export async function verificarAcesso(
       ok: false,
       status: 403,
       mensagem: "Perfil não encontrado.",
+    };
+  }
+
+  if (perfil.excluido_em) {
+    return {
+      ok: false,
+      status: 403,
+      mensagem: "Este usuário foi excluído.",
     };
   }
 

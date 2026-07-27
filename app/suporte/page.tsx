@@ -137,6 +137,7 @@ function formatarPrioridade(prioridade: string | null) {
 
 function formatarAcao(acao: string) {
   if (acao === "criacao_usuario") return "Usuário criado";
+  if (acao === "exclusao_usuario") return "Usuário excluído";
   if (acao === "atualizacao_usuario") return "Usuário atualizado";
   if (acao === "reset_senha") return "Reset de senha";
   if (acao === "ticket_respondido") return "Chamado respondido";
@@ -194,6 +195,7 @@ export default function SuportePage() {
       supabase
         .from("profiles")
         .select("id, nome, email, role, status, created_at")
+        .is("excluido_em", null)
         .order("created_at", { ascending: false }),
       supabase
         .from("suporte_tickets")

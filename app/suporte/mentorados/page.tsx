@@ -55,6 +55,7 @@ export default function SuporteMentoradosPage() {
       .select(
         "id, nome, email, telefone, status, codigo_inscricao, trocas_senha, ultima_troca_senha, created_at, updated_at"
       )
+      .is("excluido_em", null)
       .eq("role", "mentorado")
       .order("created_at", { ascending: false });
 

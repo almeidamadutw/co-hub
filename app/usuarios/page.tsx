@@ -115,6 +115,7 @@ export default function UsuariosPage() {
       .select(
         "id, nome, email, telefone, role, status, codigo_inscricao, created_at, updated_at"
       )
+      .is("excluido_em", null)
       .order("created_at", { ascending: false });
 
     if (error) {

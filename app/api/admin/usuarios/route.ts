@@ -82,6 +82,7 @@ export async function GET(req: NextRequest) {
     .select(
       "id, nome, email, role, telefone, status, codigo_inscricao, acesso_suporte, precisa_trocar_senha, trocas_senha, ultima_troca_senha, created_at, updated_at"
     )
+    .is("excluido_em", null)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -431,22 +432,114 @@ export async function DELETE(req: NextRequest) {
 
     const admin = criarClienteAdmin();
 
-    const { error: perfilError } = await admin
+    const { data: perfilAlvo, error: perfilBuscaError } = await admin
       .from("profiles")
-      .delete()
-      .eq("id", id);
+      .select(
+        "id, nome, email, telefone, role, status, codigo_inscricao, acesso_suporte, excluido_em"
+      )
+      .eq("id", id)
+      .single();
 
-    if (perfilError) {
-      return NextResponse.json({ error: perfilError.message }, { status: 400 });
+    if (perfilBuscaError || !perfilAlvo) {
+      return NextResponse.json(
+        { error: "Usuário não encontrado." },
+        { status: 404 }
+      );
     }
 
-    const { error: authError } = await admin.auth.admin.deleteUser(id);
+    if (perfilAlvo.excluido_em) {
+      return NextResponse.json(
+        { error: "Este usuário já foi excluído." },
+        { status: 409 }
+      );
+    }
+
+    if (String(perfilAlvo.status ?? "").trim().toLowerCase() !== "cancelado") {
+      return NextResponse.json(
+        {
+          error:
+            "Cancele o usuário e salve a alteração antes de excluí-lo.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const { data: operador } = await admin
+      .from("profiles")
+      .select("nome, email")
+      .eq("id", permissao.userId)
+      .single();
+
+    const { error: authError } = await admin.auth.admin.deleteUser(id, true);
 
     if (authError) {
       return NextResponse.json({ error: authError.message }, { status: 400 });
     }
 
-    return NextResponse.json({ ok: true });
+    const excluidoEm = new Date().toISOString();
+    const emailAnonimizado = `excluido+${id}@ceoclub.local`;
+
+    const { error: perfilError } = await admin
+      .from("profiles")
+      .update({
+        nome: "Usuário excluído",
+        email: emailAnonimizado,
+        telefone: null,
+        codigo_inscricao: null,
+        avatar_url: null,
+        genero: null,
+        nascimento: null,
+        nacionalidade: null,
+        profissao: null,
+        cidade: null,
+        foto_url: null,
+        acesso_suporte: false,
+        excluido_em: excluidoEm,
+        excluido_por: permissao.userId,
+        updated_at: excluidoEm,
+      })
+      .eq("id", id)
+      .is("excluido_em", null)
+      .select("id")
+      .single();
+
+    if (perfilError) {
+      return NextResponse.json(
+        {
+          error:
+            "O login foi removido, mas não foi possível anonimizar o perfil. Tente novamente.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const { error: logError } = await admin.from("suporte_logs").insert({
+      suporte_id: permissao.userId,
+      suporte_nome: operador?.nome ?? "Equipe CEO Club",
+      suporte_email: operador?.email ?? null,
+      acao: "exclusao_usuario",
+      entidade: "profiles",
+      entidade_id: id,
+      descricao: `Excluiu o acesso de ${
+        perfilAlvo.nome || perfilAlvo.email || id
+      } após o cancelamento. O perfil foi anonimizado e o histórico operacional preservado.`,
+      metadata: {
+        usuario_excluido_id: id,
+        usuario_excluido_nome: perfilAlvo.nome,
+        usuario_excluido_email: perfilAlvo.email,
+        perfil_anterior: perfilAlvo.role,
+        status_anterior: perfilAlvo.status,
+        exclusao_tipo: "segura",
+      },
+      created_at: excluidoEm,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      aviso: logError
+        ? "O usuário foi excluído, mas o registro de auditoria falhou."
+        : null,
+    });
   } catch (error) {
     return NextResponse.json(
       {

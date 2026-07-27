@@ -110,6 +110,7 @@ export default function AgendaMentorPage() {
       const { data: mentoradosData, error: mentoradosError } = await supabase
         .from("profiles")
         .select("id, nome, email, codigo_inscricao")
+        .is("excluido_em", null)
         .eq("role", "mentorado")
         .order("nome", { ascending: true });
 

@@ -79,7 +79,7 @@ export async function sincronizarUsuarioComSessao(): Promise<User | null> {
 
   const { data: perfil, error: perfilError } = await supabase
     .from("profiles")
-    .select("nome, email, role, acesso_suporte, status")
+    .select("nome, email, role, acesso_suporte, status, excluido_em")
     .eq("id", authData.user.id)
     .single();
 
@@ -97,6 +97,7 @@ export async function sincronizarUsuarioComSessao(): Promise<User | null> {
   if (
     perfilError ||
     !perfil ||
+    Boolean(perfil.excluido_em) ||
     !rolesValidas.includes(role) ||
     (status && status !== "ativo")
   ) {

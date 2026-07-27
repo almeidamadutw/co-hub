@@ -43,6 +43,7 @@ export default function ResetSenhaSuportePage() {
       .select(
         "id, nome, email, telefone, status, role, trocas_senha, ultima_troca_senha"
       )
+      .is("excluido_em", null)
       .in("role", ["mentor", "mentorado"])
       .order("nome", { ascending: true });
 

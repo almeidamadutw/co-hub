@@ -193,6 +193,7 @@ export default function SuporteUsuariosPage() {
   const [atualizando, setAtualizando] = useState(false);
   const [criandoUsuario, setCriandoUsuario] = useState(false);
   const [salvandoId, setSalvandoId] = useState<string | null>(null);
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
   const [avisoAuth, setAvisoAuth] = useState("");
@@ -617,6 +618,77 @@ export default function SuporteUsuariosPage() {
       setMensagem("E-mail copiado.");
     } catch {
       setErro("Não foi possível copiar o e-mail.");
+    }
+  }
+
+  async function excluirUsuario() {
+    if (!usuario || !perfilSelecionado) return;
+
+    setErro("");
+    setMensagem("");
+
+    if (perfilSelecionado.id === usuario.id) {
+      setErro("Você não pode excluir a própria conta.");
+      return;
+    }
+
+    if (normalizar(perfilSelecionado.status) !== "cancelado") {
+      setErro(
+        "Cancele o usuário e salve a alteração antes de excluí-lo."
+      );
+      return;
+    }
+
+    if (edicaoAlterada) {
+      setErro("Salve ou cancele as alterações pendentes antes da exclusão.");
+      return;
+    }
+
+    const confirmacao = window.prompt(
+      `Esta ação removerá o login de ${
+        perfilSelecionado.nome ||
+        perfilSelecionado.email ||
+        "este usuário"
+      } e ocultará a conta da lista. Digite EXCLUIR para confirmar.`
+    );
+
+    if (confirmacao?.trim().toUpperCase() !== "EXCLUIR") return;
+
+    setExcluindoId(perfilSelecionado.id);
+
+    try {
+      const headers = await obterCabecalhoAutorizacao();
+      const resposta = await fetch("/api/admin/usuarios", {
+        method: "DELETE",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id: perfilSelecionado.id }),
+      });
+
+      const payload = await resposta.json().catch(() => null);
+
+      if (!resposta.ok) {
+        throw new Error(
+          payload?.error || "Não foi possível excluir o usuário."
+        );
+      }
+
+      fecharUsuario();
+      setMensagem(
+        payload?.aviso ||
+          "Usuário excluído com segurança. O histórico foi preservado."
+      );
+      await carregarUsuarios();
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível excluir o usuário."
+      );
+    } finally {
+      setExcluindoId(null);
     }
   }
 
@@ -1340,6 +1412,42 @@ export default function SuporteUsuariosPage() {
                   </button>
                 </div>
               </div>
+
+              {normalizar(perfilSelecionado.status) === "cancelado" &&
+                perfilSelecionado.id !== usuario.id && (
+                  <div className="rounded-[22px] border border-red-200 bg-red-50 p-5 shadow-sm">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-red-500">
+                      Exclusão segura
+                    </p>
+                    <h3 className="mt-1 text-xl font-black text-red-950">
+                      Excluir usuário
+                    </h3>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-red-800">
+                      Remove o login e os dados pessoais da conta. Chamados,
+                      financeiro, progresso e demais registros operacionais
+                      continuam preservados.
+                    </p>
+                    {edicaoAlterada && (
+                      <p className="mt-3 text-xs font-black text-red-700">
+                        Salve ou cancele as alterações pendentes para liberar a
+                        exclusão.
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void excluirUsuario()}
+                      disabled={
+                        edicaoAlterada ||
+                        excluindoId === perfilSelecionado.id
+                      }
+                      className="mt-4 rounded-2xl bg-red-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-red-200 transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {excluindoId === perfilSelecionado.id
+                        ? "Excluindo..."
+                        : "Excluir usuário"}
+                    </button>
+                  </div>
+                )}
 
               <div className="rounded-[22px] bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-2">

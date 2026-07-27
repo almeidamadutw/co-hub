@@ -135,11 +135,11 @@ export default function LoginPage() {
 
     const { data: perfil, error: perfilError } = await supabase
       .from("profiles")
-      .select("nome, email, role, acesso_suporte, status")
+      .select("nome, email, role, acesso_suporte, status, excluido_em")
       .eq("id", user.id)
       .single();
 
-    if (perfilError || !perfil) {
+    if (perfilError || !perfil || perfil.excluido_em) {
       setCarregando(false);
       setErro("Perfil não encontrado. Verifique o cadastro no Supabase.");
       await supabase.auth.signOut();

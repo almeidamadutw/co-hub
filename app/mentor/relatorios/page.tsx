@@ -203,6 +203,7 @@ export default function RelatoriosPage() {
     const { data: mentoradosData, error: mentoradosError } = await supabase
       .from("profiles")
       .select("id, nome, email, codigo_inscricao, status, role, created_at")
+      .is("excluido_em", null)
       .eq("role", "mentorado")
       .order("created_at", { ascending: false });
 

@@ -85,6 +85,7 @@ export default function MentorMentoradosListaPage() {
       const { data, error } = await supabase
         .from("profiles")
         .select("id, nome, email, telefone, codigo_inscricao, status, created_at")
+        .is("excluido_em", null)
         .eq("role", "mentorado")
         .order("created_at", { ascending: false });
 

@@ -90,11 +90,16 @@ async function verificarMentor(req: NextRequest) {
 
   const { data: perfil, error: perfilError } = await admin
     .from("profiles")
-    .select("role")
+    .select("role, status, excluido_em")
     .eq("id", userData.user.id)
     .single();
 
-  if (perfilError || perfil?.role !== "mentor") {
+  if (
+    perfilError ||
+    perfil?.role !== "mentor" ||
+    String(perfil.status ?? "").trim().toLowerCase() !== "ativo" ||
+    Boolean(perfil.excluido_em)
+  ) {
     return {
       ok: false,
       mensagem: "Acesso permitido apenas para mentora.",

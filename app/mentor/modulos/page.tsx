@@ -369,6 +369,7 @@ export default function ModulosPage() {
     const { data, error } = await supabase
       .from("profiles")
       .select("id, nome, email")
+      .is("excluido_em", null)
       .eq("role", "mentorado")
       .order("nome", { ascending: true });
 

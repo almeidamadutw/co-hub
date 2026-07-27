@@ -55,6 +55,7 @@ export default function MentorMentoradosListaPage() {
         .select(
           "id, nome, email, telefone, codigo_inscricao, status, role, created_at"
         )
+        .is("excluido_em", null)
         .eq("role", "mentorado")
         .order("nome", { ascending: true });
 

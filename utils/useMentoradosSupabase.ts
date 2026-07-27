@@ -28,6 +28,7 @@ export function useMentoradosSupabase() {
       .select(
         "id, nome, email, telefone, role, status, codigo_inscricao, created_at"
       )
+      .is("excluido_em", null)
       .eq("role", "mentorado")
       .order("created_at", { ascending: false });
 
