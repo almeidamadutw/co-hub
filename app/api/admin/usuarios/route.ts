@@ -7,7 +7,13 @@ import {
   type UserRole,
 } from "@/utils/apiAuth";
 
-type UserStatus = "Ativo" | "Pendente" | "Inativo";
+type UserStatus =
+  | "Ativo"
+  | "Pendente"
+  | "Inativo"
+  | "Bloqueado"
+  | "Cancelado"
+  | "Suspenso";
 
 const rolesValidas: UserRole[] = [
   "mentor",
@@ -16,7 +22,14 @@ const rolesValidas: UserRole[] = [
   "suporte",
 ];
 
-const statusValidos: UserStatus[] = ["Ativo", "Pendente", "Inativo"];
+const statusValidos: UserStatus[] = [
+  "Ativo",
+  "Pendente",
+  "Inativo",
+  "Bloqueado",
+  "Cancelado",
+  "Suspenso",
+];
 
 function validarEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -33,13 +46,12 @@ function normalizarRole(role: unknown): UserRole | null {
 }
 
 function normalizarStatus(status: unknown): UserStatus | null {
-  const valor = String(status ?? "").trim();
+  const valor = String(status ?? "").trim().toLowerCase();
+  const statusEncontrado = statusValidos.find(
+    (item) => item.toLowerCase() === valor
+  );
 
-  if (statusValidos.includes(valor as UserStatus)) {
-    return valor as UserStatus;
-  }
-
-  return null;
+  return statusEncontrado ?? null;
 }
 
 async function lerBody(req: NextRequest) {
@@ -68,7 +80,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await admin
     .from("profiles")
     .select(
-      "id, nome, email, role, telefone, status, codigo_inscricao, created_at"
+      "id, nome, email, role, telefone, status, codigo_inscricao, acesso_suporte, precisa_trocar_senha, trocas_senha, ultima_troca_senha, created_at, updated_at"
     )
     .order("created_at", { ascending: false });
 
@@ -76,7 +88,32 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ usuarios: data ?? [] });
+  const { data: authData, error: authError } =
+    await admin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+
+  const usuariosAuth = new Map(
+    (authData?.users ?? []).map((usuario) => [usuario.id, usuario])
+  );
+
+  const usuarios = (data ?? []).map((perfil) => {
+    const usuarioAuth = usuariosAuth.get(perfil.id);
+
+    return {
+      ...perfil,
+      email_confirmed_at: usuarioAuth?.email_confirmed_at ?? null,
+      last_sign_in_at: usuarioAuth?.last_sign_in_at ?? null,
+    };
+  });
+
+  return NextResponse.json({
+    usuarios,
+    aviso_auth: authError
+      ? "Não foi possível consultar o último acesso no Supabase Auth."
+      : null,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -106,6 +143,9 @@ export async function POST(req: NextRequest) {
   const senha = String(body.senha ?? "").trim();
   const role = normalizarRole(body.role ?? "mentorado");
   const telefone = String(body.telefone ?? "").trim();
+  const status = normalizarStatus(body.status ?? "Ativo");
+  const codigoInscricao = String(body.codigo_inscricao ?? "").trim();
+  const acessoSuporte = Boolean(body.acesso_suporte);
 
   if (!nome || !email || !senha) {
     return NextResponse.json(
@@ -130,6 +170,10 @@ export async function POST(req: NextRequest) {
 
   if (!role) {
     return NextResponse.json({ error: "Perfil inválido." }, { status: 400 });
+  }
+
+  if (!status) {
+    return NextResponse.json({ error: "Status inválido." }, { status: 400 });
   }
 
   const admin = criarClienteAdmin();
@@ -160,11 +204,13 @@ export async function POST(req: NextRequest) {
       email,
       role,
       telefone: telefone || null,
-      status: "Ativo",
+      status,
+      codigo_inscricao: codigoInscricao || null,
+      acesso_suporte: acessoSuporte,
       updated_at: new Date().toISOString(),
     })
     .select(
-      "id, nome, email, role, telefone, status, codigo_inscricao, created_at"
+      "id, nome, email, role, telefone, status, codigo_inscricao, acesso_suporte, precisa_trocar_senha, trocas_senha, ultima_troca_senha, created_at, updated_at"
     )
     .single();
 
@@ -174,7 +220,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: perfilError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ usuario: perfil });
+  return NextResponse.json({
+    usuario: {
+      ...perfil,
+      email_confirmed_at: authData.user.email_confirmed_at ?? null,
+      last_sign_in_at: authData.user.last_sign_in_at ?? null,
+    },
+  });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -281,7 +333,7 @@ export async function PATCH(req: NextRequest) {
       .update(camposAtualizar)
       .eq("id", id)
       .select(
-        "id, nome, email, role, telefone, status, codigo_inscricao, created_at"
+        "id, nome, email, role, telefone, status, codigo_inscricao, acesso_suporte, precisa_trocar_senha, trocas_senha, ultima_troca_senha, created_at, updated_at"
       )
       .single();
 

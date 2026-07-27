@@ -146,7 +146,7 @@ export async function verificarAcesso(
 
   const { data: perfil, error: perfilError } = await admin
     .from("profiles")
-    .select("role, status")
+    .select("role, status, acesso_suporte")
     .eq("id", userData.user.id)
     .single();
 
@@ -159,8 +159,13 @@ export async function verificarAcesso(
   }
 
   const role = normalizarRole(perfil.role);
+  const acessoAdicionalSuporte =
+    rolesPermitidas.includes("suporte") && Boolean(perfil.acesso_suporte);
 
-  if (!role || !rolesPermitidas.includes(role)) {
+  if (
+    !role ||
+    (!rolesPermitidas.includes(role) && !acessoAdicionalSuporte)
+  ) {
     return {
       ok: false,
       status: 403,

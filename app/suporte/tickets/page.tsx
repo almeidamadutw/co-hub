@@ -153,10 +153,14 @@ export default function TicketsSuportePage() {
 
       setUsuario(user);
       const lista = await carregarTickets();
-      const ticketId = new URLSearchParams(window.location.search).get(
-        "ticket"
-      );
+      const parametros = new URLSearchParams(window.location.search);
+      const ticketId = parametros.get("ticket");
+      const usuarioBusca = parametros.get("usuario");
       const ticketInicial = lista.find((ticket) => ticket.id === ticketId);
+
+      if (usuarioBusca) {
+        setBusca(usuarioBusca);
+      }
 
       if (ticketInicial) {
         setTicketSelecionado(ticketInicial);

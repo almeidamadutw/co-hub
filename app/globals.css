@@ -37,7 +37,8 @@ body {
   }
 }
 
-.ceo-field {
+.ceo-field,
+.input-suporte {
   width: 100%;
   border-radius: 1rem;
   border: 1px solid rgba(148, 163, 184, 0.28);
@@ -55,12 +56,14 @@ body {
     transform 180ms ease;
 }
 
-.ceo-field::placeholder {
+.ceo-field::placeholder,
+.input-suporte::placeholder {
   color: #94a3b8;
   font-weight: 800;
 }
 
-.ceo-field:focus {
+.ceo-field:focus,
+.input-suporte:focus {
   border-color: rgba(18, 49, 124, 0.65);
   background: #ffffff;
   box-shadow:
@@ -73,7 +76,8 @@ textarea.ceo-field {
   line-height: 1.65;
 }
 
-select.ceo-field {
+select.ceo-field,
+select.input-suporte {
   cursor: pointer;
   appearance: none;
   background-image:

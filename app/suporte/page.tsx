@@ -136,6 +136,7 @@ function formatarPrioridade(prioridade: string | null) {
 }
 
 function formatarAcao(acao: string) {
+  if (acao === "criacao_usuario") return "Usuário criado";
   if (acao === "atualizacao_usuario") return "Usuário atualizado";
   if (acao === "reset_senha") return "Reset de senha";
   if (acao === "ticket_respondido") return "Chamado respondido";

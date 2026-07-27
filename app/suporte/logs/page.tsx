@@ -26,6 +26,7 @@ type LogTecnico = {
 
 const acoesFiltro = [
   { label: "Todas", value: "todas" },
+  { label: "Criação de usuário", value: "criacao_usuario" },
   { label: "Atualização de usuário", value: "atualizacao_usuario" },
   { label: "Reset de senha", value: "reset_senha" },
   { label: "Chamado respondido", value: "ticket_respondido" },
@@ -116,7 +117,11 @@ export default function SuporteLogsPage() {
     return {
       total: logs.length,
       resetSenha: logs.filter((log) => log.acao === "reset_senha").length,
-      usuarios: logs.filter((log) => log.acao === "atualizacao_usuario").length,
+      usuarios: logs.filter(
+        (log) =>
+          log.acao === "criacao_usuario" ||
+          log.acao === "atualizacao_usuario"
+      ).length,
       tickets: logs.filter(
         (log) =>
           log.acao === "ticket_respondido" || log.acao === "ticket_resolvido"
@@ -137,6 +142,7 @@ export default function SuporteLogsPage() {
   }
 
   function formatarAcao(acao: string) {
+    if (acao === "criacao_usuario") return "Criação de usuário";
     if (acao === "atualizacao_usuario") return "Atualização de usuário";
     if (acao === "reset_senha") return "Reset de senha";
     if (acao === "ticket_respondido") return "Chamado respondido";

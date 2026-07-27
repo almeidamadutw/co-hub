@@ -69,6 +69,14 @@ export default function ResetSenhaSuportePage() {
       }
 
       setUsuario(user);
+      const buscaInicial = new URLSearchParams(window.location.search).get(
+        "busca"
+      );
+
+      if (buscaInicial) {
+        setBusca(buscaInicial);
+      }
+
       await carregarUsuarios();
       setCarregando(false);
     }
