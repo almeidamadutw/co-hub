@@ -1,5 +1,5 @@
 import { supabase } from "@/utils/supabase";
-import { User } from "@/utils/auth";
+import { User, usuarioTemAcessoSuporte } from "@/utils/auth";
 
 type RegistrarLogParams = {
   suporte: User | null;
@@ -18,7 +18,7 @@ export async function registrarLogSuporte({
   descricao,
   metadata = {},
 }: RegistrarLogParams) {
-  if (!suporte || suporte.role !== "suporte") {
+  if (!usuarioTemAcessoSuporte(suporte)) {
     return;
   }
 

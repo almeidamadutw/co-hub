@@ -4,9 +4,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
 import {
-  logoutUsuario,
+  rotaInicialUsuario,
   sincronizarUsuarioComSessao,
   User,
+  usuarioTemAcessoSuporte,
 } from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
 
@@ -105,34 +106,13 @@ export default function TicketsSuportePage() {
 
     if (error) {
       setErro(`Não foi possível carregar os chamados: ${error.message}`);
-      return;
+      return [];
     }
 
-    setTickets((data || []) as Ticket[]);
+    const lista = (data || []) as Ticket[];
+    setTickets(lista);
+    return lista;
   }
-
-  useEffect(() => {
-    async function carregar() {
-      const user = await sincronizarUsuarioComSessao();
-
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-
-      if (user.role !== "suporte") {
-        await logoutUsuario();
-        router.replace("/login");
-        return;
-      }
-
-      setUsuario(user);
-      await carregarTickets();
-      setCarregando(false);
-    }
-
-    void carregar();
-  }, [router]);
 
   async function carregarMensagens(ticketId: string) {
     setCarregandoChat(true);
@@ -156,6 +136,38 @@ export default function TicketsSuportePage() {
 
     setMensagens((data || []) as MensagemTicket[]);
   }
+
+  useEffect(() => {
+    async function carregar() {
+      const user = await sincronizarUsuarioComSessao();
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      if (!usuarioTemAcessoSuporte(user)) {
+        router.replace(rotaInicialUsuario(user));
+        return;
+      }
+
+      setUsuario(user);
+      const lista = await carregarTickets();
+      const ticketId = new URLSearchParams(window.location.search).get(
+        "ticket"
+      );
+      const ticketInicial = lista.find((ticket) => ticket.id === ticketId);
+
+      if (ticketInicial) {
+        setTicketSelecionado(ticketInicial);
+        await carregarMensagens(ticketInicial.id);
+      }
+
+      setCarregando(false);
+    }
+
+    void carregar();
+  }, [router]);
 
   const ticketsFiltrados = (() => {
     const termo = busca.trim().toLowerCase();
@@ -334,7 +346,7 @@ export default function TicketsSuportePage() {
 
   return (
     <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-      <SuporteSidebar nome={usuario.nome} />
+      <SuporteSidebar nome={usuario.nome} role={usuario.role} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
         <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">

@@ -113,7 +113,11 @@ export default function MentorMentoradosListaPage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-      <Sidebar nome={usuario.nome} role={usuario.role} acessoSuporte />
+      <Sidebar
+        nome={usuario.nome}
+        role={usuario.role}
+        acessoSuporte={Boolean(usuario.acesso_suporte)}
+      />
 
       <section className="min-h-screen w-full overflow-x-hidden px-4 py-5 sm:px-5 lg:pl-[calc(240px+24px)] lg:pr-6 xl:pl-[calc(260px+28px)] xl:pr-8 2xl:pl-[calc(290px+32px)] 2xl:pr-10">
         <div className="w-full space-y-5">

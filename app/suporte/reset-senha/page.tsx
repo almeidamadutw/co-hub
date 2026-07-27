@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
 import {
-  logoutUsuario,
+  rotaInicialUsuario,
   sincronizarUsuarioComSessao,
+  usuarioTemAcessoSuporte,
 } from "@/utils/auth";
 import type { User } from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
@@ -62,9 +63,8 @@ export default function ResetSenhaSuportePage() {
         return;
       }
 
-      if (user.role !== "suporte") {
-        await logoutUsuario();
-        router.replace("/login");
+      if (!usuarioTemAcessoSuporte(user)) {
+        router.replace(rotaInicialUsuario(user));
         return;
       }
 
@@ -228,7 +228,7 @@ export default function ResetSenhaSuportePage() {
 
   return (
     <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-      <SuporteSidebar nome={usuario.nome} />
+      <SuporteSidebar nome={usuario.nome} role={usuario.role} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
         <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">

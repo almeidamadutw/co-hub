@@ -129,3 +129,20 @@ export function usuarioTemPermissao(
 
   return rolesPermitidas.includes(usuario.role);
 }
+
+export function usuarioTemAcessoSuporte(usuario: User | null) {
+  if (!usuario) return false;
+
+  return usuario.role === "suporte" || Boolean(usuario.acesso_suporte);
+}
+
+export function rotaInicialUsuario(usuario: User) {
+  const rotas: Record<UserRole, string> = {
+    mentor: "/mentor/dashboard",
+    mentorado: "/mentorado/dashboard",
+    financeiro: "/mentor/financeiro",
+    suporte: "/suporte",
+  };
+
+  return rotas[usuario.role];
+}

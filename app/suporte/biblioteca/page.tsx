@@ -2,10 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Sidebar from "@/components/Sidebar";
+import SuporteSidebar from "@/components/SuporteSidebar";
 import { supabase } from "@/utils/supabase";
 import { obterCabecalhoAutorizacao } from "@/utils/apiAuthClient";
-import { getUsuarioLogado, usuarioTemPermissao, User } from "@/utils/auth";
+import {
+  rotaInicialUsuario,
+  sincronizarUsuarioComSessao,
+  User,
+  usuarioTemAcessoSuporte,
+} from "@/utils/auth";
 
 type MentoradoResumo = {
   id: string;
@@ -133,21 +138,23 @@ export default function SuporteBibliotecaPage() {
   }, [arquivos, filtroOrigem, filtroCategoria]);
 
   useEffect(() => {
-    const usuarioLogado = getUsuarioLogado();
+    async function validarAcesso() {
+      const usuarioLogado = await sincronizarUsuarioComSessao();
 
-    if (!usuarioLogado) {
-      router.replace("/login");
-      return;
+      if (!usuarioLogado) {
+        router.replace("/login");
+        return;
+      }
+
+      if (!usuarioTemAcessoSuporte(usuarioLogado)) {
+        router.replace(rotaInicialUsuario(usuarioLogado));
+        return;
+      }
+
+      setUsuario(usuarioLogado);
     }
 
-    if (!usuarioTemPermissao(usuarioLogado, ["mentor", "suporte", "financeiro"])) {
-      router.replace(
-        usuarioLogado.role === "mentorado" ? "/mentorado/dashboard" : "/login"
-      );
-      return;
-    }
-
-    setUsuario(usuarioLogado);
+    void validarAcesso();
   }, [router]);
 
   useEffect(() => {
@@ -342,7 +349,7 @@ export default function SuporteBibliotecaPage() {
 
   return (
     <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-      <Sidebar nome={usuario.nome} role={usuario.role} />
+      <SuporteSidebar nome={usuario.nome} role={usuario.role} />
 
       <section className="ceo-content no-scrollbar !p-4 sm:!p-5 lg:!p-6">
         <div className="ceo-stack !max-w-6xl">

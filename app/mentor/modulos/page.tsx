@@ -1037,7 +1037,11 @@ export default function ModulosPage() {
 
   return (
     <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-      <Sidebar nome={usuario.nome} role={usuario.role} acessoSuporte={usuario.role === "suporte"} />
+      <Sidebar
+        nome={usuario.nome}
+        role={usuario.role}
+        acessoSuporte={Boolean(usuario.acesso_suporte)}
+      />
 
       <section className="ceo-content no-scrollbar !p-4 sm:!p-5 lg:!p-6">
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#12317C]/15 blur-3xl" />

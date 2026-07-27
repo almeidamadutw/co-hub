@@ -131,7 +131,13 @@ export default function MentorMentoradosListaPage() {
   if (!usuario || carregando) {
     return (
       <main className="min-h-screen bg-[#f3f5f8] text-[#08163F]">
-        {usuario && <Sidebar nome={usuario.nome} role={usuario.role} />}
+        {usuario && (
+          <Sidebar
+            nome={usuario.nome}
+            role={usuario.role}
+            acessoSuporte={Boolean(usuario.acesso_suporte)}
+          />
+        )}
 
         <section className="flex min-h-screen items-center justify-center px-4 lg:pl-[calc(240px+1rem)] xl:pl-[calc(260px+1rem)] 2xl:pl-[calc(290px+1rem)]">
           <div className="w-full max-w-sm rounded-[24px] bg-white p-8 text-center shadow-xl shadow-slate-200/70">
@@ -147,7 +153,11 @@ export default function MentorMentoradosListaPage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-      <Sidebar nome={usuario.nome} role={usuario.role} />
+      <Sidebar
+        nome={usuario.nome}
+        role={usuario.role}
+        acessoSuporte={Boolean(usuario.acesso_suporte)}
+      />
 
       <section className="relative min-h-screen w-full overflow-x-hidden px-4 py-4 sm:px-5 lg:pl-[calc(240px+1rem)] lg:pr-4 lg:py-5 xl:pl-[calc(260px+1rem)] 2xl:pl-[calc(290px+1rem)] 2xl:pr-5">
         <div className="w-full space-y-4">

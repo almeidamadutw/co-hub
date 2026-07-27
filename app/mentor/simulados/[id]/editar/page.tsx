@@ -586,7 +586,11 @@ export default function SimuladoEditorPage() {
   if (!simulado || !formSimulado) {
     return (
       <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-        <Sidebar nome={usuario.nome} role={usuario.role} />
+        <Sidebar
+          nome={usuario.nome}
+          role={usuario.role}
+          acessoSuporte={Boolean(usuario.acesso_suporte)}
+        />
 
         <section className="relative flex min-w-0 flex-1 items-center justify-center overflow-x-hidden p-4 sm:p-6">
           <div className="w-full max-w-lg rounded-[28px] border border-white/70 bg-white/95 p-6 text-center shadow-2xl shadow-slate-200/80 sm:p-8">
@@ -618,7 +622,11 @@ export default function SimuladoEditorPage() {
 
   return (
     <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
-      <Sidebar nome={usuario.nome} role={usuario.role} />
+      <Sidebar
+        nome={usuario.nome}
+        role={usuario.role}
+        acessoSuporte={Boolean(usuario.acesso_suporte)}
+      />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
         <header className="sticky top-0 z-20 flex min-h-[68px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">

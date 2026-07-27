@@ -7,6 +7,7 @@ import { logoutUsuario } from "@/utils/auth";
 
 type SuporteSidebarProps = {
   nome: string;
+  role?: string;
 };
 
 const menusSuporte = [
@@ -23,10 +24,20 @@ const menusSuporte = [
   { label: "Minha conta", href: "/suporte/conta" },
 ];
 
-export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
+export default function SuporteSidebar({
+  nome,
+  role = "suporte",
+}: SuporteSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
+  const menus =
+    role === "mentor"
+      ? [
+          ...menusSuporte,
+          { label: "Voltar à mentoria", href: "/mentor/dashboard" },
+        ]
+      : menusSuporte;
 
   async function sair() {
     await logoutUsuario();
@@ -70,14 +81,14 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
               </h1>
 
               <p className="text-[11px] font-medium text-[#C9CED6] 2xl:text-xs">
-                Painel de suporte
+                Atendimento e T.I.
               </p>
             </div>
           </div>
 
           <div className="mb-4 rounded-[20px] border border-white/10 bg-white/10 p-3 backdrop-blur-sm 2xl:p-4">
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#C9CED6]">
-              Suporte
+              Operação
             </p>
 
             <p className="mt-2 break-words text-sm font-bold text-white">
@@ -85,13 +96,15 @@ export default function SuporteSidebar({ nome }: SuporteSidebarProps) {
             </p>
 
             <p className="mt-1 text-xs font-semibold text-[#D9DEE7]">
-              Administração CEO Club
+              {role === "mentor"
+                ? "Mentora + Suporte T.I."
+                : "Suporte e T.I. CEO Club"}
             </p>
           </div>
         </div>
 
         <nav className="relative z-10 min-h-0 flex-1 space-y-2 overflow-y-auto pr-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {menusSuporte.map((item) => {
+          {menus.map((item) => {
             const ativo = rotaAtiva(item.href);
 
             return (
