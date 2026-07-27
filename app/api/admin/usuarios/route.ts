@@ -6,6 +6,7 @@ import {
   verificarAcesso,
   type UserRole,
 } from "@/utils/apiAuth";
+import { extrairReferenciaStorage } from "@/utils/storageUrls";
 
 type UserStatus =
   | "Ativo"
@@ -36,6 +37,7 @@ const camposPerfilLista =
 
 const camposPerfilCompleto =
   "id, nome, email, role, avatar_url, created_at, telefone, status, codigo_inscricao, updated_at, genero, nascimento, nacionalidade, profissao, cidade, foto_url, primeira_senha_alterada, precisa_trocar_senha, trocas_senha, ultima_troca_senha, total_resets_senha, total_solicitacoes_senha, ultima_solicitacao_senha, acesso_suporte";
+const bucketAvatares = "ceo-club-avatares";
 
 function validarEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -68,6 +70,13 @@ function normalizarStatus(status: unknown): UserStatus | null {
   );
 
   return statusEncontrado ?? null;
+}
+
+function caminhoFotoStorage(url: unknown) {
+  if (typeof url !== "string" || !url) return null;
+
+  const referencia = extrairReferenciaStorage(url);
+  return referencia?.bucket === bucketAvatares ? referencia.path : null;
 }
 
 async function lerBody(req: NextRequest) {
@@ -314,7 +323,6 @@ export async function PATCH(req: NextRequest) {
     const nacionalidade = textoOpcional(body, "nacionalidade");
     const profissao = textoOpcional(body, "profissao");
     const cidade = textoOpcional(body, "cidade");
-    const fotoUrl = textoOpcional(body, "foto_url");
     const roleNormalizada =
       body.role !== undefined ? normalizarRole(body.role) : undefined;
     const statusNormalizado =
@@ -327,6 +335,16 @@ export async function PATCH(req: NextRequest) {
     if (!id) {
       return NextResponse.json(
         { error: "ID do usuário não informado." },
+        { status: 400 }
+      );
+    }
+
+    if (body.foto_url !== undefined) {
+      return NextResponse.json(
+        {
+          error:
+            "A foto do perfil deve ser atualizada pela rota segura de imagens.",
+        },
         { status: 400 }
       );
     }
@@ -373,7 +391,6 @@ export async function PATCH(req: NextRequest) {
       ["nacionalidade", nacionalidade, 120],
       ["profissão", profissao, 160],
       ["cidade", cidade, 160],
-      ["foto do perfil", fotoUrl, 3_000_000],
     ];
 
     const campoMuitoLongo = limites.find(
@@ -472,10 +489,6 @@ export async function PATCH(req: NextRequest) {
 
     if (cidade !== undefined) {
       camposAtualizar.cidade = cidade || null;
-    }
-
-    if (fotoUrl !== undefined) {
-      camposAtualizar.foto_url = fotoUrl || null;
     }
 
     if (roleNormalizada !== undefined && roleNormalizada !== null) {
@@ -580,7 +593,6 @@ export async function PATCH(req: NextRequest) {
       "nacionalidade",
       "profissao",
       "cidade",
-      "foto_url",
       "role",
       "status",
       "acesso_suporte",
@@ -690,7 +702,7 @@ export async function DELETE(req: NextRequest) {
     const { data: perfilAlvo, error: perfilBuscaError } = await admin
       .from("profiles")
       .select(
-        "id, nome, email, telefone, role, status, codigo_inscricao, acesso_suporte, excluido_em"
+        "id, nome, email, telefone, role, status, codigo_inscricao, acesso_suporte, foto_url, excluido_em"
       )
       .eq("id", id)
       .single();
@@ -768,6 +780,16 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    const caminhoFoto = caminhoFotoStorage(perfilAlvo.foto_url);
+    let limpezaFotoFalhou = false;
+
+    if (caminhoFoto) {
+      const { error: fotoError } = await admin.storage
+        .from(bucketAvatares)
+        .remove([caminhoFoto]);
+      limpezaFotoFalhou = Boolean(fotoError);
+    }
+
     const { error: logError } = await admin.from("suporte_logs").insert({
       suporte_id: permissao.userId,
       suporte_nome: operador?.nome ?? "Equipe CEO Club",
@@ -791,9 +813,11 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      aviso: logError
-        ? "O usuário foi excluído, mas o registro de auditoria falhou."
-        : null,
+      aviso: limpezaFotoFalhou
+        ? "O usuário foi excluído, mas o arquivo antigo da foto não pôde ser limpo."
+        : logError
+          ? "O usuário foi excluído, mas o registro de auditoria falhou."
+          : null,
     });
   } catch (error) {
     return NextResponse.json(

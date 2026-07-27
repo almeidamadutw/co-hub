@@ -7,6 +7,11 @@ import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import MentoradoSidebar from "@/components/MentoradoSidebar";
 import MentoradoLoading from "@/components/MentoradoLoading";
+import {
+  atualizarFotoPerfil,
+  resolverFotoPerfil,
+  validarArquivoFotoPerfil,
+} from "@/utils/perfilFotoClient";
 
 type PerfilMentorado = {
   id: string;
@@ -34,6 +39,8 @@ export default function ContaMentoradoPage() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
+  const [fotoArquivo, setFotoArquivo] = useState<File | null>(null);
+  const [fotoRemovida, setFotoRemovida] = useState(false);
 
   const [nome, setNome] = useState("");
   const [sobrenome, setSobrenome] = useState("");
@@ -92,7 +99,11 @@ export default function ContaMentoradoPage() {
       setNacionalidade(perfil.nacionalidade || "Brasil");
       setProfissao(perfil.profissao || "");
       setCidade(perfil.cidade || "");
-      setFotoPerfil(perfil.foto_url || null);
+      try {
+        setFotoPerfil(await resolverFotoPerfil(perfil.foto_url));
+      } catch {
+        setFotoPerfil(null);
+      }
 
       const usuarioAtualizado: User = {
         ...user,
@@ -114,8 +125,11 @@ export default function ContaMentoradoPage() {
 
     if (!arquivo) return;
 
-    if (!arquivo.type.startsWith("image/")) {
-      alert("Selecione um arquivo de imagem.");
+    const erroArquivo = validarArquivoFotoPerfil(arquivo);
+
+    if (erroArquivo) {
+      setErro(erroArquivo);
+      e.target.value = "";
       return;
     }
 
@@ -124,13 +138,20 @@ export default function ContaMentoradoPage() {
     leitor.onload = () => {
       const resultado = leitor.result as string;
       setFotoPerfil(resultado);
+      setFotoArquivo(arquivo);
+      setFotoRemovida(false);
+      setErro("");
     };
 
+    leitor.onerror = () => setErro("Não foi possível carregar a foto.");
     leitor.readAsDataURL(arquivo);
   }
 
   function removerFoto() {
     setFotoPerfil(null);
+    setFotoArquivo(null);
+    setFotoRemovida(true);
+    setErro("");
 
     if (inputFotoRef.current) {
       inputFotoRef.current.value = "";
@@ -171,20 +192,46 @@ export default function ContaMentoradoPage() {
         nacionalidade,
         profissao: profissao.trim(),
         cidade: cidade.trim(),
-        foto_url: fotoPerfil,
         updated_at: new Date().toISOString(),
       })
       .eq("id", usuario.id);
 
-    setSalvando(false);
-
     if (error) {
+      setSalvando(false);
       console.error(error);
       setErro(
         "Não foi possível salvar suas alterações. Verifique se os campos existem no Supabase."
       );
       return;
     }
+
+    try {
+      const fotoAtualizada = await atualizarFotoPerfil({
+        arquivo: fotoArquivo,
+        remover: fotoRemovida,
+      });
+
+      if (fotoAtualizada) {
+        setFotoPerfil(fotoAtualizada.foto_url);
+      }
+
+      setFotoArquivo(null);
+      setFotoRemovida(false);
+
+      if (inputFotoRef.current) {
+        inputFotoRef.current.value = "";
+      }
+    } catch (fotoError) {
+      setSalvando(false);
+      setErro(
+        `Os dados foram salvos, mas a foto não foi atualizada. ${
+          fotoError instanceof Error ? fotoError.message : "Tente novamente."
+        }`
+      );
+      return;
+    }
+
+    setSalvando(false);
 
     const usuarioAtualizado: User = {
       ...usuario,
@@ -287,7 +334,7 @@ export default function ContaMentoradoPage() {
                   <input
                     ref={inputFotoRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/png,image/jpeg,image/webp"
                     onChange={alterarFoto}
                     className="hidden"
                   />

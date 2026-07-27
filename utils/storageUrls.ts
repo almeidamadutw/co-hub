@@ -7,6 +7,7 @@ const AUTHENTICATED_OBJECT_MARKER = "/storage/v1/object/authenticated/";
 export const CEO_STORAGE_BUCKETS = [
   "ceo-club-biblioteca",
   "ceo-club-materiais",
+  "ceo-club-avatares",
 ] as const;
 
 type CeoStorageBucket = (typeof CEO_STORAGE_BUCKETS)[number];

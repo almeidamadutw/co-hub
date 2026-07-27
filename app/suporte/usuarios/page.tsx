@@ -20,6 +20,11 @@ import {
 import { obterCabecalhoAutorizacao } from "@/utils/apiAuthClient";
 import { registrarLogSuporte } from "@/utils/suporteLogs";
 import { supabase } from "@/utils/supabase";
+import {
+  atualizarFotoPerfil,
+  resolverFotoPerfil,
+  validarArquivoFotoPerfil,
+} from "@/utils/perfilFotoClient";
 
 type Perfil = {
   id: string;
@@ -238,6 +243,8 @@ export default function SuporteUsuariosPage() {
     null
   );
   const [edicao, setEdicao] = useState<EdicaoUsuario | null>(null);
+  const [fotoArquivo, setFotoArquivo] = useState<File | null>(null);
+  const [fotoRemovida, setFotoRemovida] = useState(false);
   const [carregandoDetalhesId, setCarregandoDetalhesId] = useState<
     string | null
   >(null);
@@ -263,6 +270,10 @@ export default function SuporteUsuariosPage() {
 
     try {
       const headers = await obterCabecalhoAutorizacao();
+      await fetch("/api/perfil/foto", {
+        method: "PUT",
+        headers,
+      }).catch(() => null);
 
       const [respostaUsuarios, respostaTickets, respostaLogs] =
         await Promise.all([
@@ -482,6 +493,8 @@ export default function SuporteUsuariosPage() {
     if (!perfilSelecionado || !edicao) return false;
 
     return (
+      Boolean(fotoArquivo) ||
+      fotoRemovida ||
       (perfilSelecionado.nome || "") !== edicao.nome.trim() ||
       normalizar(perfilSelecionado.email) !== normalizar(edicao.email) ||
       (perfilSelecionado.telefone || "") !== edicao.telefone.trim() ||
@@ -500,13 +513,15 @@ export default function SuporteUsuariosPage() {
       normalizar(perfilSelecionado.status) !== normalizar(edicao.status) ||
       Boolean(perfilSelecionado.acesso_suporte) !== edicao.acesso_suporte
     );
-  }, [edicao, perfilSelecionado]);
+  }, [edicao, fotoArquivo, fotoRemovida, perfilSelecionado]);
 
   async function abrirUsuario(perfil: Perfil) {
     const requestId = detalheRequestRef.current + 1;
     detalheRequestRef.current = requestId;
     setPerfilSelecionadoId(perfil.id);
     setEdicao(edicaoDoPerfil(perfil));
+    setFotoArquivo(null);
+    setFotoRemovida(false);
     setCarregandoDetalhesId(perfil.id);
     setDetalhesDisponiveisId(null);
     setErro("");
@@ -532,6 +547,10 @@ export default function SuporteUsuariosPage() {
       if (detalheRequestRef.current !== requestId) return;
 
       const perfilCompleto = payload.usuario as Perfil;
+      perfilCompleto.foto_url = await resolverFotoPerfil(
+        perfilCompleto.foto_url,
+        perfilCompleto.id
+      );
 
       setPerfis((atuais) =>
         atuais.map((item) =>
@@ -539,6 +558,8 @@ export default function SuporteUsuariosPage() {
         )
       );
       setEdicao(edicaoDoPerfil(perfilCompleto));
+      setFotoArquivo(null);
+      setFotoRemovida(false);
       setDetalhesDisponiveisId(perfilCompleto.id);
       setAvisoAuth(payload?.aviso_auth || "");
     } catch (error) {
@@ -560,6 +581,8 @@ export default function SuporteUsuariosPage() {
     detalheRequestRef.current += 1;
     setPerfilSelecionadoId(null);
     setEdicao(null);
+    setFotoArquivo(null);
+    setFotoRemovida(false);
     setCarregandoDetalhesId(null);
     setDetalhesDisponiveisId(null);
   }
@@ -587,24 +610,42 @@ export default function SuporteUsuariosPage() {
     const arquivo = evento.target.files?.[0];
     if (!arquivo) return;
 
-    if (!arquivo.type.startsWith("image/")) {
-      setErro("Selecione um arquivo de imagem.");
-      return;
-    }
+    const erroArquivo = validarArquivoFotoPerfil(arquivo);
 
-    if (arquivo.size > 2 * 1024 * 1024) {
-      setErro("A foto precisa ter no máximo 2 MB.");
+    if (erroArquivo) {
+      setErro(erroArquivo);
+      evento.target.value = "";
       return;
     }
 
     const leitor = new FileReader();
-    leitor.onload = () => atualizarEdicao("foto_url", String(leitor.result));
+    leitor.onload = () => {
+      atualizarEdicao("foto_url", String(leitor.result));
+      setFotoArquivo(arquivo);
+      setFotoRemovida(false);
+    };
     leitor.onerror = () => setErro("Não foi possível carregar a foto.");
     leitor.readAsDataURL(arquivo);
   }
 
   function removerFotoUsuario() {
     atualizarEdicao("foto_url", "");
+    setFotoArquivo(null);
+    setFotoRemovida(true);
+
+    if (fotoInputRef.current) {
+      fotoInputRef.current.value = "";
+    }
+  }
+
+  function cancelarEdicaoUsuario() {
+    if (!perfilSelecionado) return;
+
+    setEdicao(edicaoDoPerfil(perfilSelecionado));
+    setFotoArquivo(null);
+    setFotoRemovida(false);
+    setErro("");
+    setMensagem("");
 
     if (fotoInputRef.current) {
       fotoInputRef.current.value = "";
@@ -790,7 +831,6 @@ export default function SuporteUsuariosPage() {
           nacionalidade: edicao.nacionalidade.trim(),
           profissao: edicao.profissao.trim(),
           cidade: edicao.cidade.trim(),
-          foto_url: edicao.foto_url,
           role: edicao.role,
           status: edicao.status,
           acesso_suporte:
@@ -808,7 +848,24 @@ export default function SuporteUsuariosPage() {
         );
       }
 
-      const perfilAtualizado = payload.usuario as Perfil;
+      let perfilAtualizado = payload.usuario as Perfil;
+      perfilAtualizado.foto_url = await resolverFotoPerfil(
+        perfilAtualizado.foto_url,
+        perfilAtualizado.id
+      );
+      const fotoAtualizada = await atualizarFotoPerfil({
+        arquivo: fotoArquivo,
+        remover: fotoRemovida,
+        usuarioId: perfilSelecionado.id,
+      });
+
+      if (fotoAtualizada) {
+        perfilAtualizado = {
+          ...perfilAtualizado,
+          foto_url: fotoAtualizada.foto_url,
+        };
+      }
+
       setPerfis((atuais) =>
         atuais.map((item) =>
           item.id === perfilAtualizado.id
@@ -817,11 +874,18 @@ export default function SuporteUsuariosPage() {
         )
       );
       setEdicao(edicaoDoPerfil(perfilAtualizado));
+      setFotoArquivo(null);
+      setFotoRemovida(false);
       setDetalhesDisponiveisId(perfilAtualizado.id);
       setMensagem(
-        payload?.aviso ||
+        fotoAtualizada?.aviso ||
+          payload?.aviso ||
           "Ficha do usuário atualizada e registrada no histórico."
       );
+
+      if (fotoInputRef.current) {
+        fotoInputRef.current.value = "";
+      }
     } catch (error) {
       setErro(
         error instanceof Error
@@ -1909,7 +1973,7 @@ export default function SuporteUsuariosPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEdicao(edicaoDoPerfil(perfilSelecionado))}
+                    onClick={cancelarEdicaoUsuario}
                     disabled={!edicaoAlterada}
                     className="rounded-2xl bg-[#f3f5f8] px-5 py-3 text-sm font-black text-[#08163F] disabled:opacity-50"
                   >
