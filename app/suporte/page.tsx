@@ -300,9 +300,9 @@ export default function SuportePage() {
             />
 
             <AcaoSuporte
-              titulo="Usuários"
-              descricao="Consultar perfis de acesso, status e dados técnicos dos usuários."
-              botao="Gerenciar usuários"
+              titulo="Usuários e permissões"
+              descricao="Consultar usuários e corrigir perfil, status ou permissões de acesso."
+              botao="Gerenciar acessos"
               onClick={() => router.push("/suporte/usuarios")}
             />
 
@@ -318,13 +318,6 @@ export default function SuportePage() {
               descricao="Acompanhar alterações sensíveis feitas dentro do sistema."
               botao="Ver logs"
               onClick={() => router.push("/suporte/logs")}
-            />
-
-            <AcaoSuporte
-              titulo="Permissões"
-              descricao="Corrigir usuários sem perfil, status errado ou acesso inconsistente."
-              botao="Ver usuários"
-              onClick={() => router.push("/suporte/usuarios")}
             />
           </section>
 
