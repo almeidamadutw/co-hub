@@ -1187,7 +1187,7 @@ export default function SuporteUsuariosPage() {
             className="absolute inset-0 bg-black/45 backdrop-blur-sm"
           />
 
-          <aside className="absolute bottom-0 right-0 top-0 flex w-full max-w-[560px] flex-col overflow-hidden bg-[#f3f5f8] shadow-[-24px_0_60px_rgba(8,22,63,0.25)]">
+          <aside className="absolute left-1/2 top-1/2 flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-[820px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[28px] bg-[#f3f5f8] shadow-[0_28px_90px_rgba(8,22,63,0.35)] sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-3rem)]">
             <div className="flex items-start justify-between gap-4 bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white sm:p-6">
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-white/60">
