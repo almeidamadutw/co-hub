@@ -1,6 +1,14 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import SuporteSidebar from "@/components/SuporteSidebar";
 import {
@@ -29,6 +37,17 @@ type Perfil = {
   last_sign_in_at: string | null;
   created_at: string | null;
   updated_at: string | null;
+  avatar_url?: string | null;
+  genero?: string | null;
+  nascimento?: string | null;
+  nacionalidade?: string | null;
+  profissao?: string | null;
+  cidade?: string | null;
+  foto_url?: string | null;
+  primeira_senha_alterada?: boolean | null;
+  total_resets_senha?: number | null;
+  total_solicitacoes_senha?: number | null;
+  ultima_solicitacao_senha?: string | null;
 };
 
 type TicketUsuario = {
@@ -58,7 +77,17 @@ type NovoUsuarioForm = {
   acesso_suporte: boolean;
 };
 
-type EdicaoAcesso = {
+type EdicaoUsuario = {
+  nome: string;
+  email: string;
+  telefone: string;
+  codigo_inscricao: string;
+  genero: string;
+  nascimento: string;
+  nacionalidade: string;
+  profissao: string;
+  cidade: string;
+  foto_url: string;
   role: string;
   status: string;
   acesso_suporte: boolean;
@@ -167,8 +196,32 @@ function limparDescricao(descricao: string) {
     .replace(/\blogs?\b/gi, "histórico");
 }
 
+function edicaoDoPerfil(perfil: Perfil): EdicaoUsuario {
+  return {
+    nome: perfil.nome || "",
+    email: perfil.email || "",
+    telefone: perfil.telefone || "",
+    codigo_inscricao: perfil.codigo_inscricao || "",
+    genero: perfil.genero || "",
+    nascimento: perfil.nascimento || "",
+    nacionalidade: perfil.nacionalidade || "",
+    profissao: perfil.profissao || "",
+    cidade: perfil.cidade || "",
+    foto_url: perfil.foto_url || perfil.avatar_url || "",
+    role: normalizar(perfil.role),
+    status: normalizar(perfil.status),
+    acesso_suporte: Boolean(perfil.acesso_suporte),
+  };
+}
+
+function formatarBooleano(valor: boolean | null | undefined) {
+  return valor ? "Sim" : "Não";
+}
+
 export default function SuporteUsuariosPage() {
   const router = useRouter();
+  const detalheRequestRef = useRef(0);
+  const fotoInputRef = useRef<HTMLInputElement | null>(null);
 
   const [usuario, setUsuario] = useState<User | null>(null);
   const [perfis, setPerfis] = useState<Perfil[]>([]);
@@ -184,7 +237,13 @@ export default function SuporteUsuariosPage() {
   const [perfilSelecionadoId, setPerfilSelecionadoId] = useState<string | null>(
     null
   );
-  const [edicao, setEdicao] = useState<EdicaoAcesso | null>(null);
+  const [edicao, setEdicao] = useState<EdicaoUsuario | null>(null);
+  const [carregandoDetalhesId, setCarregandoDetalhesId] = useState<
+    string | null
+  >(null);
+  const [detalhesDisponiveisId, setDetalhesDisponiveisId] = useState<
+    string | null
+  >(null);
   const [mostrarNovoUsuario, setMostrarNovoUsuario] = useState(false);
   const [novoUsuario, setNovoUsuario] =
     useState<NovoUsuarioForm>(novoUsuarioInicial);
@@ -410,26 +469,133 @@ export default function SuporteUsuariosPage() {
     if (!perfilSelecionado || !edicao) return false;
 
     return (
+      (perfilSelecionado.nome || "") !== edicao.nome.trim() ||
+      normalizar(perfilSelecionado.email) !== normalizar(edicao.email) ||
+      (perfilSelecionado.telefone || "") !== edicao.telefone.trim() ||
+      (perfilSelecionado.codigo_inscricao || "") !==
+        edicao.codigo_inscricao.trim() ||
+      (perfilSelecionado.genero || "") !== edicao.genero.trim() ||
+      (perfilSelecionado.nascimento || "") !== edicao.nascimento ||
+      (perfilSelecionado.nacionalidade || "") !==
+        edicao.nacionalidade.trim() ||
+      (perfilSelecionado.profissao || "") !== edicao.profissao.trim() ||
+      (perfilSelecionado.cidade || "") !== edicao.cidade.trim() ||
+      (perfilSelecionado.foto_url ||
+        perfilSelecionado.avatar_url ||
+        "") !== edicao.foto_url ||
       normalizar(perfilSelecionado.role) !== normalizar(edicao.role) ||
       normalizar(perfilSelecionado.status) !== normalizar(edicao.status) ||
       Boolean(perfilSelecionado.acesso_suporte) !== edicao.acesso_suporte
     );
   }, [edicao, perfilSelecionado]);
 
-  function abrirUsuario(perfil: Perfil) {
+  async function abrirUsuario(perfil: Perfil) {
+    const requestId = detalheRequestRef.current + 1;
+    detalheRequestRef.current = requestId;
     setPerfilSelecionadoId(perfil.id);
-    setEdicao({
-      role: normalizar(perfil.role),
-      status: normalizar(perfil.status),
-      acesso_suporte: Boolean(perfil.acesso_suporte),
-    });
+    setEdicao(edicaoDoPerfil(perfil));
+    setCarregandoDetalhesId(perfil.id);
+    setDetalhesDisponiveisId(null);
+    setErro("");
+    setMensagem("");
+
+    try {
+      const headers = await obterCabecalhoAutorizacao();
+      const resposta = await fetch(
+        `/api/admin/usuarios?id=${encodeURIComponent(perfil.id)}`,
+        {
+          headers,
+          cache: "no-store",
+        }
+      );
+      const payload = await resposta.json().catch(() => null);
+
+      if (!resposta.ok || !payload?.usuario) {
+        throw new Error(
+          payload?.error || "Não foi possível carregar a ficha completa."
+        );
+      }
+
+      if (detalheRequestRef.current !== requestId) return;
+
+      const perfilCompleto = payload.usuario as Perfil;
+
+      setPerfis((atuais) =>
+        atuais.map((item) =>
+          item.id === perfilCompleto.id ? { ...item, ...perfilCompleto } : item
+        )
+      );
+      setEdicao(edicaoDoPerfil(perfilCompleto));
+      setDetalhesDisponiveisId(perfilCompleto.id);
+      setAvisoAuth(payload?.aviso_auth || "");
+    } catch (error) {
+      if (detalheRequestRef.current !== requestId) return;
+
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar a ficha completa."
+      );
+    } finally {
+      if (detalheRequestRef.current === requestId) {
+        setCarregandoDetalhesId(null);
+      }
+    }
+  }
+
+  function fecharUsuario() {
+    detalheRequestRef.current += 1;
+    setPerfilSelecionadoId(null);
+    setEdicao(null);
+    setCarregandoDetalhesId(null);
+    setDetalhesDisponiveisId(null);
+  }
+
+  function atualizarEdicao(
+    campo: keyof EdicaoUsuario,
+    valor: string | boolean
+  ) {
+    setEdicao((atual) =>
+      atual
+        ? {
+            ...atual,
+            [campo]: valor,
+            ...(campo === "role" && valor === "suporte"
+              ? { acesso_suporte: false }
+              : {}),
+          }
+        : atual
+    );
     setErro("");
     setMensagem("");
   }
 
-  function fecharUsuario() {
-    setPerfilSelecionadoId(null);
-    setEdicao(null);
+  function alterarFotoUsuario(evento: ChangeEvent<HTMLInputElement>) {
+    const arquivo = evento.target.files?.[0];
+    if (!arquivo) return;
+
+    if (!arquivo.type.startsWith("image/")) {
+      setErro("Selecione um arquivo de imagem.");
+      return;
+    }
+
+    if (arquivo.size > 2 * 1024 * 1024) {
+      setErro("A foto precisa ter no máximo 2 MB.");
+      return;
+    }
+
+    const leitor = new FileReader();
+    leitor.onload = () => atualizarEdicao("foto_url", String(leitor.result));
+    leitor.onerror = () => setErro("Não foi possível carregar a foto.");
+    leitor.readAsDataURL(arquivo);
+  }
+
+  function removerFotoUsuario() {
+    atualizarEdicao("foto_url", "");
+
+    if (fotoInputRef.current) {
+      fotoInputRef.current.value = "";
+    }
   }
 
   function atualizarNovoUsuario(
@@ -549,28 +715,39 @@ export default function SuporteUsuariosPage() {
     }
   }
 
-  async function salvarAcessos() {
+  async function salvarUsuario() {
     if (!usuario || !perfilSelecionado || !edicao) return;
 
     setErro("");
     setMensagem("");
 
-    if (perfilSelecionado.id === usuario.id) {
-      setErro(
-        "Sua própria conta fica protegida. Outro usuário de suporte deve alterar seus acessos."
-      );
+    if (detalhesDisponiveisId !== perfilSelecionado.id) {
+      setErro("Aguarde a ficha completa carregar antes de salvar.");
+      return;
+    }
+
+    const nome = edicao.nome.trim();
+    const email = edicao.email.trim().toLowerCase();
+
+    if (!nome || !email) {
+      setErro("Nome e e-mail são obrigatórios.");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setErro("Informe um e-mail válido.");
       return;
     }
 
     if (!edicao.role || !edicao.status) {
-      setErro("Selecione o perfil principal e o status antes de salvar.");
+      setErro("Selecione o perfil principal e o status.");
       return;
     }
 
     if (!edicaoAlterada) return;
 
     const confirmar = window.confirm(
-      `Deseja salvar as alterações de acesso para ${
+      `Deseja salvar todos os dados alterados de ${
         perfilSelecionado.nome ||
         perfilSelecionado.email ||
         "este usuário"
@@ -581,33 +758,66 @@ export default function SuporteUsuariosPage() {
 
     setSalvandoId(perfilSelecionado.id);
 
-    const { error } = await supabase.rpc(
-      "suporte_atualizar_acessos_profile",
-      {
-        p_profile_id: perfilSelecionado.id,
-        p_role: edicao.role,
-        p_status: edicao.status,
-        p_acesso_suporte:
-          edicao.role === "suporte" ? false : edicao.acesso_suporte,
+    try {
+      const headers = await obterCabecalhoAutorizacao();
+      const resposta = await fetch("/api/admin/usuarios", {
+        method: "PATCH",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: perfilSelecionado.id,
+          nome,
+          email,
+          telefone: edicao.telefone.trim(),
+          codigo_inscricao: edicao.codigo_inscricao.trim(),
+          genero: edicao.genero.trim(),
+          nascimento: edicao.nascimento,
+          nacionalidade: edicao.nacionalidade.trim(),
+          profissao: edicao.profissao.trim(),
+          cidade: edicao.cidade.trim(),
+          foto_url: edicao.foto_url,
+          role: edicao.role,
+          status: edicao.status,
+          acesso_suporte:
+            edicao.role === "suporte" &&
+            perfilSelecionado.id !== usuario.id
+              ? false
+              : edicao.acesso_suporte,
+        }),
+      });
+      const payload = await resposta.json().catch(() => null);
+
+      if (!resposta.ok || !payload?.usuario) {
+        throw new Error(
+          payload?.error || "Não foi possível salvar os dados do usuário."
+        );
       }
-    );
 
-    setSalvandoId(null);
-
-    if (error) {
-      setErro(`Não foi possível salvar os acessos: ${error.message}`);
-      return;
+      const perfilAtualizado = payload.usuario as Perfil;
+      setPerfis((atuais) =>
+        atuais.map((item) =>
+          item.id === perfilAtualizado.id
+            ? { ...item, ...perfilAtualizado }
+            : item
+        )
+      );
+      setEdicao(edicaoDoPerfil(perfilAtualizado));
+      setDetalhesDisponiveisId(perfilAtualizado.id);
+      setMensagem(
+        payload?.aviso ||
+          "Ficha do usuário atualizada e registrada no histórico."
+      );
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar os dados do usuário."
+      );
+    } finally {
+      setSalvandoId(null);
     }
-
-    setMensagem("Acessos atualizados e registrados no histórico.");
-    await carregarUsuarios();
-
-    setEdicao({
-      role: edicao.role,
-      status: edicao.status,
-      acesso_suporte:
-        edicao.role === "suporte" ? false : edicao.acesso_suporte,
-    });
   }
 
   async function copiarEmail(email: string | null) {
@@ -1147,7 +1357,7 @@ export default function SuporteUsuariosPage() {
                     <div className="flex flex-wrap items-center gap-2 xl:justify-end">
                       <button
                         type="button"
-                        onClick={() => abrirUsuario(perfil)}
+                        onClick={() => void abrirUsuario(perfil)}
                         className="rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-black text-white transition hover:brightness-110"
                       >
                         Ver usuário
@@ -1189,16 +1399,34 @@ export default function SuporteUsuariosPage() {
 
           <aside className="absolute left-1/2 top-1/2 flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-[820px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[28px] bg-[#f3f5f8] shadow-[0_28px_90px_rgba(8,22,63,0.35)] sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-3rem)]">
             <div className="flex items-start justify-between gap-4 bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white sm:p-6">
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-white/60">
-                  Detalhes e acessos
-                </p>
-                <h2 className="mt-2 break-words text-2xl font-black">
-                  {perfilSelecionado.nome || "Usuário sem nome"}
-                </h2>
-                <p className="mt-1 break-all text-sm font-semibold text-white/70">
-                  {perfilSelecionado.email || "E-mail não informado"}
-                </p>
+              <div className="flex min-w-0 items-center gap-4">
+                <div
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10 bg-cover bg-center text-xl font-black"
+                  style={
+                    edicao.foto_url
+                      ? { backgroundImage: `url("${edicao.foto_url}")` }
+                      : undefined
+                  }
+                >
+                  {!edicao.foto_url &&
+                    (perfilSelecionado.nome ||
+                      perfilSelecionado.email ||
+                      "U")
+                      .trim()
+                      .charAt(0)
+                      .toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-white/60">
+                    Ficha completa do usuário
+                  </p>
+                  <h2 className="mt-2 break-words text-2xl font-black">
+                    {perfilSelecionado.nome || "Usuário sem nome"}
+                  </h2>
+                  <p className="mt-1 break-all text-sm font-semibold text-white/70">
+                    {perfilSelecionado.email || "E-mail não informado"}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
@@ -1210,7 +1438,34 @@ export default function SuporteUsuariosPage() {
             </div>
 
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+              {erro && (
+                <div className="rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+                  {erro}
+                </div>
+              )}
+
+              {mensagem && (
+                <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
+                  {mensagem}
+                </div>
+              )}
+
+              {carregandoDetalhesId === perfilSelecionado.id && (
+                <div className="rounded-2xl bg-blue-50 p-4 text-sm font-bold text-[#12317C]">
+                  Carregando todos os dados deste usuário...
+                </div>
+              )}
+
+              {carregandoDetalhesId !== perfilSelecionado.id &&
+                detalhesDisponiveisId !== perfilSelecionado.id && (
+                  <div className="rounded-2xl bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800">
+                    A ficha completa não foi carregada. Feche e abra este
+                    usuário novamente para tentar de novo.
+                  </div>
+                )}
+
               <div className="grid gap-3 sm:grid-cols-2">
+                <InfoDetalhe label="ID do usuário" value={perfilSelecionado.id} />
                 <InfoDetalhe
                   label="Último acesso"
                   value={formatarData(perfilSelecionado.last_sign_in_at)}
@@ -1231,7 +1486,220 @@ export default function SuporteUsuariosPage() {
                   label="Última atualização"
                   value={formatarData(perfilSelecionado.updated_at)}
                 />
+                <InfoDetalhe
+                  label="Primeira senha alterada"
+                  value={formatarBooleano(
+                    perfilSelecionado.primeira_senha_alterada
+                  )}
+                />
+                <InfoDetalhe
+                  label="Precisa trocar a senha"
+                  value={formatarBooleano(
+                    perfilSelecionado.precisa_trocar_senha
+                  )}
+                />
+                <InfoDetalhe
+                  label="Trocas de senha"
+                  value={String(perfilSelecionado.trocas_senha ?? 0)}
+                />
+                <InfoDetalhe
+                  label="Última troca de senha"
+                  value={formatarData(perfilSelecionado.ultima_troca_senha)}
+                />
+                <InfoDetalhe
+                  label="Resets liberados"
+                  value={String(perfilSelecionado.total_resets_senha ?? 0)}
+                />
+                <InfoDetalhe
+                  label="Solicitações de senha"
+                  value={String(
+                    perfilSelecionado.total_solicitacoes_senha ?? 0
+                  )}
+                />
+                <InfoDetalhe
+                  label="Última solicitação de senha"
+                  value={formatarData(
+                    perfilSelecionado.ultima_solicitacao_senha ?? null
+                  )}
+                />
               </div>
+
+              <fieldset
+                disabled={
+                  detalhesDisponiveisId !== perfilSelecionado.id ||
+                  salvandoId === perfilSelecionado.id
+                }
+                className="rounded-[22px] bg-white p-5 shadow-sm disabled:opacity-70"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
+                      Dados cadastrais
+                    </p>
+                    <h3 className="mt-1 text-xl font-black text-[#08163F]">
+                      Informações pessoais
+                    </h3>
+                  </div>
+                  <span className="rounded-full bg-violet-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-violet-700">
+                    Edição exclusiva do suporte
+                  </span>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-4 rounded-2xl border border-gray-200 bg-[#f9fafb] p-4 sm:flex-row sm:items-center">
+                  <div
+                    className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-[#08163F] bg-cover bg-center text-2xl font-black text-white"
+                    style={
+                      edicao.foto_url
+                        ? { backgroundImage: `url("${edicao.foto_url}")` }
+                        : undefined
+                    }
+                  >
+                    {!edicao.foto_url &&
+                      (edicao.nome || edicao.email || "U")
+                        .trim()
+                        .charAt(0)
+                        .toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-black text-[#08163F]">
+                      Foto do perfil
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">
+                      JPG, PNG ou WEBP com até 2 MB.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fotoInputRef.current?.click()}
+                        className="rounded-xl bg-[#eef2ff] px-4 py-2 text-xs font-black text-[#12317C]"
+                      >
+                        Trocar foto
+                      </button>
+                      {edicao.foto_url && (
+                        <button
+                          type="button"
+                          onClick={removerFotoUsuario}
+                          className="rounded-xl bg-red-50 px-4 py-2 text-xs font-black text-red-700"
+                        >
+                          Remover foto
+                        </button>
+                      )}
+                      <input
+                        ref={fotoInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={alterarFotoUsuario}
+                        className="hidden"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <Campo label="Nome completo">
+                    <input
+                      value={edicao.nome}
+                      onChange={(evento) =>
+                        atualizarEdicao("nome", evento.target.value)
+                      }
+                      className="input-suporte"
+                      placeholder="Nome completo"
+                    />
+                  </Campo>
+
+                  <Campo label="E-mail de acesso">
+                    <input
+                      type="email"
+                      value={edicao.email}
+                      onChange={(evento) =>
+                        atualizarEdicao("email", evento.target.value)
+                      }
+                      className="input-suporte"
+                      placeholder="nome@exemplo.com"
+                    />
+                  </Campo>
+
+                  <Campo label="Telefone">
+                    <input
+                      value={edicao.telefone}
+                      onChange={(evento) =>
+                        atualizarEdicao("telefone", evento.target.value)
+                      }
+                      className="input-suporte"
+                      placeholder="(15) 99999-9999"
+                    />
+                  </Campo>
+
+                  <Campo label="Código de inscrição">
+                    <input
+                      value={edicao.codigo_inscricao}
+                      onChange={(evento) =>
+                        atualizarEdicao(
+                          "codigo_inscricao",
+                          evento.target.value
+                        )
+                      }
+                      className="input-suporte"
+                      placeholder="Código interno"
+                    />
+                  </Campo>
+
+                  <Campo label="Gênero">
+                    <input
+                      value={edicao.genero}
+                      onChange={(evento) =>
+                        atualizarEdicao("genero", evento.target.value)
+                      }
+                      className="input-suporte"
+                      placeholder="Não informado"
+                    />
+                  </Campo>
+
+                  <Campo label="Data de nascimento">
+                    <input
+                      type="date"
+                      value={edicao.nascimento}
+                      onChange={(evento) =>
+                        atualizarEdicao("nascimento", evento.target.value)
+                      }
+                      className="input-suporte"
+                    />
+                  </Campo>
+
+                  <Campo label="Nacionalidade">
+                    <input
+                      value={edicao.nacionalidade}
+                      onChange={(evento) =>
+                        atualizarEdicao("nacionalidade", evento.target.value)
+                      }
+                      className="input-suporte"
+                      placeholder="Brasil"
+                    />
+                  </Campo>
+
+                  <Campo label="Profissão">
+                    <input
+                      value={edicao.profissao}
+                      onChange={(evento) =>
+                        atualizarEdicao("profissao", evento.target.value)
+                      }
+                      className="input-suporte"
+                      placeholder="Profissão"
+                    />
+                  </Campo>
+
+                  <Campo label="Cidade">
+                    <input
+                      value={edicao.cidade}
+                      onChange={(evento) =>
+                        atualizarEdicao("cidade", evento.target.value)
+                      }
+                      className="input-suporte"
+                      placeholder="Cidade"
+                    />
+                  </Campo>
+                </div>
+              </fieldset>
 
               <div className="rounded-[22px] bg-white p-5 shadow-sm">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
@@ -1284,8 +1752,9 @@ export default function SuporteUsuariosPage() {
 
                 {perfilSelecionado.id === usuario.id && (
                   <div className="mt-4 rounded-2xl bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800">
-                    Sua própria conta fica protegida. Outro usuário de suporte
-                    deve alterar seu perfil, status ou acesso T.I.
+                    Você pode corrigir seus dados pessoais aqui. Por segurança,
+                    outro usuário de suporte deve alterar seu perfil, status ou
+                    acesso T.I.
                   </div>
                 )}
 
@@ -1294,19 +1763,12 @@ export default function SuporteUsuariosPage() {
                     <select
                       value={edicao.role}
                       onChange={(evento) =>
-                        setEdicao((atual) =>
-                          atual
-                            ? {
-                                ...atual,
-                                role: evento.target.value,
-                                ...(evento.target.value === "suporte"
-                                  ? { acesso_suporte: false }
-                                  : {}),
-                              }
-                            : atual
-                        )
+                        atualizarEdicao("role", evento.target.value)
                       }
-                      disabled={perfilSelecionado.id === usuario.id}
+                      disabled={
+                        perfilSelecionado.id === usuario.id ||
+                        detalhesDisponiveisId !== perfilSelecionado.id
+                      }
                       className="input-suporte"
                     >
                       <option value="">Sem perfil</option>
@@ -1322,13 +1784,12 @@ export default function SuporteUsuariosPage() {
                     <select
                       value={edicao.status}
                       onChange={(evento) =>
-                        setEdicao((atual) =>
-                          atual
-                            ? { ...atual, status: evento.target.value }
-                            : atual
-                        )
+                        atualizarEdicao("status", evento.target.value)
                       }
-                      disabled={perfilSelecionado.id === usuario.id}
+                      disabled={
+                        perfilSelecionado.id === usuario.id ||
+                        detalhesDisponiveisId !== perfilSelecionado.id
+                      }
                       className="input-suporte"
                     >
                       <option value="">Sem status</option>
@@ -1363,16 +1824,13 @@ export default function SuporteUsuariosPage() {
                     }
                     disabled={
                       perfilSelecionado.id === usuario.id ||
-                      edicao.role === "suporte"
+                      edicao.role === "suporte" ||
+                      detalhesDisponiveisId !== perfilSelecionado.id
                     }
                     onChange={(evento) =>
-                      setEdicao((atual) =>
-                        atual
-                          ? {
-                              ...atual,
-                              acesso_suporte: evento.target.checked,
-                            }
-                          : atual
+                      atualizarEdicao(
+                        "acesso_suporte",
+                        evento.target.checked
                       )
                     }
                     className="mt-1 h-6 w-6 shrink-0 accent-[#12317C]"
@@ -1382,29 +1840,21 @@ export default function SuporteUsuariosPage() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => void salvarAcessos()}
+                    onClick={() => void salvarUsuario()}
                     disabled={
-                      perfilSelecionado.id === usuario.id ||
                       !edicaoAlterada ||
+                      detalhesDisponiveisId !== perfilSelecionado.id ||
                       salvandoId === perfilSelecionado.id
                     }
                     className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {salvandoId === perfilSelecionado.id
                       ? "Salvando..."
-                      : "Salvar alterações"}
+                      : "Salvar usuário"}
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      setEdicao({
-                        role: normalizar(perfilSelecionado.role),
-                        status: normalizar(perfilSelecionado.status),
-                        acesso_suporte: Boolean(
-                          perfilSelecionado.acesso_suporte
-                        ),
-                      })
-                    }
+                    onClick={() => setEdicao(edicaoDoPerfil(perfilSelecionado))}
                     disabled={!edicaoAlterada}
                     className="rounded-2xl bg-[#f3f5f8] px-5 py-3 text-sm font-black text-[#08163F] disabled:opacity-50"
                   >
