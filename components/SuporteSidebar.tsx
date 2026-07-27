@@ -13,8 +13,6 @@ type SuporteSidebarProps = {
 const menusSuporte = [
   { label: "Dashboard", href: "/suporte" },
   { label: "Usuários", href: "/suporte/usuarios" },
-  { label: "Mentores", href: "/suporte/mentores" },
-  { label: "Mentorados", href: "/suporte/mentorados" },
   { label: "Biblioteca", href: "/suporte/biblioteca" },
   { label: "Financeiro", href: "/mentor/financeiro" },
   { label: "Relatórios", href: "/mentor/relatorios" },

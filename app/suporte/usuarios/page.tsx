@@ -334,12 +334,19 @@ export default function SuporteUsuariosPage() {
 
       setUsuario(user);
 
-      const buscaInicial = new URLSearchParams(window.location.search).get(
-        "busca"
-      );
+      const parametros = new URLSearchParams(window.location.search);
+      const buscaInicial = parametros.get("busca");
+      const perfilInicial = parametros.get("perfil");
 
       if (buscaInicial) {
         setBusca(buscaInicial);
+      }
+
+      if (
+        perfilInicial &&
+        perfisDeAcesso.some((perfil) => perfil.value === perfilInicial)
+      ) {
+        setPerfilFiltro(perfilInicial);
       }
 
       await carregarUsuarios();
@@ -354,6 +361,12 @@ export default function SuporteUsuariosPage() {
 
     return {
       total: perfis.length,
+      mentores: perfis.filter(
+        (perfil) => normalizar(perfil.role) === "mentor"
+      ).length,
+      mentorados: perfis.filter(
+        (perfil) => normalizar(perfil.role) === "mentorado"
+      ).length,
       problemas: perfis.filter((perfil) =>
         temProblemaAcesso(perfil, verificarConfirmacaoEmail)
       ).length,
@@ -925,6 +938,34 @@ export default function SuporteUsuariosPage() {
     setAcessoFiltro("todos");
   }
 
+  function filtrarPorPerfil(perfil: "mentor" | "mentorado") {
+    setBusca("");
+    setPerfilFiltro(perfil);
+    setStatusFiltro("todos");
+    setAcessoFiltro("todos");
+  }
+
+  function filtrarProblemasDeAcesso() {
+    setBusca("");
+    setPerfilFiltro("todos");
+    setStatusFiltro("todos");
+    setAcessoFiltro("problemas");
+  }
+
+  function filtrarAcessosRestritos() {
+    setBusca("");
+    setPerfilFiltro("todos");
+    setStatusFiltro("restritos");
+    setAcessoFiltro("todos");
+  }
+
+  function filtrarAcessoTi() {
+    setBusca("");
+    setPerfilFiltro("todos");
+    setStatusFiltro("todos");
+    setAcessoFiltro("com_acesso");
+  }
+
   if (carregando || !usuario) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] px-5 text-[#08163F]">
@@ -1167,7 +1208,7 @@ export default function SuporteUsuariosPage() {
             </form>
           )}
 
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <CardIndicador
               titulo="Usuários"
               valor={resumo.total}
@@ -1176,25 +1217,39 @@ export default function SuporteUsuariosPage() {
               onClick={limparFiltros}
             />
             <CardIndicador
+              titulo="Mentores"
+              valor={resumo.mentores}
+              descricao="Filtrar contas de mentoria"
+              tom="ciano"
+              onClick={() => filtrarPorPerfil("mentor")}
+            />
+            <CardIndicador
+              titulo="Mentorados"
+              valor={resumo.mentorados}
+              descricao="Filtrar participantes da jornada"
+              tom="verde"
+              onClick={() => filtrarPorPerfil("mentorado")}
+            />
+            <CardIndicador
               titulo="Problemas de acesso"
               valor={resumo.problemas}
               descricao="Contas que precisam de atenção"
               tom="vermelho"
-              onClick={() => setAcessoFiltro("problemas")}
+              onClick={filtrarProblemasDeAcesso}
             />
             <CardIndicador
               titulo="Inativos ou bloqueados"
               valor={resumo.restritos}
               descricao="Acessos temporariamente impedidos"
               tom="amarelo"
-              onClick={() => setStatusFiltro("restritos")}
+              onClick={filtrarAcessosRestritos}
             />
             <CardIndicador
               titulo="Acesso Suporte/T.I."
               valor={resumo.acessoTi}
               descricao="Perfil suporte ou permissão adicional"
               tom="roxo"
-              onClick={() => setAcessoFiltro("com_acesso")}
+              onClick={filtrarAcessoTi}
             />
           </section>
 
@@ -1974,11 +2029,13 @@ function CardIndicador({
   titulo: string;
   valor: number;
   descricao: string;
-  tom: "azul" | "vermelho" | "amarelo" | "roxo";
+  tom: "azul" | "ciano" | "verde" | "vermelho" | "amarelo" | "roxo";
   onClick: () => void;
 }) {
   const cores = {
     azul: "bg-blue-500",
+    ciano: "bg-cyan-500",
+    verde: "bg-emerald-500",
     vermelho: "bg-red-500",
     amarelo: "bg-amber-500",
     roxo: "bg-violet-500",

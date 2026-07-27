@@ -53,7 +53,6 @@ const menusPorRole: Record<SidebarRole, MenuItem[]> = {
   suporte: [
     { label: "Dashboard", href: "/suporte" },
     { label: "Usuários", href: "/suporte/usuarios" },
-    { label: "Mentorados", href: "/suporte/mentorados" },
     { label: "Biblioteca", href: "/suporte/biblioteca" },
     { label: "Financeiro", href: "/mentor/financeiro" },
     { label: "Reset de senha", href: "/suporte/reset-senha" },
