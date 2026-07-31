@@ -40,11 +40,18 @@ type OrigemBiblioteca = "biblioteca" | "aula";
 type BibliotecaItem = {
   id: string;
   mentorado_id?: string | null;
+  mentorado_nome?: string | null;
+  mentorado_email?: string | null;
   criado_por?: string | null;
+  pasta_id?: string | null;
+  pasta_nome?: string | null;
+  pasta_visibilidade?: "publica" | "privada" | null;
+  escopo?: "mentorado" | "geral" | "interno";
   nome: string;
   categoria: string;
   tipo: string;
   url: string;
+  url_original?: string | null;
   storage_path?: string | null;
   tamanho_bytes?: number | null;
   observacao?: string | null;
@@ -56,18 +63,6 @@ type BibliotecaItem = {
   aula_id?: string | null;
   aula_nome?: string | null;
 };
-
-const CAMPOS_LISTA_MATERIAIS = [
-  "materiais",
-  "arquivos",
-  "documentos",
-  "anexos",
-  "materiais_aula",
-  "arquivos_aula",
-  "documentos_aula",
-  "files",
-  "attachments",
-];
 
 const CAMPOS_URL_MATERIAL = [
   "url",
@@ -114,6 +109,29 @@ const CAMPOS_BUCKET = [
 
 const TABELAS_MATERIAIS_AULA = ["materiais_aula"];
 
+const EXTENSOES_PERMITIDAS = new Set([
+  "csv",
+  "doc",
+  "docx",
+  "gif",
+  "jpeg",
+  "jpg",
+  "mov",
+  "mp4",
+  "pdf",
+  "png",
+  "ppt",
+  "pptx",
+  "txt",
+  "webm",
+  "webp",
+  "xls",
+  "xlsx",
+  "zip",
+]);
+
+const ESCOPOS_BIBLIOTECA = new Set(["mentorado", "geral", "interno"]);
+
 function texto(valor: unknown) {
   return typeof valor === "string" ? valor.trim() : "";
 }
@@ -136,16 +154,6 @@ function pegarPrimeiroTexto(objeto: Record<string, unknown>, campos: string[]) {
   return "";
 }
 
-function tentarParseJson(valor: unknown) {
-  if (typeof valor !== "string") return valor;
-
-  try {
-    return JSON.parse(valor);
-  } catch {
-    return valor;
-  }
-}
-
 function limparNomeArquivo(nome: string) {
   return nome
     .normalize("NFD")
@@ -154,6 +162,134 @@ function limparNomeArquivo(nome: string) {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .toLowerCase();
+}
+
+function urlExternaValida(valor: string) {
+  try {
+    const url = new URL(valor);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function extensaoArquivo(nome: string) {
+  return nome.toLowerCase().split(".").pop() || "";
+}
+
+function arquivoPermitido(arquivo: File) {
+  return EXTENSOES_PERMITIDAS.has(extensaoArquivo(arquivo.name));
+}
+
+function usuarioPodeGerenciarBiblioteca(role: string) {
+  return role === "mentor" || role === "suporte";
+}
+
+async function registrarAuditoriaBiblioteca({
+  usuarioId,
+  acao,
+  entidade,
+  entidadeId,
+  descricao,
+  metadata = {},
+}: {
+  usuarioId: string;
+  acao: string;
+  entidade: "biblioteca_arquivo" | "biblioteca_pasta";
+  entidadeId: string;
+  descricao: string;
+  metadata?: Record<string, unknown>;
+}) {
+  try {
+    const { data: perfil } = await supabaseAdmin()
+      .from("profiles")
+      .select("nome, email")
+      .eq("id", usuarioId)
+      .single();
+
+    await supabaseAdmin().from("suporte_logs").insert({
+      suporte_id: usuarioId,
+      suporte_nome: texto(perfil?.nome) || null,
+      suporte_email: texto(perfil?.email) || null,
+      acao,
+      entidade,
+      entidade_id: entidadeId,
+      descricao,
+      metadata,
+    });
+  } catch (error) {
+    console.error("Não foi possível registrar a auditoria da Biblioteca:", error);
+  }
+}
+
+async function validarMentorado(mentoradoId: string) {
+  const { data, error } = await supabaseAdmin()
+    .from("profiles")
+    .select("id, nome, email, role, status, excluido_em")
+    .eq("id", mentoradoId)
+    .single();
+
+  if (error || !data || texto(data.role).toLowerCase() !== "mentorado") {
+    throw new Error("Mentorado não encontrado.");
+  }
+
+  if (data.excluido_em || texto(data.status).toLowerCase() !== "ativo") {
+    throw new Error("O mentorado selecionado não está ativo.");
+  }
+
+  return data;
+}
+
+async function resolverDestinoBiblioteca({
+  destino,
+  mentoradoId,
+  pastaId,
+}: {
+  destino: string;
+  mentoradoId: string;
+  pastaId: string;
+}) {
+  if (destino === "mentorado") {
+    if (!mentoradoId) throw new Error("Selecione o mentorado.");
+    await validarMentorado(mentoradoId);
+
+    return {
+      escopo: "mentorado" as const,
+      mentoradoId,
+      pastaId: null,
+      prefixoStorage: `mentorados/${mentoradoId}`,
+    };
+  }
+
+  if (destino === "pasta") {
+    if (!pastaId) throw new Error("Selecione a pasta.");
+
+    const { data: pasta, error } = await supabaseAdmin()
+      .from("biblioteca_pastas")
+      .select("id, nome, visibilidade")
+      .eq("id", pastaId)
+      .single();
+
+    if (error || !pasta) throw new Error("Pasta não encontrada.");
+
+    return {
+      escopo: pasta.visibilidade === "publica" ? ("geral" as const) : ("interno" as const),
+      mentoradoId: null,
+      pastaId,
+      prefixoStorage: `pastas/${pastaId}`,
+    };
+  }
+
+  if (destino !== "geral") {
+    throw new Error("Destino do material inválido.");
+  }
+
+  return {
+    escopo: "geral" as const,
+    mentoradoId: null,
+    pastaId: null,
+    prefixoStorage: "geral",
+  };
 }
 
 function tipoPorUrl(url: string, tipoOriginal?: string | null) {
@@ -221,12 +357,6 @@ function tipoPorArquivo(arquivo: File) {
   }
 
   return "documento";
-}
-
-function normalizarRelacao<T = Record<string, unknown>>(valor: unknown): T | null {
-  if (Array.isArray(valor)) return (valor[0] as T) ?? null;
-  if (valor && typeof valor === "object") return valor as T;
-  return null;
 }
 
 function moduloEstaLiberado(modulo: Record<string, unknown> | null) {
@@ -458,205 +588,6 @@ function observacaoDoMaterial(item: Record<string, unknown>) {
   );
 }
 
-async function extrairMateriaisDeArray(
-  aula: Record<string, unknown>,
-  modulo: Record<string, unknown> | null
-): Promise<BibliotecaItem[]> {
-  const itens: BibliotecaItem[] = [];
-  const aulaId = texto(aula.id);
-  const moduloId = texto(aula.modulo_id) || texto(modulo?.id);
-  const aulaNome = nomeAula(aula);
-  const moduloNome = nomeModulo(modulo);
-
-  for (const campo of CAMPOS_LISTA_MATERIAIS) {
-    const valorBruto = tentarParseJson(aula[campo]);
-
-    if (!Array.isArray(valorBruto)) continue;
-
-    for (let index = 0; index < valorBruto.length; index++) {
-      const itemBruto = valorBruto[index];
-
-      if (typeof itemBruto === "string") {
-        const itemComoObjeto = { url: itemBruto };
-        const resolvido = await resolverUrlMaterial(itemComoObjeto);
-
-        if (!resolvido.url) continue;
-
-        itens.push({
-          id: `aula-${aulaId}-${campo}-${index}`,
-          nome: `Material - ${aulaNome}`,
-          categoria: "material",
-          tipo: tipoPorUrl(resolvido.url),
-          url: resolvido.url,
-          storage_path: resolvido.storagePath,
-          tamanho_bytes: null,
-          observacao: null,
-          created_at: texto(aula.created_at) || new Date().toISOString(),
-          updated_at: texto(aula.updated_at) || null,
-          origem: "aula",
-          modulo_id: moduloId || null,
-          modulo_nome: moduloNome,
-          aula_id: aulaId || null,
-          aula_nome: aulaNome,
-        });
-
-        continue;
-      }
-
-      if (!itemBruto || typeof itemBruto !== "object") continue;
-
-      const item = itemBruto as Record<string, unknown>;
-      const resolvido = await resolverUrlMaterial(item);
-
-      if (!resolvido.url) continue;
-
-      const nome = nomeDoMaterial(item, `Material - ${aulaNome}`);
-
-      itens.push({
-        id: texto(item.id) || `aula-${aulaId}-${campo}-${index}`,
-        nome,
-        categoria: texto(item.categoria) || "material",
-        tipo: tipoPorUrl(resolvido.url, texto(item.tipo)),
-        url: resolvido.url,
-        storage_path: resolvido.storagePath,
-        tamanho_bytes: numero(item.tamanho_bytes ?? item.size ?? item.bytes),
-        observacao: observacaoDoMaterial(item),
-        created_at: texto(item.created_at) || texto(aula.created_at) || new Date().toISOString(),
-        updated_at: texto(item.updated_at) || texto(aula.updated_at) || null,
-        origem: "aula",
-        modulo_id: moduloId || null,
-        modulo_nome: moduloNome,
-        aula_id: aulaId || null,
-        aula_nome: aulaNome,
-      });
-    }
-  }
-
-  return itens;
-}
-
-async function extrairMaterialSimples(
-  aula: Record<string, unknown>,
-  modulo: Record<string, unknown> | null
-): Promise<BibliotecaItem[]> {
-  const itens: BibliotecaItem[] = [];
-  const aulaId = texto(aula.id);
-  const moduloId = texto(aula.modulo_id) || texto(modulo?.id);
-  const aulaNome = nomeAula(aula);
-  const moduloNome = nomeModulo(modulo);
-
-  const candidatos = [
-    ...CAMPOS_URL_MATERIAL.map((campo) => ({
-      campo,
-      valor: texto(aula[campo]),
-    })),
-    ...CAMPOS_STORAGE_PATH.map((campo) => ({
-      campo,
-      valor: texto(aula[campo]),
-    })),
-  ];
-
-  const valoresJaUsados = new Set<string>();
-
-  for (const candidato of candidatos) {
-    if (!candidato.valor || valoresJaUsados.has(candidato.valor)) continue;
-
-    valoresJaUsados.add(candidato.valor);
-
-    const resolvido = await resolverUrlMaterial(aula, candidato.valor);
-
-    if (!resolvido.url) continue;
-
-    const nome =
-      texto(aula.material_nome) ||
-      texto(aula.arquivo_nome) ||
-      texto(aula.nome_material) ||
-      texto(aula.nome_arquivo) ||
-      texto(aula.documento_nome) ||
-      `Material - ${aulaNome}`;
-
-    itens.push({
-      id: `aula-${aulaId}-${candidato.campo}`,
-      nome,
-      categoria: texto(aula.categoria_material) || "material",
-      tipo: tipoPorUrl(resolvido.url, texto(aula.tipo_material) || texto(aula.tipo)),
-      url: resolvido.url,
-      storage_path: resolvido.storagePath,
-      tamanho_bytes: numero(aula.tamanho_bytes ?? aula.arquivo_tamanho_bytes),
-      observacao:
-        texto(aula.observacao_material) ||
-        texto(aula.descricao_material) ||
-        texto(aula.descricao) ||
-        null,
-      created_at: texto(aula.created_at) || new Date().toISOString(),
-      updated_at: texto(aula.updated_at) || null,
-      origem: "aula",
-      modulo_id: moduloId || null,
-      modulo_nome: moduloNome,
-      aula_id: aulaId || null,
-      aula_nome: aulaNome,
-    });
-  }
-
-  return itens;
-}
-
-async function buscarAulasComModulos() {
-  const tentativaComRelacao = await supabaseAdmin()
-    .from("aulas")
-    .select("*, modulos(*)")
-    .order("created_at", { ascending: false });
-
-  if (!tentativaComRelacao.error) {
-    return (tentativaComRelacao.data ?? []) as Record<string, unknown>[];
-  }
-
-  const tentativaSimples = await supabaseAdmin().from("aulas").select("*");
-
-  const aulas = (tentativaSimples.data ?? []) as Record<string, unknown>[];
-
-  const moduloIds = Array.from(
-    new Set(aulas.map((aula) => texto(aula.modulo_id)).filter(Boolean))
-  );
-
-  if (moduloIds.length === 0) return aulas;
-
-  const { data: modulos } = await supabaseAdmin()
-    .from("modulos")
-    .select("*")
-    .in("id", moduloIds);
-
-  const mapaModulos = new Map(
-    ((modulos ?? []) as Record<string, unknown>[]).map((modulo) => [
-      texto(modulo.id),
-      modulo,
-    ])
-  );
-
-  return aulas.map((aula) => ({
-    ...aula,
-    modulos: mapaModulos.get(texto(aula.modulo_id)) ?? null,
-  }));
-}
-
-async function buscarMateriaisNasAulas(podeVerTudo: boolean) {
-  const aulas = await buscarAulasComModulos();
-  const materiais: BibliotecaItem[] = [];
-
-  for (const aula of aulas) {
-    const modulo = normalizarRelacao<Record<string, unknown>>(aula.modulos);
-
-    if (!podeVerTudo && !moduloEstaLiberado(modulo)) {
-      continue;
-    }
-
-    materiais.push(...(await extrairMateriaisDeArray(aula, modulo)));
-    materiais.push(...(await extrairMaterialSimples(aula, modulo)));
-  }
-
-  return materiais;
-}
-
 async function buscarMapasAulasEModulos() {
   const { data: aulasData } = await supabaseAdmin().from("aulas").select("*");
   const aulas = (aulasData ?? []) as Record<string, unknown>[];
@@ -745,10 +676,9 @@ async function buscarMateriaisEmTabelasSeparadas(podeVerTudo: boolean) {
 }
 
 async function buscarMateriaisDasAulas(podeVerTudo: boolean) {
-  const materiaisNasAulas = await buscarMateriaisNasAulas(podeVerTudo);
-  const materiaisTabelasSeparadas = await buscarMateriaisEmTabelasSeparadas(podeVerTudo);
-
-  let todos = [...materiaisNasAulas, ...materiaisTabelasSeparadas];
+  // O schema de produção usa materiais_aula como fonte única. Evita percorrer
+  // todas as aulas e tentar interpretar campos legados a cada abertura.
+  let todos = await buscarMateriaisEmTabelasSeparadas(podeVerTudo);
 
   if (!podeVerTudo) {
     const { data: liberacoes, error } = await supabaseAdmin()
@@ -809,11 +739,24 @@ async function normalizarArquivoBiblioteca(
   return {
     id: texto(arquivo.id),
     mentorado_id: texto(arquivo.mentorado_id) || null,
+    mentorado_nome: texto(arquivo.mentorado_nome) || null,
+    mentorado_email: texto(arquivo.mentorado_email) || null,
     criado_por: texto(arquivo.criado_por) || null,
+    pasta_id: texto(arquivo.pasta_id) || null,
+    pasta_nome: texto(arquivo.pasta_nome) || null,
+    pasta_visibilidade:
+      arquivo.pasta_visibilidade === "publica" ||
+      arquivo.pasta_visibilidade === "privada"
+        ? arquivo.pasta_visibilidade
+        : null,
+    escopo: ESCOPOS_BIBLIOTECA.has(texto(arquivo.escopo))
+      ? (texto(arquivo.escopo) as "mentorado" | "geral" | "interno")
+      : "mentorado",
     nome: texto(arquivo.nome) || "Material",
     categoria: texto(arquivo.categoria) || "material",
     tipo: texto(arquivo.tipo) || tipoPorUrl(url),
     url,
+    url_original: urlOriginal || null,
     storage_path: storagePath,
     tamanho_bytes: numero(arquivo.tamanho_bytes),
     observacao: texto(arquivo.observacao) || null,
@@ -837,7 +780,6 @@ export async function GET(request: NextRequest) {
     const permissao = await verificarAcesso(request, [
       "mentor",
       "mentorado",
-      "financeiro",
       "suporte",
     ]);
 
@@ -845,37 +787,85 @@ export async function GET(request: NextRequest) {
       return responderPermissaoNegada(permissao);
     }
 
-    const { searchParams } = new URL(request.url);
+    const podeGerenciar = usuarioPodeGerenciarBiblioteca(permissao.role);
 
-    const mentoradoIdSolicitado = searchParams.get("mentoradoId");
-    const mentoradoId =
-      permissao.role === "mentorado"
-        ? permissao.userId
-        : mentoradoIdSolicitado;
-    const podeVerTudo = permissao.role !== "mentorado";
+    if (!podeGerenciar && permissao.role !== "mentorado") {
+      return NextResponse.json(
+        { ok: false, error: "Você não tem permissão para acessar a Biblioteca." },
+        { status: 403 }
+      );
+    }
+
+    const podeVerTudo = podeGerenciar;
 
     let query = supabaseAdmin()
       .from("biblioteca_arquivos")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (mentoradoId && mentoradoId !== "todos") {
-      query = query.eq("mentorado_id", mentoradoId);
+    if (permissao.role === "mentorado") {
+      query = query.or(
+        `mentorado_id.eq.${permissao.userId},escopo.eq.geral`
+      );
     }
 
-    const { data, error } = await query;
+    let pastasQuery = supabaseAdmin()
+      .from("biblioteca_pastas")
+      .select("id, nome, descricao, visibilidade, criada_por, created_at, updated_at")
+      .order("nome", { ascending: true });
 
-    if (error) throw error;
+    if (!podeVerTudo) {
+      pastasQuery = pastasQuery.eq("visibilidade", "publica");
+    }
+
+    const perfisQuery = supabaseAdmin()
+      .from("profiles")
+      .select("id, nome, email, status")
+      .eq("role", "mentorado")
+      .is("excluido_em", null)
+      .order("nome", { ascending: true });
+
+    const [arquivosResult, pastasResult, perfisResult, materiaisAulas] =
+      await Promise.all([
+        query,
+        pastasQuery,
+        perfisQuery,
+        buscarMateriaisDasAulas(podeVerTudo),
+      ]);
+
+    if (arquivosResult.error) throw arquivosResult.error;
+    if (pastasResult.error) throw pastasResult.error;
+    if (perfisResult.error) throw perfisResult.error;
+
+    const pastas = pastasResult.data ?? [];
+    const mentorados = (perfisResult.data ?? []).filter((perfil) => {
+      const status = texto(perfil.status).toLowerCase();
+      return !status || status === "ativo";
+    });
+
+    const mapaPastas = new Map(
+      pastas.map((pasta) => [pasta.id, pasta])
+    );
+    const mapaMentorados = new Map(
+      mentorados.map((perfil) => [perfil.id, perfil])
+    );
 
     const arquivosBiblioteca = (
       await Promise.all(
-        ((data ?? []) as Record<string, unknown>[]).map(
-          normalizarArquivoBiblioteca
-        )
+        ((arquivosResult.data ?? []) as Record<string, unknown>[]).map((arquivo) => {
+          const pasta = mapaPastas.get(texto(arquivo.pasta_id));
+          const perfil = mapaMentorados.get(texto(arquivo.mentorado_id));
+
+          return normalizarArquivoBiblioteca({
+            ...arquivo,
+            pasta_nome: pasta?.nome ?? null,
+            pasta_visibilidade: pasta?.visibilidade ?? null,
+            mentorado_nome: perfil?.nome ?? null,
+            mentorado_email: perfil?.email ?? null,
+          });
+        })
       )
     ).filter((arquivo) => Boolean(arquivo.url));
-
-    const materiaisAulas = await buscarMateriaisDasAulas(podeVerTudo);
 
     const arquivos = [...arquivosBiblioteca, ...materiaisAulas].sort((a, b) => {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -884,6 +874,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       arquivos,
+      pastas,
+      mentorados: podeGerenciar ? mentorados : [],
     });
   } catch (error) {
     return NextResponse.json(
@@ -912,7 +904,6 @@ export async function POST(request: NextRequest) {
 
     const permissao = await verificarAcesso(request, [
       "mentor",
-      "financeiro",
       "suporte",
     ]);
 
@@ -920,9 +911,18 @@ export async function POST(request: NextRequest) {
       return responderPermissaoNegada(permissao);
     }
 
+    if (!usuarioPodeGerenciarBiblioteca(permissao.role)) {
+      return NextResponse.json(
+        { ok: false, error: "Somente mentora e Suporte/T.I. podem enviar materiais." },
+        { status: 403 }
+      );
+    }
+
     const formData = await request.formData();
 
     const mentoradoId = texto(formData.get("mentoradoId"));
+    const pastaId = texto(formData.get("pastaId"));
+    const destino = texto(formData.get("destino")) || "mentorado";
     const nome = texto(formData.get("nome"));
     const categoria = texto(formData.get("categoria")) || "material";
     const observacao = texto(formData.get("observacao"));
@@ -930,16 +930,9 @@ export async function POST(request: NextRequest) {
     const urlInformada = texto(formData.get("url"));
     const arquivo = formData.get("arquivo");
 
-    if (!mentoradoId) {
+    if (!nome || nome.length > 160) {
       return NextResponse.json(
-        { ok: false, error: "Selecione o mentorado." },
-        { status: 400 }
-      );
-    }
-
-    if (!nome) {
-      return NextResponse.json(
-        { ok: false, error: "Informe o nome do material." },
+        { ok: false, error: "Informe o nome do material com até 160 caracteres." },
         { status: 400 }
       );
     }
@@ -948,11 +941,25 @@ export async function POST(request: NextRequest) {
     let storagePath: string | null = null;
     let tamanhoBytes: number | null = null;
     let tipo = "link";
+    let storageEnviado: string | null = null;
+
+    const destinoResolvido = await resolverDestinoBiblioteca({
+      destino,
+      mentoradoId,
+      pastaId,
+    });
 
     if (modo === "link") {
       if (!urlInformada) {
         return NextResponse.json(
           { ok: false, error: "Cole o link do material." },
+          { status: 400 }
+        );
+      }
+
+      if (!urlExternaValida(urlInformada)) {
+        return NextResponse.json(
+          { ok: false, error: "Use um link válido começando com http:// ou https://." },
           { status: 400 }
         );
       }
@@ -974,8 +981,19 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (!arquivoPermitido(arquivo)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Formato não permitido. Envie PDF, documento, planilha, apresentação, imagem, vídeo, texto, CSV ou ZIP.",
+          },
+          { status: 400 }
+        );
+      }
+
       const nomeLimpo = limparNomeArquivo(arquivo.name || "arquivo");
-      const caminho = `${mentoradoId}/${Date.now()}-${nomeLimpo}`;
+      const caminho = `${destinoResolvido.prefixoStorage}/${crypto.randomUUID()}-${nomeLimpo}`;
 
       const { error: uploadError } = await supabaseAdmin().storage
         .from(BUCKET_BIBLIOTECA)
@@ -987,6 +1005,8 @@ export async function POST(request: NextRequest) {
 
       if (uploadError) throw uploadError;
 
+      storageEnviado = caminho;
+
       urlFinal = criarReferenciaStorage(BUCKET_BIBLIOTECA, caminho);
       storagePath = caminho;
       tamanhoBytes = arquivo.size;
@@ -996,7 +1016,9 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabaseAdmin()
       .from("biblioteca_arquivos")
       .insert({
-        mentorado_id: mentoradoId,
+        mentorado_id: destinoResolvido.mentoradoId,
+        pasta_id: destinoResolvido.pastaId,
+        escopo: destinoResolvido.escopo,
         criado_por: permissao.userId,
         nome,
         categoria,
@@ -1009,7 +1031,31 @@ export async function POST(request: NextRequest) {
       .select("*")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (storageEnviado) {
+        await supabaseAdmin().storage
+          .from(BUCKET_BIBLIOTECA)
+          .remove([storageEnviado]);
+      }
+
+      throw error;
+    }
+
+    await registrarAuditoriaBiblioteca({
+      usuarioId: permissao.userId,
+      acao: "biblioteca_arquivo_criado",
+      entidade: "biblioteca_arquivo",
+      entidadeId: data.id,
+      descricao: `Material "${nome}" adicionado à Biblioteca.`,
+      metadata: {
+        categoria,
+        destino,
+        escopo: destinoResolvido.escopo,
+        mentorado_id: destinoResolvido.mentoradoId,
+        pasta_id: destinoResolvido.pastaId,
+        modo,
+      },
+    });
 
     return NextResponse.json({
       ok: true,
@@ -1031,6 +1077,214 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PATCH(request: NextRequest) {
+  try {
+    const erroConfiguracao = erroConfig();
+
+    if (erroConfiguracao) {
+      return NextResponse.json(
+        { ok: false, error: erroConfiguracao },
+        { status: 500 }
+      );
+    }
+
+    const permissao = await verificarAcesso(request, ["mentor", "suporte"]);
+
+    if (!permissao.ok) {
+      return responderPermissaoNegada(permissao);
+    }
+
+    if (!usuarioPodeGerenciarBiblioteca(permissao.role)) {
+      return NextResponse.json(
+        { ok: false, error: "Somente mentora e Suporte/T.I. podem editar materiais." },
+        { status: 403 }
+      );
+    }
+
+    const formData = await request.formData();
+    const id = texto(formData.get("id"));
+    const nome = texto(formData.get("nome"));
+    const categoria = texto(formData.get("categoria")) || "material";
+    const observacao = texto(formData.get("observacao"));
+    const destino = texto(formData.get("destino")) || "geral";
+    const mentoradoId = texto(formData.get("mentoradoId"));
+    const pastaId = texto(formData.get("pastaId"));
+    const modo = texto(formData.get("modo")) || "arquivo";
+    const urlInformada = texto(formData.get("url"));
+    const novoArquivo = formData.get("arquivo");
+
+    if (!id || !nome || nome.length > 160) {
+      return NextResponse.json(
+        { ok: false, error: "Informe o material e um nome com até 160 caracteres." },
+        { status: 400 }
+      );
+    }
+
+    const { data: atual, error: buscaError } = await supabaseAdmin()
+      .from("biblioteca_arquivos")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (buscaError || !atual) {
+      return NextResponse.json(
+        { ok: false, error: "Material não encontrado." },
+        { status: 404 }
+      );
+    }
+
+    const destinoResolvido = await resolverDestinoBiblioteca({
+      destino,
+      mentoradoId,
+      pastaId,
+    });
+
+    let urlFinal = texto(atual.url);
+    let storagePath = texto(atual.storage_path) || null;
+    let tamanhoBytes = numero(atual.tamanho_bytes);
+    let tipo = texto(atual.tipo) || "link";
+    let novoStoragePath: string | null = null;
+
+    if (novoArquivo instanceof File && novoArquivo.size > 0) {
+      if (novoArquivo.size > LIMITE_UPLOAD_BYTES) {
+        return NextResponse.json(
+          { ok: false, error: "O arquivo precisa ter no máximo 25 MB." },
+          { status: 400 }
+        );
+      }
+
+      if (!arquivoPermitido(novoArquivo)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Formato não permitido. Envie PDF, documento, planilha, apresentação, imagem, vídeo, texto, CSV ou ZIP.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const nomeLimpo = limparNomeArquivo(novoArquivo.name || "arquivo");
+      novoStoragePath = `${destinoResolvido.prefixoStorage}/${crypto.randomUUID()}-${nomeLimpo}`;
+
+      const { error: uploadError } = await supabaseAdmin().storage
+        .from(BUCKET_BIBLIOTECA)
+        .upload(novoStoragePath, novoArquivo, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: novoArquivo.type || undefined,
+        });
+
+      if (uploadError) throw uploadError;
+
+      urlFinal = criarReferenciaStorage(BUCKET_BIBLIOTECA, novoStoragePath);
+      storagePath = novoStoragePath;
+      tamanhoBytes = novoArquivo.size;
+      tipo = tipoPorArquivo(novoArquivo);
+    } else if (modo === "link") {
+      if (!urlExternaValida(urlInformada)) {
+        return NextResponse.json(
+          { ok: false, error: "Use um link válido começando com http:// ou https://." },
+          { status: 400 }
+        );
+      }
+
+      urlFinal = urlInformada;
+      storagePath = null;
+      tamanhoBytes = null;
+      tipo = tipoPorUrl(urlInformada);
+    }
+
+    const { data, error } = await supabaseAdmin()
+      .from("biblioteca_arquivos")
+      .update({
+        mentorado_id: destinoResolvido.mentoradoId,
+        pasta_id: destinoResolvido.pastaId,
+        escopo: destinoResolvido.escopo,
+        nome,
+        categoria,
+        observacao: observacao || null,
+        tipo,
+        url: urlFinal,
+        storage_path: storagePath,
+        tamanho_bytes: tamanhoBytes,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error) {
+      if (novoStoragePath) {
+        await supabaseAdmin().storage
+          .from(BUCKET_BIBLIOTECA)
+          .remove([novoStoragePath]);
+      }
+
+      throw error;
+    }
+
+    const storageAnterior = texto(atual.storage_path);
+
+    if (
+      storageAnterior &&
+      storageAnterior !== storagePath &&
+      (novoStoragePath || modo === "link")
+    ) {
+      const { error: limpezaError } = await supabaseAdmin().storage
+        .from(BUCKET_BIBLIOTECA)
+        .remove([storageAnterior]);
+
+      if (limpezaError) {
+        console.error("Arquivo antigo da Biblioteca não pôde ser removido:", limpezaError);
+      }
+    }
+
+    await registrarAuditoriaBiblioteca({
+      usuarioId: permissao.userId,
+      acao: "biblioteca_arquivo_atualizado",
+      entidade: "biblioteca_arquivo",
+      entidadeId: id,
+      descricao: `Material "${nome}" atualizado na Biblioteca.`,
+      metadata: {
+        antes: {
+          nome: atual.nome,
+          categoria: atual.categoria,
+          escopo: atual.escopo,
+          mentorado_id: atual.mentorado_id,
+          pasta_id: atual.pasta_id,
+        },
+        depois: {
+          nome,
+          categoria,
+          escopo: destinoResolvido.escopo,
+          mentorado_id: destinoResolvido.mentoradoId,
+          pasta_id: destinoResolvido.pastaId,
+        },
+        arquivo_substituido: Boolean(novoStoragePath),
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      arquivo: await normalizarArquivoBiblioteca(
+        data as Record<string, unknown>
+      ),
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível atualizar o material.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     const erroConfiguracao = erroConfig();
@@ -1044,12 +1298,18 @@ export async function DELETE(request: NextRequest) {
 
     const permissao = await verificarAcesso(request, [
       "mentor",
-      "financeiro",
       "suporte",
     ]);
 
     if (!permissao.ok) {
       return responderPermissaoNegada(permissao);
+    }
+
+    if (!usuarioPodeGerenciarBiblioteca(permissao.role)) {
+      return NextResponse.json(
+        { ok: false, error: "Somente mentora e Suporte/T.I. podem remover materiais." },
+        { status: 403 }
+      );
     }
 
     const body = await request.json().catch(() => null);
@@ -1064,7 +1324,7 @@ export async function DELETE(request: NextRequest) {
 
     const { data: arquivo, error: buscaError } = await supabaseAdmin()
       .from("biblioteca_arquivos")
-      .select("id, storage_path")
+      .select("*")
       .eq("id", id)
       .single();
 
@@ -1080,10 +1340,30 @@ export async function DELETE(request: NextRequest) {
     if (deleteError) throw deleteError;
 
     if (storagePath) {
-      await supabaseAdmin().storage
+      const { error: storageError } = await supabaseAdmin().storage
         .from(BUCKET_BIBLIOTECA)
         .remove([storagePath]);
+
+      if (storageError) {
+        console.error("Arquivo órfão pendente de limpeza na Biblioteca:", storageError);
+      }
     }
+
+    await registrarAuditoriaBiblioteca({
+      usuarioId: permissao.userId,
+      acao: "biblioteca_arquivo_removido",
+      entidade: "biblioteca_arquivo",
+      entidadeId: id,
+      descricao: `Material "${texto(arquivo.nome) || "sem nome"}" removido da Biblioteca.`,
+      metadata: {
+        nome: arquivo.nome,
+        categoria: arquivo.categoria,
+        escopo: arquivo.escopo,
+        mentorado_id: arquivo.mentorado_id,
+        pasta_id: arquivo.pasta_id,
+        storage_path: storagePath || null,
+      },
+    });
 
     return NextResponse.json({
       ok: true,
