@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import PageLoading from "@/components/PageLoading";
 import Sidebar from "@/components/Sidebar";
 import SuporteSidebar from "@/components/SuporteSidebar";
 import { obterCabecalhoAutorizacao } from "@/utils/apiAuthClient";
@@ -635,14 +636,7 @@ export default function BibliotecaGestao({
   }
 
   if (!usuario || carregando) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] px-4 text-[#08163F]">
-        <div className="rounded-[24px] bg-white p-8 text-center shadow-xl">
-          <p className="text-xs font-black uppercase tracking-[0.28em] text-slate-400">CEO Club</p>
-          <h1 className="mt-3 text-xl font-black">Organizando a Biblioteca...</h1>
-        </div>
-      </main>
-    );
+    return <PageLoading pagina="biblioteca" />;
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
+import PageLoading from "@/components/PageLoading";
 import { sincronizarUsuarioComSessao } from "@/utils/auth";
 
 type UserRole = "mentor" | "mentorado" | "financeiro" | "suporte";
@@ -60,23 +61,7 @@ export default function AuthGuard({ children, permitido }: AuthGuardProps) {
   }, [permitido, pathname, router]);
 
   if (!liberado) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] px-6 text-[#08163F]">
-        <div className="rounded-[28px] bg-white p-8 text-center shadow-sm">
-          <p className="text-sm font-semibold text-slate-500">
-            Verificando acesso...
-          </p>
-
-          <h1 className="mt-3 text-2xl font-black">
-            Só um instante
-          </h1>
-
-          <p className="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
-            Estamos validando seu perfil antes de abrir esta área.
-          </p>
-        </div>
-      </main>
-    );
+    return <PageLoading pagina="agenda" />;
   }
 
   return <>{children}</>;

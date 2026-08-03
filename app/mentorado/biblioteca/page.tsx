@@ -197,7 +197,7 @@ export default function MentoradoBibliotecaPage() {
   }
 
   if (!usuario || carregando) {
-    return <MentoradoLoading mensagem="Organizando sua Biblioteca..." />;
+    return <MentoradoLoading mensagem="Carregando biblioteca..." />;
   }
 
   return (

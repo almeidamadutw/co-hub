@@ -134,7 +134,7 @@ export default function AgendaMentoradoPage() {
   );
 
   if (!usuario) {
-    return <MentoradoLoading mensagem="Carregando sua agenda..." />;
+    return <MentoradoLoading mensagem="Carregando agenda..." />;
   }
 
   return (

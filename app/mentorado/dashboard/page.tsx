@@ -423,7 +423,7 @@ const { data: perfilData, error: perfilError } = await supabase
   }
 
   if (!usuario || carregando) {
-    return <MentoradoLoading mensagem="Carregando dashboard..." />;
+    return <MentoradoLoading mensagem="Carregando painel..." />;
   }
 
   const nomeExibido = perfil?.nome || usuario.nome;

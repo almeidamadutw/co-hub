@@ -31,6 +31,33 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+@keyframes ceo-loading-progress {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  50% {
+    transform: translateX(55%);
+  }
+
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+.ceo-loading-progress {
+  width: 58%;
+  animation: ceo-loading-progress 1.45s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ceo-loading-progress {
+    width: 72%;
+    animation: none;
+  }
+}
+
 /*
  * Escala padrão da interface no desktop.
  * `zoom` reduz o layout inteiro (inclusive medidas em px, imagens, sidebars,

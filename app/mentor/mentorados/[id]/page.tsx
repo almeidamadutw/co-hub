@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import PageLoading from "@/components/PageLoading";
 import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import { supabase } from "@/utils/supabase";
@@ -95,21 +96,7 @@ export default function MentorMentoradosListaPage() {
   }, [mentorados, busca]);
 
   if (!montado || !usuario) {
-    return (
-      <main className="min-h-screen bg-[#f3f5f8] text-[#08163F]">
-        <section className="flex min-h-screen items-center justify-center px-4">
-          <div className="w-full max-w-sm rounded-[24px] bg-white p-8 text-center shadow-xl shadow-slate-200/70">
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-slate-400">
-              CEO Club
-            </p>
-
-            <h1 className="mt-3 text-xl font-black">
-              Carregando mentorados...
-            </h1>
-          </div>
-        </section>
-      </main>
-    );
+    return <PageLoading pagina="detalhes do mentorado" />;
   }
 
   return (

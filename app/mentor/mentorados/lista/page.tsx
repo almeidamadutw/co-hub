@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import PageLoading from "@/components/PageLoading";
 import Sidebar from "@/components/Sidebar";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import { supabase } from "@/utils/supabase";
@@ -125,31 +126,8 @@ export default function MentorMentoradosListaPage() {
     });
   }, [mentorados, busca]);
 
-  if (!montado) {
-    return null;
-  }
-
-  if (!usuario || carregando) {
-    return (
-      <main className="min-h-screen bg-[#f3f5f8] text-[#08163F]">
-        {usuario && (
-          <Sidebar
-            nome={usuario.nome}
-            role={usuario.role}
-            acessoSuporte={Boolean(usuario.acesso_suporte)}
-          />
-        )}
-
-        <section className="flex min-h-screen items-center justify-center px-4 lg:pl-[calc(240px+1rem)] xl:pl-[calc(260px+1rem)] 2xl:pl-[calc(290px+1rem)]">
-          <div className="w-full max-w-sm rounded-[24px] bg-white p-8 text-center shadow-xl shadow-slate-200/70">
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-slate-400">
-              CEO Club
-            </p>
-            <h1 className="mt-3 text-xl font-black">Carregando mentorados...</h1>
-          </div>
-        </section>
-      </main>
-    );
+  if (!montado || !usuario || carregando) {
+    return <PageLoading pagina="mentorados" />;
   }
 
   return (

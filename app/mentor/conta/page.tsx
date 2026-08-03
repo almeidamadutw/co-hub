@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import PageLoading from "@/components/PageLoading";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, logoutUsuario } from "@/utils/auth";
 import type { User } from "@/utils/auth";
@@ -278,18 +279,7 @@ export default function ContaPage() {
   }
 
   if (carregando || !usuario) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        <div className="rounded-[24px] bg-white p-8 text-center shadow-xl">
-          <p className="text-sm font-black uppercase tracking-[0.22em] text-gray-400">
-            CEO Club
-          </p>
-          <h1 className="mt-3 text-2xl font-black">
-            Carregando minha conta...
-          </h1>
-        </div>
-      </main>
-    );
+    return <PageLoading pagina="minha conta" />;
   }
 
   return (

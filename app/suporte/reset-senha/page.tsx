@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import PageLoading from "@/components/PageLoading";
 import { supabase } from "@/utils/supabase";
 import {
   rotaInicialUsuario,
@@ -223,16 +224,7 @@ export default function ResetSenhaSuportePage() {
   }
 
   if (carregando || !usuario) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] text-[#08163F]">
-        <div className="rounded-[24px] bg-white p-8 text-center shadow-xl">
-          <p className="text-sm font-black uppercase tracking-[0.22em] text-gray-400">
-            CEO Club
-          </p>
-          <h1 className="mt-3 text-2xl font-black">Carregando suporte...</h1>
-        </div>
-      </main>
-    );
+    return <PageLoading pagina="recuperação de senha" />;
   }
 
   return (
