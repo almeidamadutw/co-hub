@@ -81,6 +81,12 @@ type FormPasta = {
   visibilidade: VisibilidadePasta;
 };
 
+type FormMover = {
+  destino: DestinoMaterial;
+  mentoradoId: string;
+  pastaId: string;
+};
+
 const formMaterialInicial: FormMaterial = {
   destino: "geral",
   mentoradoId: "",
@@ -97,6 +103,12 @@ const formPastaInicial: FormPasta = {
   nome: "",
   descricao: "",
   visibilidade: "privada",
+};
+
+const formMoverInicial: FormMover = {
+  destino: "geral",
+  mentoradoId: "",
+  pastaId: "",
 };
 
 const categorias = [
@@ -185,10 +197,13 @@ export default function BibliotecaGestao({
   const [filtroMentorado, setFiltroMentorado] = useState("todos");
   const [modalMaterialAberto, setModalMaterialAberto] = useState(false);
   const [modalPastaAberto, setModalPastaAberto] = useState(false);
+  const [modalMoverAberto, setModalMoverAberto] = useState(false);
   const [materialEditando, setMaterialEditando] = useState<BibliotecaArquivo | null>(null);
+  const [materialMovendo, setMaterialMovendo] = useState<BibliotecaArquivo | null>(null);
   const [pastaEditando, setPastaEditando] = useState<BibliotecaPasta | null>(null);
   const [formMaterial, setFormMaterial] = useState<FormMaterial>(formMaterialInicial);
   const [formPasta, setFormPasta] = useState<FormPasta>(formPastaInicial);
+  const [formMover, setFormMover] = useState<FormMover>(formMoverInicial);
 
   useEffect(() => {
     async function validarAcesso() {
@@ -355,6 +370,24 @@ export default function BibliotecaGestao({
     setModalMaterialAberto(true);
   }
 
+  function abrirMoverMaterial(arquivo: BibliotecaArquivo) {
+    const destino: DestinoMaterial = arquivo.pasta_id
+      ? "pasta"
+      : arquivo.escopo === "mentorado"
+        ? "mentorado"
+        : "geral";
+
+    setMaterialMovendo(arquivo);
+    setFormMover({
+      destino,
+      mentoradoId: arquivo.mentorado_id || mentorados[0]?.id || "",
+      pastaId: arquivo.pasta_id || pastas[0]?.id || "",
+    });
+    setErro("");
+    setSucesso("");
+    setModalMoverAberto(true);
+  }
+
   function abrirNovaPasta() {
     setPastaEditando(null);
     setFormPasta(formPastaInicial);
@@ -384,12 +417,23 @@ export default function BibliotecaGestao({
       return;
     }
 
-    if (formMaterial.destino === "mentorado" && !formMaterial.mentoradoId) {
+    const editandoMaterialAula =
+      (materialEditando?.origem ?? "biblioteca") === "aula";
+
+    if (
+      !editandoMaterialAula &&
+      formMaterial.destino === "mentorado" &&
+      !formMaterial.mentoradoId
+    ) {
       setErro("Selecione o mentorado.");
       return;
     }
 
-    if (formMaterial.destino === "pasta" && !formMaterial.pastaId) {
+    if (
+      !editandoMaterialAula &&
+      formMaterial.destino === "pasta" &&
+      !formMaterial.pastaId
+    ) {
       setErro("Selecione a pasta.");
       return;
     }
@@ -414,6 +458,7 @@ export default function BibliotecaGestao({
       setSucesso("");
       const data = new FormData();
       if (materialEditando) data.append("id", materialEditando.id);
+      data.append("origem", materialEditando?.origem ?? "biblioteca");
       data.append("destino", formMaterial.destino);
       data.append("mentoradoId", formMaterial.mentoradoId);
       data.append("pastaId", formMaterial.pastaId);
@@ -441,6 +486,53 @@ export default function BibliotecaGestao({
       await carregarDados();
     } catch (error) {
       setErro(error instanceof Error ? error.message : "Não foi possível salvar o material.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function moverMaterial(event: React.FormEvent) {
+    event.preventDefault();
+    if (salvando || !materialMovendo) return;
+
+    if (formMover.destino === "mentorado" && !formMover.mentoradoId) {
+      setErro("Selecione o mentorado.");
+      return;
+    }
+
+    if (formMover.destino === "pasta" && !formMover.pastaId) {
+      setErro("Selecione a pasta.");
+      return;
+    }
+
+    try {
+      setSalvando(true);
+      setErro("");
+      setSucesso("");
+      const headers = await obterCabecalhoAutorizacao();
+      const response = await fetch("/api/biblioteca", {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: materialMovendo.id,
+          origem: materialMovendo.origem ?? "biblioteca",
+          destino: formMover.destino,
+          mentoradoId: formMover.mentoradoId,
+          pastaId: formMover.pastaId,
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || "Não foi possível mover o material.");
+      }
+
+      setModalMoverAberto(false);
+      setMaterialMovendo(null);
+      setSucesso("Material movido para o novo destino.");
+      await carregarDados();
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : "Não foi possível mover o material.");
     } finally {
       setSalvando(false);
     }
@@ -717,12 +809,9 @@ export default function BibliotecaGestao({
                     <p className="mt-3 text-xs font-bold text-slate-400">Enviado em {formatarData(arquivo.created_at)}</p>
                     <div className="mt-auto flex flex-wrap gap-2 pt-4">
                       <a href={arquivo.url} target="_blank" rel="noreferrer" className="rounded-2xl bg-[#08163F] px-4 py-2.5 text-sm font-black text-white shadow-lg">Abrir</a>
-                      {origem !== "aula" ? (
-                        <>
-                          <button type="button" onClick={() => abrirEdicaoMaterial(arquivo)} className="rounded-2xl bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700">Editar</button>
-                          <button type="button" onClick={() => removerMaterial(arquivo)} className="rounded-2xl bg-red-50 px-4 py-2.5 text-sm font-black text-red-700">Remover</button>
-                        </>
-                      ) : null}
+                      <button type="button" onClick={() => abrirEdicaoMaterial(arquivo)} className="rounded-2xl bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700">Editar</button>
+                      <button type="button" onClick={() => abrirMoverMaterial(arquivo)} className="rounded-2xl bg-violet-50 px-4 py-2.5 text-sm font-black text-violet-700">Mover</button>
+                      {origem !== "aula" ? <button type="button" onClick={() => removerMaterial(arquivo)} className="rounded-2xl bg-red-50 px-4 py-2.5 text-sm font-black text-red-700">Remover</button> : null}
                     </div>
                   </article>
                 );
@@ -744,60 +833,71 @@ export default function BibliotecaGestao({
             </div>
 
             <div className="mt-6 grid gap-4">
-              <div>
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">Destino</p>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {[
-                    ["geral", "Todos", "Todos os mentorados"],
-                    ["mentorado", "Individual", "Um mentorado"],
-                    ["pasta", "Pasta", "Pública ou privada"],
-                  ].map(([value, label, detail]) => (
-                    <button key={value} type="button" onClick={() => setFormMaterial((atual) => ({ ...atual, destino: value as DestinoMaterial }))} className={`rounded-2xl border p-3 text-left ${formMaterial.destino === value ? "border-[#08163F] bg-[#08163F] text-white" : "border-slate-200 bg-slate-50"}`}>
-                      <span className="block text-sm font-black">{label}</span>
-                      <span className={`mt-1 block text-xs font-bold ${formMaterial.destino === value ? "text-blue-100" : "text-slate-400"}`}>{detail}</span>
-                    </button>
-                  ))}
+              {(materialEditando?.origem ?? "biblioteca") === "aula" ? (
+                <div className="rounded-[22px] border border-blue-100 bg-blue-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-500">Material vinculado à aula</p>
+                  <p className="mt-2 font-black text-blue-900">{materialEditando?.aula_nome || "Aula de origem"}</p>
+                  {materialEditando?.modulo_nome ? <p className="mt-1 text-sm font-bold text-blue-700">{materialEditando.modulo_nome}</p> : null}
+                  <p className="mt-3 text-xs font-bold leading-5 text-blue-700">A edição mantém o material nesta aula. Para trocar o local, feche esta tela e use o botão Mover.</p>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div>
+                    <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">Destino</p>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {[
+                        ["geral", "Todos", "Todos os mentorados"],
+                        ["mentorado", "Individual", "Um mentorado"],
+                        ["pasta", "Pasta", "Pública ou privada"],
+                      ].map(([value, label, detail]) => (
+                        <button key={value} type="button" onClick={() => setFormMaterial((atual) => ({ ...atual, destino: value as DestinoMaterial }))} className={`rounded-2xl border p-3 text-left ${formMaterial.destino === value ? "border-[#08163F] bg-[#08163F] text-white" : "border-slate-200 bg-slate-50"}`}>
+                          <span className="block text-sm font-black">{label}</span>
+                          <span className={`mt-1 block text-xs font-bold ${formMaterial.destino === value ? "text-blue-100" : "text-slate-400"}`}>{detail}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {formMaterial.destino === "mentorado" ? (
-                <label>
-                  <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-400">Mentorado</span>
-                  <select value={formMaterial.mentoradoId} onChange={(event) => setFormMaterial((atual) => ({ ...atual, mentoradoId: event.target.value }))} className="ceo-field">
-                    <option value="">Selecione o mentorado</option>
-                    {mentorados.map((mentorado) => <option key={mentorado.id} value={mentorado.id}>{mentorado.nome || mentorado.email}</option>)}
-                  </select>
-                </label>
-              ) : null}
+                  {formMaterial.destino === "mentorado" ? (
+                    <label>
+                      <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-400">Mentorado</span>
+                      <select value={formMaterial.mentoradoId} onChange={(event) => setFormMaterial((atual) => ({ ...atual, mentoradoId: event.target.value }))} className="ceo-field">
+                        <option value="">Selecione o mentorado</option>
+                        {mentorados.map((mentorado) => <option key={mentorado.id} value={mentorado.id}>{mentorado.nome || mentorado.email}</option>)}
+                      </select>
+                    </label>
+                  ) : null}
 
-              {formMaterial.destino === "pasta" ? (
-                <label>
-                  <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-400">Pasta</span>
-                  <select value={formMaterial.pastaId} onChange={(event) => setFormMaterial((atual) => ({ ...atual, pastaId: event.target.value }))} className="ceo-field">
-                    <option value="">Selecione a pasta</option>
-                    {pastas.map((pasta) => <option key={pasta.id} value={pasta.id}>{pasta.visibilidade === "publica" ? "Pública" : "Privada"} — {pasta.nome}</option>)}
-                  </select>
-                  {pastas.length === 0 ? <span className="mt-2 block text-xs font-bold text-amber-600">Crie uma pasta antes de usar este destino.</span> : null}
-                </label>
-              ) : null}
+                  {formMaterial.destino === "pasta" ? (
+                    <label>
+                      <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-400">Pasta</span>
+                      <select value={formMaterial.pastaId} onChange={(event) => setFormMaterial((atual) => ({ ...atual, pastaId: event.target.value }))} className="ceo-field">
+                        <option value="">Selecione a pasta</option>
+                        {pastas.map((pasta) => <option key={pasta.id} value={pasta.id}>{pasta.visibilidade === "publica" ? "Pública" : "Privada"} — {pasta.nome}</option>)}
+                      </select>
+                      {pastas.length === 0 ? <span className="mt-2 block text-xs font-bold text-amber-600">Crie uma pasta antes de usar este destino.</span> : null}
+                    </label>
+                  ) : null}
+                </>
+              )}
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <label>
                   <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-400">Nome</span>
                   <input value={formMaterial.nome} maxLength={160} onChange={(event) => setFormMaterial((atual) => ({ ...atual, nome: event.target.value }))} className="ceo-field" placeholder="Nome do material" />
                 </label>
-                <label>
+                {(materialEditando?.origem ?? "biblioteca") !== "aula" ? <label>
                   <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-400">Categoria</span>
                   <select value={formMaterial.categoria} onChange={(event) => setFormMaterial((atual) => ({ ...atual, categoria: event.target.value }))} className="ceo-field">
                     {categorias.map((categoria) => <option key={categoria.value} value={categoria.value}>{categoria.label}</option>)}
                   </select>
-                </label>
+                </label> : null}
               </div>
 
-              <label>
+              {(materialEditando?.origem ?? "biblioteca") !== "aula" ? <label>
                 <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-400">Observação</span>
                 <textarea value={formMaterial.observacao} onChange={(event) => setFormMaterial((atual) => ({ ...atual, observacao: event.target.value }))} className="ceo-field min-h-[90px]" placeholder="Descrição opcional" />
-              </label>
+              </label> : null}
 
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => setFormMaterial((atual) => ({ ...atual, modo: "arquivo", url: "" }))} className={`rounded-2xl px-4 py-3 text-sm font-black ${formMaterial.modo === "arquivo" ? "bg-[#08163F] text-white" : "bg-slate-100 text-slate-500"}`}>Upload</button>
@@ -823,6 +923,74 @@ export default function BibliotecaGestao({
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button type="button" onClick={() => setModalMaterialAberto(false)} className="rounded-2xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-600">Cancelar</button>
               <button type="submit" disabled={salvando} className="rounded-2xl bg-[#08163F] px-6 py-3 text-sm font-black text-white shadow-lg disabled:opacity-60">{salvando ? "Salvando..." : materialEditando ? "Salvar alterações" : "Adicionar à Biblioteca"}</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {modalMoverAberto && materialMovendo ? (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#020617]/70 p-3 backdrop-blur-sm sm:p-5" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-mover">
+          <form onSubmit={moverMaterial} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-400">Organização</p>
+                <h2 id="titulo-modal-mover" className="mt-2 text-2xl font-black">Mover material</h2>
+              </div>
+              <button type="button" onClick={() => { setModalMoverAberto(false); setMaterialMovendo(null); }} className="rounded-full bg-slate-100 px-3 py-2 text-sm font-black text-slate-500" aria-label="Fechar modal">✕</button>
+            </div>
+
+            <div className="mt-5 rounded-[22px] bg-slate-50 p-4">
+              <p className="break-words font-black">{materialMovendo.nome}</p>
+              <p className="mt-1 text-xs font-bold text-slate-500">Local atual: {labelDestino(materialMovendo)}</p>
+            </div>
+
+            {(materialMovendo.origem ?? "biblioteca") === "aula" ? (
+              <div className="mt-4 rounded-[22px] border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800">
+                Ao mover, este documento deixará de aparecer na aula {materialMovendo.aula_nome ? <strong>“{materialMovendo.aula_nome}”</strong> : "de origem"} e ficará somente no novo destino da Biblioteca.
+              </div>
+            ) : null}
+
+            <div className="mt-6">
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">Novo destino</p>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {[
+                  ["geral", "Todos", "Todos os mentorados"],
+                  ["mentorado", "Individual", "Um mentorado"],
+                  ["pasta", "Pasta", "Pública ou privada"],
+                ].map(([value, label, detail]) => (
+                  <button key={value} type="button" onClick={() => setFormMover((atual) => ({ ...atual, destino: value as DestinoMaterial }))} className={`rounded-2xl border p-3 text-left ${formMover.destino === value ? "border-[#08163F] bg-[#08163F] text-white" : "border-slate-200 bg-slate-50"}`}>
+                    <span className="block text-sm font-black">{label}</span>
+                    <span className={`mt-1 block text-xs font-bold ${formMover.destino === value ? "text-blue-100" : "text-slate-400"}`}>{detail}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {formMover.destino === "mentorado" ? (
+              <label className="mt-4 block">
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-400">Mentorado</span>
+                <select value={formMover.mentoradoId} onChange={(event) => setFormMover((atual) => ({ ...atual, mentoradoId: event.target.value }))} className="ceo-field">
+                  <option value="">Selecione o mentorado</option>
+                  {mentorados.map((mentorado) => <option key={mentorado.id} value={mentorado.id}>{mentorado.nome || mentorado.email}</option>)}
+                </select>
+              </label>
+            ) : null}
+
+            {formMover.destino === "pasta" ? (
+              <label className="mt-4 block">
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-400">Pasta</span>
+                <select value={formMover.pastaId} onChange={(event) => setFormMover((atual) => ({ ...atual, pastaId: event.target.value }))} className="ceo-field">
+                  <option value="">Selecione a pasta</option>
+                  {pastas.map((pasta) => <option key={pasta.id} value={pasta.id}>{pasta.visibilidade === "publica" ? "Pública" : "Privada"} — {pasta.nome}</option>)}
+                </select>
+                {pastas.length === 0 ? <span className="mt-2 block text-xs font-bold text-amber-600">Crie uma pasta antes de usar este destino.</span> : null}
+              </label>
+            ) : null}
+
+            {erro ? <div className="mt-5 rounded-2xl bg-red-50 p-4 text-sm font-black text-red-700">{erro}</div> : null}
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => { setModalMoverAberto(false); setMaterialMovendo(null); }} className="rounded-2xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-600">Cancelar</button>
+              <button type="submit" disabled={salvando} className="rounded-2xl bg-violet-700 px-6 py-3 text-sm font-black text-white shadow-lg disabled:opacity-60">{salvando ? "Movendo..." : "Mover material"}</button>
             </div>
           </form>
         </div>

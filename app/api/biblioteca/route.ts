@@ -13,6 +13,7 @@ import {
 } from "@/utils/storageUrls";
 
 const BUCKET_BIBLIOTECA = "ceo-club-biblioteca";
+const BUCKET_MATERIAIS = "ceo-club-materiais";
 const LIMITE_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 let clienteAdmin: ReturnType<typeof criarClienteAdmin> | null = null;
@@ -181,8 +182,34 @@ function arquivoPermitido(arquivo: File) {
   return EXTENSOES_PERMITIDAS.has(extensaoArquivo(arquivo.name));
 }
 
-function usuarioPodeGerenciarBiblioteca(role: string) {
-  return role === "mentor" || role === "suporte";
+function usuarioPodeGerenciarBiblioteca(permissao: {
+  role: string;
+  acessoSuporte: boolean;
+}) {
+  return (
+    permissao.role === "mentor" ||
+    permissao.role === "suporte" ||
+    permissao.acessoSuporte
+  );
+}
+
+function nomeArquivoDoPath(path: string) {
+  return limparNomeArquivo(path.split("/").pop() || "arquivo") || "arquivo";
+}
+
+function destinoAtualIgual(
+  atual: Record<string, unknown>,
+  destino: {
+    escopo: "mentorado" | "geral" | "interno";
+    mentoradoId: string | null;
+    pastaId: string | null;
+  }
+) {
+  return (
+    texto(atual.escopo) === destino.escopo &&
+    (texto(atual.mentorado_id) || null) === destino.mentoradoId &&
+    (texto(atual.pasta_id) || null) === destino.pastaId
+  );
 }
 
 async function registrarAuditoriaBiblioteca({
@@ -658,6 +685,7 @@ async function buscarMateriaisEmTabelasSeparadas(podeVerTudo: boolean) {
         categoria: texto(registro.categoria) || "material",
         tipo: tipoPorUrl(resolvido.url, texto(registro.tipo)),
         url: resolvido.url,
+        url_original: pegarPrimeiroTexto(registro, CAMPOS_URL_MATERIAL) || null,
         storage_path: resolvido.storagePath,
         tamanho_bytes: numero(registro.tamanho_bytes ?? registro.size ?? registro.bytes),
         observacao: observacaoDoMaterial(registro),
@@ -727,6 +755,139 @@ async function buscarMateriaisDasAulas(podeVerTudo: boolean) {
   });
 }
 
+async function atualizarMaterialAula({
+  id,
+  nome,
+  modo,
+  urlInformada,
+  novoArquivo,
+  usuarioId,
+}: {
+  id: string;
+  nome: string;
+  modo: string;
+  urlInformada: string;
+  novoArquivo: FormDataEntryValue | null;
+  usuarioId: string;
+}) {
+  const { data: atual, error: buscaError } = await supabaseAdmin()
+    .from("materiais_aula")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (buscaError || !atual) {
+    throw new Error("Material da aula não encontrado.");
+  }
+
+  const aulaId = texto(atual.aula_id);
+  let urlFinal = texto(atual.url);
+  let storagePath = texto(atual.storage_path) || null;
+  let tipo = texto(atual.tipo) || tipoPorUrl(urlFinal);
+  let novoStoragePath: string | null = null;
+
+  if (novoArquivo instanceof File && novoArquivo.size > 0) {
+    if (novoArquivo.size > LIMITE_UPLOAD_BYTES) {
+      throw new Error("O arquivo precisa ter no máximo 25 MB.");
+    }
+
+    if (!arquivoPermitido(novoArquivo)) {
+      throw new Error(
+        "Formato não permitido. Envie PDF, documento, planilha, apresentação, imagem, vídeo, texto, CSV ou ZIP."
+      );
+    }
+
+    const nomeLimpo = limparNomeArquivo(novoArquivo.name || "arquivo");
+    novoStoragePath = `modulos/aulas/${aulaId}/${crypto.randomUUID()}-${nomeLimpo}`;
+
+    const { error: uploadError } = await supabaseAdmin().storage
+      .from(BUCKET_MATERIAIS)
+      .upload(novoStoragePath, novoArquivo, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: novoArquivo.type || undefined,
+      });
+
+    if (uploadError) throw uploadError;
+
+    urlFinal = criarReferenciaStorage(BUCKET_MATERIAIS, novoStoragePath);
+    storagePath = novoStoragePath;
+    tipo = tipoPorArquivo(novoArquivo);
+  } else if (modo === "link") {
+    if (!urlExternaValida(urlInformada)) {
+      throw new Error("Use um link válido começando com http:// ou https://.");
+    }
+
+    urlFinal = urlInformada;
+    storagePath = null;
+    tipo = tipoPorUrl(urlInformada);
+  }
+
+  const { data, error } = await supabaseAdmin()
+    .from("materiais_aula")
+    .update({
+      nome,
+      url: urlFinal,
+      storage_path: storagePath,
+      tipo,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    if (novoStoragePath) {
+      await supabaseAdmin().storage
+        .from(BUCKET_MATERIAIS)
+        .remove([novoStoragePath]);
+    }
+
+    throw error;
+  }
+
+  const storageAnterior = texto(atual.storage_path);
+
+  if (
+    storageAnterior &&
+    storageAnterior !== storagePath &&
+    (novoStoragePath || modo === "link")
+  ) {
+    const { error: limpezaError } = await supabaseAdmin().storage
+      .from(BUCKET_MATERIAIS)
+      .remove([storageAnterior]);
+
+    if (limpezaError) {
+      console.error("Material antigo da aula não pôde ser removido:", limpezaError);
+    }
+  }
+
+  await registrarAuditoriaBiblioteca({
+    usuarioId,
+    acao: "biblioteca_material_aula_atualizado",
+    entidade: "biblioteca_arquivo",
+    entidadeId: id,
+    descricao: `Material da aula "${nome}" atualizado pela Biblioteca.`,
+    metadata: {
+      origem: "aula",
+      aula_id: aulaId || null,
+      antes: {
+        nome: atual.nome,
+        url: atual.url,
+        storage_path: atual.storage_path,
+      },
+      depois: {
+        nome,
+        url: urlFinal,
+        storage_path: storagePath,
+      },
+      arquivo_substituido: Boolean(novoStoragePath),
+    },
+  });
+
+  return data;
+}
+
 async function normalizarArquivoBiblioteca(
   arquivo: Record<string, unknown>
 ): Promise<BibliotecaItem> {
@@ -787,7 +948,7 @@ export async function GET(request: NextRequest) {
       return responderPermissaoNegada(permissao);
     }
 
-    const podeGerenciar = usuarioPodeGerenciarBiblioteca(permissao.role);
+    const podeGerenciar = usuarioPodeGerenciarBiblioteca(permissao);
 
     if (!podeGerenciar && permissao.role !== "mentorado") {
       return NextResponse.json(
@@ -911,7 +1072,7 @@ export async function POST(request: NextRequest) {
       return responderPermissaoNegada(permissao);
     }
 
-    if (!usuarioPodeGerenciarBiblioteca(permissao.role)) {
+    if (!usuarioPodeGerenciarBiblioteca(permissao)) {
       return NextResponse.json(
         { ok: false, error: "Somente mentora e Suporte/T.I. podem enviar materiais." },
         { status: 403 }
@@ -1094,7 +1255,7 @@ export async function PATCH(request: NextRequest) {
       return responderPermissaoNegada(permissao);
     }
 
-    if (!usuarioPodeGerenciarBiblioteca(permissao.role)) {
+    if (!usuarioPodeGerenciarBiblioteca(permissao)) {
       return NextResponse.json(
         { ok: false, error: "Somente mentora e Suporte/T.I. podem editar materiais." },
         { status: 403 }
@@ -1103,6 +1264,7 @@ export async function PATCH(request: NextRequest) {
 
     const formData = await request.formData();
     const id = texto(formData.get("id"));
+    const origem = texto(formData.get("origem")) || "biblioteca";
     const nome = texto(formData.get("nome"));
     const categoria = texto(formData.get("categoria")) || "material";
     const observacao = texto(formData.get("observacao"));
@@ -1116,6 +1278,26 @@ export async function PATCH(request: NextRequest) {
     if (!id || !nome || nome.length > 160) {
       return NextResponse.json(
         { ok: false, error: "Informe o material e um nome com até 160 caracteres." },
+        { status: 400 }
+      );
+    }
+
+    if (origem === "aula") {
+      const material = await atualizarMaterialAula({
+        id,
+        nome,
+        modo,
+        urlInformada,
+        novoArquivo,
+        usuarioId: permissao.userId,
+      });
+
+      return NextResponse.json({ ok: true, arquivo: material });
+    }
+
+    if (origem !== "biblioteca") {
+      return NextResponse.json(
+        { ok: false, error: "Origem do material inválida." },
         { status: 400 }
       );
     }
@@ -1144,6 +1326,7 @@ export async function PATCH(request: NextRequest) {
     let tamanhoBytes = numero(atual.tamanho_bytes);
     let tipo = texto(atual.tipo) || "link";
     let novoStoragePath: string | null = null;
+    let storageReposicionadoDe: string | null = null;
 
     if (novoArquivo instanceof File && novoArquivo.size > 0) {
       if (novoArquivo.size > LIMITE_UPLOAD_BYTES) {
@@ -1193,6 +1376,20 @@ export async function PATCH(request: NextRequest) {
       storagePath = null;
       tamanhoBytes = null;
       tipo = tipoPorUrl(urlInformada);
+    } else if (
+      storagePath &&
+      !destinoAtualIgual(atual as Record<string, unknown>, destinoResolvido)
+    ) {
+      const destinoStorage = `${destinoResolvido.prefixoStorage}/${crypto.randomUUID()}-${nomeArquivoDoPath(storagePath)}`;
+      const { error: moveError } = await supabaseAdmin().storage
+        .from(BUCKET_BIBLIOTECA)
+        .move(storagePath, destinoStorage);
+
+      if (moveError) throw moveError;
+
+      storageReposicionadoDe = storagePath;
+      storagePath = destinoStorage;
+      urlFinal = criarReferenciaStorage(BUCKET_BIBLIOTECA, destinoStorage);
     }
 
     const { data, error } = await supabaseAdmin()
@@ -1219,6 +1416,16 @@ export async function PATCH(request: NextRequest) {
         await supabaseAdmin().storage
           .from(BUCKET_BIBLIOTECA)
           .remove([novoStoragePath]);
+      }
+
+      if (storageReposicionadoDe && storagePath) {
+        const { error: rollbackError } = await supabaseAdmin().storage
+          .from(BUCKET_BIBLIOTECA)
+          .move(storagePath, storageReposicionadoDe);
+
+        if (rollbackError) {
+          console.error("Não foi possível desfazer a movimentação do arquivo:", rollbackError);
+        }
       }
 
       throw error;
@@ -1262,6 +1469,7 @@ export async function PATCH(request: NextRequest) {
           pasta_id: destinoResolvido.pastaId,
         },
         arquivo_substituido: Boolean(novoStoragePath),
+        arquivo_movido_no_storage: Boolean(storageReposicionadoDe),
       },
     });
 
@@ -1279,6 +1487,282 @@ export async function PATCH(request: NextRequest) {
           error instanceof Error
             ? error.message
             : "Não foi possível atualizar o material.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const erroConfiguracao = erroConfig();
+
+    if (erroConfiguracao) {
+      return NextResponse.json(
+        { ok: false, error: erroConfiguracao },
+        { status: 500 }
+      );
+    }
+
+    const permissao = await verificarAcesso(request, ["mentor", "suporte"]);
+
+    if (!permissao.ok) {
+      return responderPermissaoNegada(permissao);
+    }
+
+    if (!usuarioPodeGerenciarBiblioteca(permissao)) {
+      return NextResponse.json(
+        { ok: false, error: "Somente mentora e Suporte/T.I. podem mover materiais." },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json().catch(() => null);
+    const id = texto(body?.id);
+    const origem = texto(body?.origem) || "biblioteca";
+    const destino = texto(body?.destino);
+    const mentoradoId = texto(body?.mentoradoId);
+    const pastaId = texto(body?.pastaId);
+
+    if (!id) {
+      return NextResponse.json(
+        { ok: false, error: "Informe o material que deseja mover." },
+        { status: 400 }
+      );
+    }
+
+    const destinoResolvido = await resolverDestinoBiblioteca({
+      destino,
+      mentoradoId,
+      pastaId,
+    });
+
+    if (origem === "biblioteca") {
+      const { data: atual, error: buscaError } = await supabaseAdmin()
+        .from("biblioteca_arquivos")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (buscaError || !atual) {
+        return NextResponse.json(
+          { ok: false, error: "Material não encontrado." },
+          { status: 404 }
+        );
+      }
+
+      if (destinoAtualIgual(atual as Record<string, unknown>, destinoResolvido)) {
+        return NextResponse.json(
+          { ok: false, error: "O material já está nesse destino." },
+          { status: 409 }
+        );
+      }
+
+      const storageAnterior = texto(atual.storage_path) || null;
+      let storagePath = storageAnterior;
+      let urlFinal = texto(atual.url);
+
+      if (storageAnterior) {
+        storagePath = `${destinoResolvido.prefixoStorage}/${crypto.randomUUID()}-${nomeArquivoDoPath(storageAnterior)}`;
+        const { error: moveError } = await supabaseAdmin().storage
+          .from(BUCKET_BIBLIOTECA)
+          .move(storageAnterior, storagePath);
+
+        if (moveError) throw moveError;
+        urlFinal = criarReferenciaStorage(BUCKET_BIBLIOTECA, storagePath);
+      }
+
+      const { data, error } = await supabaseAdmin()
+        .from("biblioteca_arquivos")
+        .update({
+          mentorado_id: destinoResolvido.mentoradoId,
+          pasta_id: destinoResolvido.pastaId,
+          escopo: destinoResolvido.escopo,
+          url: urlFinal,
+          storage_path: storagePath,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (error) {
+        if (storageAnterior && storagePath && storageAnterior !== storagePath) {
+          const { error: rollbackError } = await supabaseAdmin().storage
+            .from(BUCKET_BIBLIOTECA)
+            .move(storagePath, storageAnterior);
+
+          if (rollbackError) {
+            console.error("Não foi possível desfazer a movimentação do material:", rollbackError);
+          }
+        }
+
+        throw error;
+      }
+
+      await registrarAuditoriaBiblioteca({
+        usuarioId: permissao.userId,
+        acao: "biblioteca_arquivo_movido",
+        entidade: "biblioteca_arquivo",
+        entidadeId: id,
+        descricao: `Material "${texto(atual.nome) || "sem nome"}" movido na Biblioteca.`,
+        metadata: {
+          origem: {
+            escopo: atual.escopo,
+            mentorado_id: atual.mentorado_id,
+            pasta_id: atual.pasta_id,
+            storage_path: storageAnterior,
+          },
+          destino: {
+            escopo: destinoResolvido.escopo,
+            mentorado_id: destinoResolvido.mentoradoId,
+            pasta_id: destinoResolvido.pastaId,
+            storage_path: storagePath,
+          },
+        },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        arquivo: await normalizarArquivoBiblioteca(
+          data as Record<string, unknown>
+        ),
+      });
+    }
+
+    if (origem !== "aula") {
+      return NextResponse.json(
+        { ok: false, error: "Origem do material inválida." },
+        { status: 400 }
+      );
+    }
+
+    const { data: materialAula, error: buscaAulaError } = await supabaseAdmin()
+      .from("materiais_aula")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (buscaAulaError || !materialAula) {
+      return NextResponse.json(
+        { ok: false, error: "Material da aula não encontrado." },
+        { status: 404 }
+      );
+    }
+
+    const storageAnterior = texto(materialAula.storage_path) || null;
+    let novoStoragePath: string | null = null;
+    let urlFinal = texto(materialAula.url);
+
+    if (storageAnterior) {
+      novoStoragePath = `${destinoResolvido.prefixoStorage}/${crypto.randomUUID()}-${nomeArquivoDoPath(storageAnterior)}`;
+      const { error: moveError } = await supabaseAdmin().storage
+        .from(BUCKET_MATERIAIS)
+        .move(storageAnterior, novoStoragePath, {
+          destinationBucket: BUCKET_BIBLIOTECA,
+        });
+
+      if (moveError) throw moveError;
+      urlFinal = criarReferenciaStorage(BUCKET_BIBLIOTECA, novoStoragePath);
+    }
+
+    const tipo = texto(materialAula.tipo) || tipoPorUrl(urlFinal);
+    const { data: novoMaterial, error: insertError } = await supabaseAdmin()
+      .from("biblioteca_arquivos")
+      .insert({
+        mentorado_id: destinoResolvido.mentoradoId,
+        pasta_id: destinoResolvido.pastaId,
+        escopo: destinoResolvido.escopo,
+        criado_por: permissao.userId,
+        nome: texto(materialAula.nome) || "Material",
+        categoria: tipo === "link" ? "link" : tipo || "material",
+        tipo,
+        url: urlFinal,
+        storage_path: novoStoragePath,
+        tamanho_bytes: null,
+        observacao: null,
+      })
+      .select("*")
+      .single();
+
+    if (insertError || !novoMaterial) {
+      if (storageAnterior && novoStoragePath) {
+        const { error: rollbackError } = await supabaseAdmin().storage
+          .from(BUCKET_BIBLIOTECA)
+          .move(novoStoragePath, storageAnterior, {
+            destinationBucket: BUCKET_MATERIAIS,
+          });
+
+        if (rollbackError) {
+          console.error("Não foi possível devolver o material à aula:", rollbackError);
+        }
+      }
+
+      throw insertError || new Error("Não foi possível criar o material no novo destino.");
+    }
+
+    const { error: deleteAulaError } = await supabaseAdmin()
+      .from("materiais_aula")
+      .delete()
+      .eq("id", id);
+
+    if (deleteAulaError) {
+      await supabaseAdmin()
+        .from("biblioteca_arquivos")
+        .delete()
+        .eq("id", novoMaterial.id);
+
+      if (storageAnterior && novoStoragePath) {
+        const { error: rollbackError } = await supabaseAdmin().storage
+          .from(BUCKET_BIBLIOTECA)
+          .move(novoStoragePath, storageAnterior, {
+            destinationBucket: BUCKET_MATERIAIS,
+          });
+
+        if (rollbackError) {
+          console.error("Não foi possível devolver o material à aula:", rollbackError);
+        }
+      }
+
+      throw deleteAulaError;
+    }
+
+    await registrarAuditoriaBiblioteca({
+      usuarioId: permissao.userId,
+      acao: "biblioteca_material_aula_movido",
+      entidade: "biblioteca_arquivo",
+      entidadeId: novoMaterial.id,
+      descricao: `Material "${texto(materialAula.nome) || "sem nome"}" movido da aula para a Biblioteca.`,
+      metadata: {
+        origem: {
+          tipo: "aula",
+          material_id: id,
+          aula_id: materialAula.aula_id,
+          storage_path: storageAnterior,
+        },
+        destino: {
+          escopo: destinoResolvido.escopo,
+          mentorado_id: destinoResolvido.mentoradoId,
+          pasta_id: destinoResolvido.pastaId,
+          storage_path: novoStoragePath,
+        },
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      arquivo: await normalizarArquivoBiblioteca(
+        novoMaterial as Record<string, unknown>
+      ),
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível mover o material.",
       },
       { status: 500 }
     );
@@ -1305,7 +1789,7 @@ export async function DELETE(request: NextRequest) {
       return responderPermissaoNegada(permissao);
     }
 
-    if (!usuarioPodeGerenciarBiblioteca(permissao.role)) {
+    if (!usuarioPodeGerenciarBiblioteca(permissao)) {
       return NextResponse.json(
         { ok: false, error: "Somente mentora e Suporte/T.I. podem remover materiais." },
         { status: 403 }

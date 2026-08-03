@@ -17,8 +17,12 @@ function texto(valor: unknown) {
   return typeof valor === "string" ? valor.trim() : "";
 }
 
-function podeGerenciar(role: string) {
-  return role === "mentor" || role === "suporte";
+function podeGerenciar(permissao: { role: string; acessoSuporte: boolean }) {
+  return (
+    permissao.role === "mentor" ||
+    permissao.role === "suporte" ||
+    permissao.acessoSuporte
+  );
 }
 
 function respostaSemPermissao() {
@@ -91,7 +95,7 @@ async function autorizar(request: NextRequest) {
   const permissao = await verificarAcesso(request, ["mentor", "suporte"]);
 
   if (!permissao.ok) return permissao;
-  if (!podeGerenciar(permissao.role)) {
+  if (!podeGerenciar(permissao)) {
     return {
       ok: false as const,
       status: 403 as const,

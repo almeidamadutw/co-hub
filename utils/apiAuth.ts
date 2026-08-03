@@ -13,6 +13,7 @@ type PermissaoLiberada = {
   ok: true;
   userId: string;
   role: UserRole;
+  acessoSuporte: boolean;
 };
 
 export type Permissao = PermissaoNegada | PermissaoLiberada;
@@ -193,6 +194,7 @@ export async function verificarAcesso(
     ok: true,
     userId: userData.user.id,
     role,
+    acessoSuporte: Boolean(perfil.acesso_suporte),
   };
 }
 
