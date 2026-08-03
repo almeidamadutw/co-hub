@@ -3,6 +3,7 @@
 :root {
   --background: #f3f5f8;
   --foreground: #08163f;
+  --ceo-viewport-height: 100dvh;
 }
 
 @theme inline {
@@ -38,8 +39,28 @@ body {
  * Mobile e tablet permanecem em 100% para preservar leitura e toque.
  */
 @media (min-width: 1024px) {
-  html {
-    zoom: 80%;
+  @supports (zoom: 1) {
+    :root {
+      /* 100 / 0.8: compensa unidades de viewport depois do zoom global. */
+      --ceo-viewport-height: 125dvh;
+    }
+
+    html {
+      zoom: 80%;
+    }
+
+    body,
+    .min-h-screen,
+    .min-h-dvh {
+      min-height: var(--ceo-viewport-height) !important;
+    }
+
+    .h-screen,
+    .h-dvh,
+    .fixed.inset-0,
+    .fixed.inset-y-0 {
+      height: var(--ceo-viewport-height) !important;
+    }
   }
 }
 
