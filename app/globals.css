@@ -30,10 +30,25 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Mantém a sensação de visual menor, sem usar zoom do navegador. */
+/*
+ * Escala padrão da interface no desktop.
+ * `zoom` reduz o layout inteiro (inclusive medidas em px, imagens, sidebars,
+ * elementos fixed/sticky e áreas de clique), reproduzindo o visual do
+ * navegador em 80% sem depender da configuração de cada usuário.
+ * Mobile e tablet permanecem em 100% para preservar leitura e toque.
+ */
 @media (min-width: 1024px) {
   html {
-    font-size: 87.5%;
+    zoom: 80%;
+  }
+}
+
+/* Fallback seguro para navegadores antigos que ainda não implementam CSS Zoom. */
+@supports not (zoom: 1) {
+  @media (min-width: 1024px) {
+    html {
+      font-size: 80%;
+    }
   }
 }
 
