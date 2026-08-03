@@ -141,7 +141,7 @@ export default function AgendaMentoradoPage() {
     <main className="flex min-h-screen overflow-x-hidden bg-[#f6f7fb] text-[#08163F]">
       <MentoradoSidebar nome={usuario.nome} />
 
-      <section className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:ml-[220px] lg:px-7 lg:py-7 xl:ml-[230px] xl:px-9">
+      <section className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-7 lg:py-7 xl:px-9">
         <div className="mx-auto w-full max-w-[1320px]">
           <header className="overflow-hidden rounded-[28px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:p-7">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">

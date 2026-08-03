@@ -116,6 +116,11 @@ export default function MentoradoSidebar({
 
   return (
     <>
+      <div
+        aria-hidden="true"
+        className="hidden w-[220px] shrink-0 lg:block xl:w-[230px]"
+      />
+
       <aside className="fixed inset-y-0 left-0 z-50 hidden h-dvh w-[220px] flex-col overflow-hidden border-r border-black/5 bg-[#f6f7fb] px-3 py-3 text-[#08163F] shadow-[0_18px_50px_rgba(15,23,42,0.08)] lg:flex xl:w-[230px]">
         <div className="flex h-full min-h-0 flex-col">
           <div className="shrink-0 rounded-[20px] bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.055)]">
