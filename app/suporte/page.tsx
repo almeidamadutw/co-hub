@@ -11,6 +11,7 @@ import {
   usuarioTemAcessoSuporte,
 } from "@/utils/auth";
 import { supabase } from "@/utils/supabase";
+import { gruposFinanceirosDivergentes } from "@/utils/financeiroStatus";
 
 type PerfilResumo = {
   id: string;
@@ -44,10 +45,21 @@ type LogResumo = {
   created_at: string | null;
 };
 
+type CobrancaTecnica = {
+  id: string;
+  grupo_id: string;
+  status: "Pago" | "Pendente" | "Atrasado" | "Cancelado";
+  valor_total: number;
+  valor_parcela: number;
+  data_vencimento: string;
+  data_pagamento: string | null;
+};
+
 type FontesDashboard = {
   perfis: boolean;
   tickets: boolean;
   logs: boolean;
+  financeiro: boolean;
 };
 
 const UM_DIA_EM_MS = 24 * 60 * 60 * 1000;
@@ -165,11 +177,13 @@ export default function SuportePage() {
   const [perfis, setPerfis] = useState<PerfilResumo[]>([]);
   const [tickets, setTickets] = useState<TicketResumo[]>([]);
   const [logs, setLogs] = useState<LogResumo[]>([]);
+  const [cobrancas, setCobrancas] = useState<CobrancaTecnica[]>([]);
   const [buscaUsuario, setBuscaUsuario] = useState("");
   const [fontes, setFontes] = useState<FontesDashboard>({
     perfis: false,
     tickets: false,
     logs: false,
+    financeiro: false,
   });
   const [atualizadoEm, setAtualizadoEm] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -192,7 +206,12 @@ export default function SuportePage() {
     setErro("");
     setUsuario(user);
 
-    const [perfisResposta, ticketsResposta, logsResposta] = await Promise.all([
+    const [
+      perfisResposta,
+      ticketsResposta,
+      logsResposta,
+      financeiroResposta,
+    ] = await Promise.all([
       supabase
         .from("profiles")
         .select("id, nome, email, role, status, created_at")
@@ -212,22 +231,26 @@ export default function SuportePage() {
         )
         .order("created_at", { ascending: false })
         .limit(20),
+      supabase.rpc("financeiro_listar_cobrancas_suporte"),
     ]);
 
     setPerfis((perfisResposta.data || []) as PerfilResumo[]);
     setTickets((ticketsResposta.data || []) as TicketResumo[]);
     setLogs((logsResposta.data || []) as LogResumo[]);
+    setCobrancas((financeiroResposta.data || []) as CobrancaTecnica[]);
 
     setFontes({
       perfis: !perfisResposta.error,
       tickets: !ticketsResposta.error,
       logs: !logsResposta.error,
+      financeiro: !financeiroResposta.error,
     });
 
     const fontesComErro = [
       perfisResposta.error ? "usuários" : null,
       ticketsResposta.error ? "chamados" : null,
       logsResposta.error ? "histórico técnico" : null,
+      financeiroResposta.error ? "diagnóstico financeiro" : null,
     ].filter(Boolean);
 
     if (fontesComErro.length > 0) {
@@ -255,6 +278,12 @@ export default function SuportePage() {
     const hoje = atualizadoEm?.slice(0, 10) || "";
 
     const ticketsPendentes = tickets.filter(ticketEstaPendente);
+    const gruposDivergentes = gruposFinanceirosDivergentes(cobrancas).length;
+    const pagamentosIncoerentes = cobrancas.filter(
+      (cobranca) =>
+        (cobranca.status === "Pago" && !cobranca.data_pagamento) ||
+        (cobranca.status !== "Pago" && Boolean(cobranca.data_pagamento))
+    ).length;
 
     return {
       aguardando: ticketsPendentes.filter(
@@ -294,8 +323,9 @@ export default function SuportePage() {
         .length,
       usuariosSemStatus: perfis.filter((perfil) => !normalizar(perfil.status))
         .length,
+      alertasFinanceiros: gruposDivergentes + pagamentosIncoerentes,
     };
-  }, [atualizadoEm, perfis, tickets]);
+  }, [atualizadoEm, cobrancas, perfis, tickets]);
 
   const filaPrioritaria = useMemo(() => {
     const agora = atualizadoEm ? new Date(atualizadoEm).getTime() : 0;
@@ -418,6 +448,11 @@ export default function SuportePage() {
                   onClick={() => router.push("/suporte/usuarios")}
                   secundario
                 />
+                <AcaoRapida
+                  label="Diagnóstico financeiro"
+                  onClick={() => router.push("/suporte/financeiro")}
+                  secundario
+                />
               </div>
             </div>
 
@@ -436,7 +471,7 @@ export default function SuportePage() {
             </div>
           )}
 
-          <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <CardIndicador
               titulo="Aguardando atendimento"
               valor={resumo.aguardando}
@@ -460,6 +495,12 @@ export default function SuportePage() {
               valor={resumo.problemasAcesso}
               descricao="Chamados ativos relacionados a login e senha"
               tom="roxo"
+            />
+            <CardIndicador
+              titulo="Integridade financeira"
+              valor={resumo.alertasFinanceiros}
+              descricao="Contratos ou pagamentos com dados divergentes"
+              tom={resumo.alertasFinanceiros > 0 ? "vermelho" : "azul"}
             />
           </section>
 
@@ -581,6 +622,10 @@ export default function SuportePage() {
                   <StatusOperacao
                     label="Histórico técnico"
                     online={fontes.logs}
+                  />
+                  <StatusOperacao
+                    label="Dados financeiros"
+                    online={fontes.financeiro}
                   />
                 </div>
               </div>

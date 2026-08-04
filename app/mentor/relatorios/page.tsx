@@ -52,7 +52,6 @@ type Cobranca = {
   data_pagamento: string | null;
   forma_pagamento: string | null;
   status: StatusCobranca;
-  observacao: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -191,7 +190,12 @@ export default function RelatoriosPage() {
       return;
     }
 
-    if (user.role !== "mentor" && user.role !== "financeiro" && user.role !== "suporte") {
+    if (user.role === "suporte") {
+      router.replace("/suporte");
+      return;
+    }
+
+    if (user.role !== "mentor" && user.role !== "financeiro") {
       logoutUsuario();
       router.replace("/login");
       return;
@@ -217,7 +221,7 @@ export default function RelatoriosPage() {
     const { data: cobrancasData, error: cobrancasError } = await supabase
       .from("financeiro_cobrancas")
       .select(
-        "id, mentorado_id, titulo, descricao, valor_total, quantidade_parcelas, parcela_atual, valor_parcela, data_vencimento, data_pagamento, forma_pagamento, status, observacao, created_at, updated_at"
+        "id, mentorado_id, titulo, descricao, valor_total, quantidade_parcelas, parcela_atual, valor_parcela, data_vencimento, data_pagamento, forma_pagamento, status, created_at, updated_at"
       )
       .order("data_vencimento", { ascending: true });
 
@@ -388,7 +392,6 @@ export default function RelatoriosPage() {
       "Pago",
       "Pendente",
       "Atrasado",
-      "Cancelado",
     ]);
     const recebido = somarPorStatus(cobrancasFiltradas, ["Pago"]);
     const aberto = somarPorStatus(cobrancasFiltradas, ["Pendente", "Atrasado"]);
@@ -635,6 +638,8 @@ export default function RelatoriosPage() {
     });
 
     cobrancasFiltradas.forEach((item) => {
+      if (item.status === "Cancelado") return;
+
       const chave = item.data_vencimento.slice(0, 7);
 
       if (!mapa.has(chave)) {

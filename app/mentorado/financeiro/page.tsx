@@ -4,9 +4,13 @@ import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
 import { getUsuarioLogado, usuarioTemPermissao, User } from "@/utils/auth";
-import { aplicarStatusFinanceiroEfetivo } from "@/utils/financeiroStatus";
+import {
+  aplicarStatusFinanceiroEfetivo,
+  resumirCobrancas,
+} from "@/utils/financeiroStatus";
+import { listarMinhasCobrancasSeguras } from "@/utils/financeiroSupabase";
 import MentoradoSidebar from "@/components/MentoradoSidebar";
-import MentoradoLoading from "@/components/MentoradoLoading";
+import PageLoading from "@/components/PageLoading";
 
 type StatusCobranca = "Pago" | "Pendente" | "Atrasado" | "Cancelado";
 
@@ -19,6 +23,7 @@ type ProfileMentorado = {
 
 type Cobranca = {
   id: string;
+  grupo_id: string | null;
   mentorado_id: string;
   titulo: string;
   descricao: string | null;
@@ -30,7 +35,6 @@ type Cobranca = {
   data_pagamento: string | null;
   forma_pagamento: string | null;
   status: StatusCobranca;
-  observacao: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -122,23 +126,20 @@ export default function FinanceiroMentoradoPage() {
 
     setPerfil(perfilData as ProfileMentorado);
 
-    const { data: cobrancasData, error: cobrancasError } = await supabase
-      .from("financeiro_cobrancas")
-      .select(
-        "id, mentorado_id, titulo, descricao, valor_total, quantidade_parcelas, parcela_atual, valor_parcela, data_vencimento, data_pagamento, forma_pagamento, status, observacao, created_at, updated_at"
-      )
-      .eq("mentorado_id", perfilData.id)
-      .order("data_vencimento", { ascending: true });
-
-    if (cobrancasError) {
-      setErro(cobrancasError.message);
+    try {
+      const cobrancasData = await listarMinhasCobrancasSeguras();
+      setCobrancas(
+        aplicarStatusFinanceiroEfetivo(cobrancasData as Cobranca[])
+      );
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar suas cobranças."
+      );
       setCarregando(false);
       return;
     }
-
-    setCobrancas(
-      aplicarStatusFinanceiroEfetivo((cobrancasData ?? []) as Cobranca[])
-    );
     setCarregando(false);
   }
 
@@ -157,7 +158,6 @@ export default function FinanceiroMentoradoPage() {
         [
           item.titulo,
           item.descricao,
-          item.observacao,
           item.status,
           item.forma_pagamento,
           `${item.parcela_atual}/${item.quantidade_parcelas}`,
@@ -173,24 +173,7 @@ export default function FinanceiroMentoradoPage() {
   }, [cobrancas, filtroStatus, filtroFormaPagamento, busca]);
 
   const resumo = useMemo(() => {
-    const totalContratado = cobrancas.reduce(
-      (acc, item) => acc + Number(item.valor_parcela || 0),
-      0
-    );
-
-    const pago = cobrancas
-      .filter((item) => item.status === "Pago")
-      .reduce((acc, item) => acc + Number(item.valor_parcela || 0), 0);
-
-    const pendente = cobrancas
-      .filter((item) => item.status === "Pendente")
-      .reduce((acc, item) => acc + Number(item.valor_parcela || 0), 0);
-
-    const atrasado = cobrancas
-      .filter((item) => item.status === "Atrasado")
-      .reduce((acc, item) => acc + Number(item.valor_parcela || 0), 0);
-
-    const emAberto = pendente + atrasado;
+    const totais = resumirCobrancas(cobrancas);
 
     const hojeISO = formatarDataISO(new Date());
 
@@ -207,18 +190,17 @@ export default function FinanceiroMentoradoPage() {
       )[0];
 
     return {
-      totalContratado,
-      pago,
-      pendente,
-      atrasado,
-      emAberto,
+      totalContratado: totais.totalAtivo,
+      pago: totais.totalPago,
+      pendente: totais.totalPendente,
+      atrasado: totais.totalAtrasado,
+      emAberto: totais.totalAberto,
       vencendoHoje,
       proximoVencimento,
       quantidadeTotal: cobrancas.length,
-      quantidadePagas: cobrancas.filter((item) => item.status === "Pago").length,
-      quantidadeAbertas: cobrancas.filter(
-        (item) => item.status === "Pendente" || item.status === "Atrasado"
-      ).length,
+      quantidadePagas: totais.quantidadePaga,
+      quantidadeAbertas: totais.quantidadeAberta,
+      quantidadeCanceladas: totais.quantidadeCancelada,
     };
   }, [cobrancas]);
 
@@ -232,7 +214,7 @@ export default function FinanceiroMentoradoPage() {
   }, [resumo.totalContratado, resumo.pago]);
 
   if (!usuario || carregando) {
-    return <MentoradoLoading mensagem="Carregando financeiro..." />;
+    return <PageLoading pagina="financeiro" />;
   }
 
   return (
@@ -324,7 +306,11 @@ export default function FinanceiroMentoradoPage() {
               <MiniInfo
                 titulo="Vencendo hoje"
                 valor={String(resumo.vencendoHoje)}
-                texto="acompanhe o prazo"
+                texto={
+                  resumo.quantidadeCanceladas > 0
+                    ? `${resumo.quantidadeCanceladas} cancelada(s) no histórico`
+                    : "acompanhe o prazo"
+                }
               />
             </div>
           </section>
@@ -435,7 +421,7 @@ equipe.
                       key={item.id}
                       type="button"
                       onClick={() => setCobrancaSelecionada(item)}
-                      className="grid w-full min-w-[860px] gap-3 p-3 text-left text-sm transition hover:bg-slate-50 md:grid-cols-[1fr_0.5fr_0.6fr_0.6fr_0.65fr_0.6fr] md:items-center"
+                      className="grid w-full min-w-0 gap-3 p-4 text-left text-sm transition hover:bg-slate-50 md:min-w-[860px] md:grid-cols-[1fr_0.5fr_0.6fr_0.6fr_0.65fr_0.6fr] md:items-center md:p-3"
                     >
                       <span>
                         <strong className="block break-words text-[#08163F]">
@@ -487,6 +473,14 @@ equipe.
                   mentoria. Caso já tenha pago uma parcela, envie o comprovante
                   pelo canal oficial de suporte.
                 </p>
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/mentorado/suporte")}
+                  className="w-full rounded-2xl bg-[#08163F] px-4 py-3 text-sm font-black text-white transition hover:brightness-110"
+                >
+                  Falar sobre pagamento ou comprovante →
+                </button>
 
                 <div className="rounded-2xl bg-[#f9fafb] p-4">
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
@@ -587,8 +581,7 @@ equipe.
 
                   <p className="mt-2 text-sm font-semibold leading-7 text-slate-600">
                     {cobrancaSelecionada.descricao ||
-                      cobrancaSelecionada.observacao ||
-                      "Nenhuma informação adicional adicionada."}
+                      "Nenhuma informação pública adicional adicionada."}
                   </p>
                 </div>
               </div>

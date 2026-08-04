@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUsuarioLogado, logoutUsuario, User } from "@/utils/auth";
 import { aplicarStatusFinanceiroEfetivo } from "@/utils/financeiroStatus";
+import { listarMinhasCobrancasSeguras } from "@/utils/financeiroSupabase";
 import {
   idsModulosLiberados,
   ModuloLiberacaoGlobal,
@@ -299,22 +300,15 @@ const { data: perfilData, error: perfilError } = await supabase
           );
         }
 
-        const { data: cobrancasData, error: cobrancasError } = await supabase
-          .from("financeiro_cobrancas")
-          .select(
-            "id, mentorado_id, titulo, valor_parcela, data_vencimento, data_pagamento, status"
-          )
-          .eq("mentorado_id", mentoradoId)
-          .order("data_vencimento", { ascending: true });
-
-        if (cobrancasError) {
-          setCobrancas([]);
-        } else {
+        try {
+          const cobrancasData = await listarMinhasCobrancasSeguras();
           setCobrancas(
             aplicarStatusFinanceiroEfetivo(
-              (cobrancasData ?? []) as CobrancaFinanceira[]
+              cobrancasData as CobrancaFinanceira[]
             )
           );
+        } catch {
+          setCobrancas([]);
         }
       } catch (error) {
         setErro(
