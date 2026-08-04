@@ -119,6 +119,7 @@ export default function FinanceiroPage() {
   const [cobrancaSelecionada, setCobrancaSelecionada] =
     useState<CobrancaComMentorado | null>(null);
   const [parcelasSelecionadas, setParcelasSelecionadas] = useState<string[]>([]);
+  const podeGerenciar = usuario?.role === "financeiro";
 
   useEffect(() => {
     const usuarioLogado = getUsuarioLogado();
@@ -321,6 +322,7 @@ export default function FinanceiroPage() {
   }
 
   function abrirNovoLancamento() {
+    if (!podeGerenciar) return;
     limparFormulario();
     setMostrarFormulario(true);
   }
@@ -331,6 +333,7 @@ export default function FinanceiroPage() {
   }
 
   function editarCobranca(cobranca: CobrancaComMentorado) {
+    if (!podeGerenciar) return;
     setFormulario({
       mentorado_id: cobranca.mentorado_id,
       titulo: cobranca.titulo,
@@ -407,6 +410,11 @@ export default function FinanceiroPage() {
 
   async function salvarCobranca(e: FormEvent) {
     e.preventDefault();
+
+    if (!podeGerenciar) {
+      setErro("Somente o perfil Financeiro pode salvar cobranças.");
+      return;
+    }
 
     setErro("");
     setSucesso("");
@@ -505,6 +513,11 @@ export default function FinanceiroPage() {
   }
 
   async function atualizarStatus(id: string, status: StatusCobranca) {
+    if (!podeGerenciar) {
+      setErro("Somente o perfil Financeiro pode alterar cobranças.");
+      return;
+    }
+
     try {
       setErro("");
       setSucesso("");
@@ -567,6 +580,8 @@ export default function FinanceiroPage() {
   }
 
   async function cancelarParcelasSelecionadas() {
+    if (!podeGerenciar) return;
+
     if (parcelasSelecionadas.length === 0) {
       setErro("Selecione pelo menos uma parcela para cancelar.");
       return;
@@ -612,6 +627,8 @@ export default function FinanceiroPage() {
   }
 
   async function cancelarContrato(cobranca: CobrancaComMentorado) {
+    if (!podeGerenciar) return;
+
     if (!cobranca.grupo_id) {
       await atualizarStatus(cobranca.id, "Cancelado");
       return;
@@ -684,25 +701,34 @@ export default function FinanceiroPage() {
                 </p>
 
                 <h1 className="max-w-4xl break-words text-xl font-black leading-tight sm:text-2xl lg:text-3xl">
-                  Gestão financeira da mentoria
+                  {podeGerenciar
+                    ? "Gestão financeira da mentoria"
+                    : "Visão financeira da mentoria"}
                 </h1>
 
                 <p className="mt-2 max-w-2xl break-words text-sm font-medium leading-6 text-[#D9DEE7]">
-                  Cadastre cobranças, acompanhe parcelas e organize os
-                  vencimentos de cada mentorado em um só painel.
+                  {podeGerenciar
+                    ? "Cadastre cobranças, acompanhe parcelas e organize os vencimentos de cada mentorado em um só painel."
+                    : "Acompanhe contratos, recebimentos e vencimentos. A gestão das cobranças fica com a Mirelen no perfil Financeiro."}
                 </p>
               </div>
 
-              <button
-                onClick={abrirNovoLancamento}
-                className="rounded-2xl px-5 py-3 text-sm font-black text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105"
-                style={{
-                  background:
-                    "linear-gradient(180deg, #F3F4F6 0%, #D1D5DB 55%, #9CA3AF 100%)",
-                }}
-              >
-                Novo lançamento
-              </button>
+              {podeGerenciar ? (
+                <button
+                  onClick={abrirNovoLancamento}
+                  className="rounded-2xl px-5 py-3 text-sm font-black text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, #F3F4F6 0%, #D1D5DB 55%, #9CA3AF 100%)",
+                  }}
+                >
+                  Novo lançamento
+                </button>
+              ) : (
+                <span className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-black text-white">
+                  Somente leitura
+                </span>
+              )}
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -781,7 +807,7 @@ export default function FinanceiroPage() {
             </div>
           )}
 
-          {mostrarFormulario && (
+          {podeGerenciar && mostrarFormulario && (
             <form
               onSubmit={salvarCobranca}
               className="mb-4 min-w-0 rounded-[20px] border border-white/50 bg-white/90 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5"
@@ -1161,60 +1187,69 @@ export default function FinanceiroPage() {
           )}
 
           <section className="min-w-0 overflow-x-auto rounded-[20px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[24px]">
-            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white/90 p-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                  Seleção de parcelas
-                </p>
-                <p className="mt-1 text-sm font-bold text-slate-600">
-                  {resumoSelecionado.quantidade > 0
-                    ? `${resumoSelecionado.quantidade} parcela(s) selecionada(s) · ${formatarMoeda(resumoSelecionado.valor)}`
-                    : "Marque parcelas para cancelar sem apagar o histórico."}
-                </p>
+            {podeGerenciar ? (
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white/90 p-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                    Seleção de parcelas
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-slate-600">
+                    {resumoSelecionado.quantidade > 0
+                      ? `${resumoSelecionado.quantidade} parcela(s) selecionada(s) · ${formatarMoeda(resumoSelecionado.valor)}`
+                      : "Marque parcelas para cancelar sem apagar o histórico."}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={alternarSelecaoTodasFiltradas}
+                    disabled={cobrancasFiltradas.length === 0}
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-black text-[#08163F] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                  >
+                    {todasFiltradasSelecionadas
+                      ? "Desmarcar filtradas"
+                      : "Selecionar filtradas"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={limparSelecaoParcelas}
+                    disabled={parcelasSelecionadas.length === 0}
+                    className="rounded-xl bg-slate-100 px-3 py-2.5 text-xs font-black text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                  >
+                    Limpar seleção
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={cancelarParcelasSelecionadas}
+                    disabled={parcelasSelecionadas.length === 0}
+                    className="rounded-xl bg-red-50 px-3 py-2.5 text-xs font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                  >
+                    Cancelar selecionadas
+                  </button>
+                </div>
               </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={alternarSelecaoTodasFiltradas}
-                  disabled={cobrancasFiltradas.length === 0}
-                  className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-black text-[#08163F] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
-                >
-                  {todasFiltradasSelecionadas
-                    ? "Desmarcar filtradas"
-                    : "Selecionar filtradas"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={limparSelecaoParcelas}
-                  disabled={parcelasSelecionadas.length === 0}
-                  className="rounded-xl bg-slate-100 px-3 py-2.5 text-xs font-black text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
-                >
-                  Limpar seleção
-                </button>
-
-                <button
-                  type="button"
-                  onClick={cancelarParcelasSelecionadas}
-                  disabled={parcelasSelecionadas.length === 0}
-                  className="rounded-xl bg-red-50 px-3 py-2.5 text-xs font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
-                >
-                  Cancelar selecionadas
-                </button>
+            ) : (
+              <div className="border-b border-blue-100 bg-blue-50 p-4 text-sm font-bold text-[#12317C]">
+                Visão estratégica da mentora. Criação, baixa, edição e
+                cancelamento ficam com o perfil Financeiro.
               </div>
-            </div>
+            )}
 
             <div className="hidden min-w-[1080px] grid-cols-[0.35fr_1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr_0.7fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-3 text-sm font-semibold text-white md:grid">
               <span className="flex items-center justify-center">
-                <input
-                  type="checkbox"
-                  checked={todasFiltradasSelecionadas}
-                  onChange={alternarSelecaoTodasFiltradas}
-                  disabled={cobrancasFiltradas.length === 0}
-                  className="h-4 w-4 cursor-pointer accent-[#D1D5DB] disabled:cursor-not-allowed"
-                  aria-label="Selecionar todas as parcelas filtradas"
-                />
+                {podeGerenciar && (
+                  <input
+                    type="checkbox"
+                    checked={todasFiltradasSelecionadas}
+                    onChange={alternarSelecaoTodasFiltradas}
+                    disabled={cobrancasFiltradas.length === 0}
+                    className="h-4 w-4 cursor-pointer accent-[#D1D5DB] disabled:cursor-not-allowed"
+                    aria-label="Selecionar todas as parcelas filtradas"
+                  />
+                )}
               </span>
               <span>Mentorado</span>
               <span>Cobrança</span>
@@ -1243,13 +1278,15 @@ export default function FinanceiroPage() {
                     <article className="p-4 md:hidden">
                       <div className="flex items-start justify-between gap-3">
                         <label className="flex min-w-0 items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={parcelasSelecionadas.includes(item.id)}
-                            onChange={() => alternarSelecaoParcela(item.id)}
-                            className="h-4 w-4 shrink-0 cursor-pointer accent-[#08163F]"
-                            aria-label={`Selecionar parcela ${item.parcela_atual}/${item.quantidade_parcelas} de ${item.mentoradoNome}`}
-                          />
+                          {podeGerenciar && (
+                            <input
+                              type="checkbox"
+                              checked={parcelasSelecionadas.includes(item.id)}
+                              onChange={() => alternarSelecaoParcela(item.id)}
+                              className="h-4 w-4 shrink-0 cursor-pointer accent-[#08163F]"
+                              aria-label={`Selecionar parcela ${item.parcela_atual}/${item.quantidade_parcelas} de ${item.mentoradoNome}`}
+                            />
+                          )}
                           <span className="min-w-0">
                             <strong className="block break-words text-sm text-[#08163F]">
                               {item.mentoradoNome}
@@ -1299,13 +1336,15 @@ export default function FinanceiroPage() {
                       </button>
 
                       <div className="mt-3 flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => atualizarStatus(item.id, "Pago")}
-                          className="flex-1 rounded-xl bg-emerald-50 px-3 py-2.5 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
-                        >
-                          Marcar pago
-                        </button>
+                        {podeGerenciar && (
+                          <button
+                            type="button"
+                            onClick={() => atualizarStatus(item.id, "Pago")}
+                            className="flex-1 rounded-xl bg-emerald-50 px-3 py-2.5 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
+                          >
+                            Marcar pago
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => setCobrancaSelecionada(item)}
@@ -1318,14 +1357,16 @@ export default function FinanceiroPage() {
 
                     <div className="hidden min-w-[1080px] grid-cols-[0.35fr_1.2fr_1fr_0.6fr_0.6fr_0.7fr_0.6fr_0.7fr] items-center p-3 md:grid">
                       <span className="flex items-center justify-center">
-                        <input
-                          type="checkbox"
-                          checked={parcelasSelecionadas.includes(item.id)}
-                          onChange={() => alternarSelecaoParcela(item.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-4 w-4 cursor-pointer accent-[#08163F]"
-                          aria-label={`Selecionar parcela ${item.parcela_atual}/${item.quantidade_parcelas} de ${item.mentoradoNome}`}
-                        />
+                        {podeGerenciar && (
+                          <input
+                            type="checkbox"
+                            checked={parcelasSelecionadas.includes(item.id)}
+                            onChange={() => alternarSelecaoParcela(item.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-4 w-4 cursor-pointer accent-[#08163F]"
+                            aria-label={`Selecionar parcela ${item.parcela_atual}/${item.quantidade_parcelas} de ${item.mentoradoNome}`}
+                          />
+                        )}
                       </span>
 
                       <button
@@ -1364,13 +1405,15 @@ export default function FinanceiroPage() {
                       </span>
 
                       <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => atualizarStatus(item.id, "Pago")}
-                          className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
-                        >
-                          Pago
-                        </button>
+                        {podeGerenciar && (
+                          <button
+                            type="button"
+                            onClick={() => atualizarStatus(item.id, "Pago")}
+                            className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
+                          >
+                            Pago
+                          </button>
+                        )}
 
                         <button
                           type="button"
@@ -1479,55 +1522,62 @@ export default function FinanceiroPage() {
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-3 md:col-span-2">
-                <button
-                  onClick={() => editarCobranca(cobrancaSelecionada)}
-                  className="rounded-xl bg-[#08163F] px-4 py-2.5 text-sm font-black text-white shadow-lg transition hover:brightness-110"
-                >
-                  Editar
-                </button>
+              {podeGerenciar ? (
+                <div className="flex flex-wrap gap-3 md:col-span-2">
+                  <button
+                    onClick={() => editarCobranca(cobrancaSelecionada)}
+                    className="rounded-xl bg-[#08163F] px-4 py-2.5 text-sm font-black text-white shadow-lg transition hover:brightness-110"
+                  >
+                    Editar
+                  </button>
 
-                <button
-                  onClick={() => atualizarStatus(cobrancaSelecionada.id, "Pago")}
-                  className="rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
-                >
-                  Marcar como pago
-                </button>
+                  <button
+                    onClick={() => atualizarStatus(cobrancaSelecionada.id, "Pago")}
+                    className="rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
+                  >
+                    Marcar como pago
+                  </button>
 
-                <button
-                  onClick={() =>
-                    atualizarStatus(cobrancaSelecionada.id, "Pendente")
-                  }
-                  className="rounded-xl bg-yellow-50 px-4 py-2.5 text-sm font-black text-yellow-700 transition hover:bg-yellow-100"
-                >
-                  Marcar pendente
-                </button>
+                  <button
+                    onClick={() =>
+                      atualizarStatus(cobrancaSelecionada.id, "Pendente")
+                    }
+                    className="rounded-xl bg-yellow-50 px-4 py-2.5 text-sm font-black text-yellow-700 transition hover:bg-yellow-100"
+                  >
+                    Marcar pendente
+                  </button>
 
-                <button
-                  onClick={() =>
-                    atualizarStatus(cobrancaSelecionada.id, "Atrasado")
-                  }
-                  className="rounded-xl bg-red-50 px-4 py-2.5 text-sm font-black text-red-600 transition hover:bg-red-100"
-                >
-                  Marcar atraso
-                </button>
+                  <button
+                    onClick={() =>
+                      atualizarStatus(cobrancaSelecionada.id, "Atrasado")
+                    }
+                    className="rounded-xl bg-red-50 px-4 py-2.5 text-sm font-black text-red-600 transition hover:bg-red-100"
+                  >
+                    Marcar atraso
+                  </button>
 
-                <button
-                  onClick={() =>
-                    atualizarStatus(cobrancaSelecionada.id, "Cancelado")
-                  }
-                  className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-200"
-                >
-                  Cancelar
-                </button>
+                  <button
+                    onClick={() =>
+                      atualizarStatus(cobrancaSelecionada.id, "Cancelado")
+                    }
+                    className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-200"
+                  >
+                    Cancelar
+                  </button>
 
-                <button
-                  onClick={() => cancelarContrato(cobrancaSelecionada)}
-                  className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white transition hover:brightness-110"
-                >
-                  Cancelar contrato
-                </button>
-              </div>
+                  <button
+                    onClick={() => cancelarContrato(cobrancaSelecionada)}
+                    className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white transition hover:brightness-110"
+                  >
+                    Cancelar contrato
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-bold leading-6 text-[#12317C] md:col-span-2">
+                  Esta é uma consulta estratégica. Para editar a cobrança,
+                  acione a Mirelen no perfil Financeiro.
+                </div>
+              )}
             </div>
           </div>
         </div>

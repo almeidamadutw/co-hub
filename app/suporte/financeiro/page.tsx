@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import PageLoading from "@/components/PageLoading";
 import SuporteSidebar from "@/components/SuporteSidebar";
@@ -49,8 +55,20 @@ type HistoricoFinanceiro = {
   acao: "criado" | "atualizado" | "excluido";
   status_anterior: string | null;
   status_novo: string | null;
+  origem: "gestao" | "ajuste_administrativo" | "sistema";
+  motivo: string | null;
   alterado_por: string | null;
+  alterado_por_nome: string | null;
+  alterado_por_email: string | null;
   created_at: string;
+};
+
+type FormularioAjuste = {
+  data_vencimento: string;
+  data_pagamento: string;
+  forma_pagamento: string;
+  status: StatusFinanceiro;
+  motivo: string;
 };
 
 type StatusFiltro = "Todos" | StatusFinanceiro;
@@ -73,8 +91,20 @@ export default function SuporteFinanceiroPage() {
   const [status, setStatus] = useState<StatusFiltro>("Todos");
   const [somenteInconsistencias, setSomenteInconsistencias] = useState(false);
   const [carregando, setCarregando] = useState(true);
+  const [salvandoAjuste, setSalvandoAjuste] = useState(false);
   const [erro, setErro] = useState("");
+  const [sucesso, setSucesso] = useState("");
   const [atualizadoEm, setAtualizadoEm] = useState<string | null>(null);
+  const [podeAjustar, setPodeAjustar] = useState(false);
+  const [ajusteSelecionado, setAjusteSelecionado] =
+    useState<CobrancaSuporte | null>(null);
+  const [formularioAjuste, setFormularioAjuste] = useState<FormularioAjuste>({
+    data_vencimento: "",
+    data_pagamento: "",
+    forma_pagamento: "",
+    status: "Pendente",
+    motivo: "",
+  });
 
   const carregar = useCallback(async () => {
     const user = await sincronizarUsuarioComSessao();
@@ -93,8 +123,12 @@ export default function SuporteFinanceiroPage() {
     setCarregando(true);
     setErro("");
 
-    const [mentoradosResposta, cobrancasResposta, historicoResposta] =
-      await Promise.all([
+    const [
+      mentoradosResposta,
+      cobrancasResposta,
+      historicoResposta,
+      permissaoResposta,
+    ] = await Promise.all([
         supabase
           .from("profiles")
           .select("id, nome, email, codigo_inscricao")
@@ -105,12 +139,14 @@ export default function SuporteFinanceiroPage() {
         supabase.rpc("financeiro_listar_historico_suporte", {
           p_limite: 30,
         }),
+        supabase.rpc("pode_ajustar_financeiro"),
       ]);
 
     const fontesComErro = [
       mentoradosResposta.error ? "mentorados" : null,
       cobrancasResposta.error ? "cobranças" : null,
       historicoResposta.error ? "histórico" : null,
+      permissaoResposta.error ? "permissão administrativa" : null,
     ].filter(Boolean);
 
     setMentorados((mentoradosResposta.data ?? []) as Mentorado[]);
@@ -122,6 +158,9 @@ export default function SuporteFinanceiroPage() {
     setHistorico(
       (historicoResposta.data ?? []) as HistoricoFinanceiro[]
     );
+    setPodeAjustar(
+      !permissaoResposta.error && permissaoResposta.data === true
+    );
 
     if (fontesComErro.length > 0) {
       setErro(
@@ -132,6 +171,101 @@ export default function SuporteFinanceiroPage() {
     setAtualizadoEm(new Date().toISOString());
     setCarregando(false);
   }, [router]);
+
+  function abrirAjuste(cobranca: CobrancaSuporte) {
+    if (!podeAjustar) return;
+
+    setAjusteSelecionado(cobranca);
+    setFormularioAjuste({
+      data_vencimento: cobranca.data_vencimento,
+      data_pagamento:
+        cobranca.status === "Pago"
+          ? cobranca.data_pagamento || dataLocalISO()
+          : "",
+      forma_pagamento: cobranca.forma_pagamento || "Pix",
+      status: cobranca.status,
+      motivo: "",
+    });
+    setErro("");
+    setSucesso("");
+  }
+
+  function fecharAjuste() {
+    if (salvandoAjuste) return;
+    setAjusteSelecionado(null);
+  }
+
+  function atualizarStatusAjuste(statusNovo: StatusFinanceiro) {
+    setFormularioAjuste((estadoAtual) => ({
+      ...estadoAtual,
+      status: statusNovo,
+      data_pagamento:
+        statusNovo === "Pago"
+          ? estadoAtual.data_pagamento || dataLocalISO()
+          : "",
+    }));
+  }
+
+  async function salvarAjuste(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+
+    if (!ajusteSelecionado || !podeAjustar || !usuario) return;
+
+    const motivo = formularioAjuste.motivo.trim();
+
+    if (motivo.length < 10 || motivo.length > 500) {
+      setErro("Explique o motivo do ajuste usando entre 10 e 500 caracteres.");
+      return;
+    }
+
+    if (
+      formularioAjuste.status === "Pago" &&
+      !formularioAjuste.data_pagamento
+    ) {
+      setErro("Informe a data do pagamento para marcar a parcela como paga.");
+      return;
+    }
+
+    try {
+      setSalvandoAjuste(true);
+      setErro("");
+      setSucesso("");
+
+      const { data, error } = await supabase
+        .from("financeiro_ajustes_administrativos")
+        .insert({
+          cobranca_id: ajusteSelecionado.id,
+          data_vencimento: formularioAjuste.data_vencimento,
+          data_pagamento:
+            formularioAjuste.status === "Pago"
+              ? formularioAjuste.data_pagamento
+              : null,
+          forma_pagamento: formularioAjuste.forma_pagamento || null,
+          status: formularioAjuste.status,
+          motivo,
+          solicitado_por: usuario.id,
+        })
+        .select("id")
+        .single();
+
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error("O ajuste não retornou confirmação do banco.");
+
+      setAjusteSelecionado(null);
+      await carregar();
+      setSucesso(
+        "Ajuste administrativo salvo. Motivo, autoria e horário foram registrados na auditoria."
+      );
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível concluir o ajuste administrativo."
+      );
+    } finally {
+      setSalvandoAjuste(false);
+    }
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => void carregar(), 0);
@@ -217,7 +351,9 @@ export default function SuporteFinanceiroPage() {
         <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/90 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
-              Área técnica · somente leitura
+              {podeAjustar
+                ? "Área técnica · ajuste individual"
+                : "Área técnica · somente leitura"}
             </p>
             <h1 className="truncate text-base font-black sm:text-lg md:text-xl">
               Diagnóstico financeiro
@@ -248,11 +384,14 @@ export default function SuporteFinanceiroPage() {
                   Financeiro para Suporte/T.I.
                 </p>
                 <h2 className="mt-2 text-2xl font-black sm:text-3xl">
-                  Encontre falhas sem alterar pagamentos
+                  {podeAjustar
+                    ? "Diagnóstico com ajuste administrativo"
+                    : "Encontre falhas sem alterar pagamentos"}
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#D9DEE7]">
-                  Consulte parcelas, contratos e auditoria. Baixa, edição e
-                  cancelamento permanecem exclusivamente com a gestão financeira.
+                  {podeAjustar
+                    ? "Consulte contratos e corrija vencimento, pagamento ou status quando necessário. Todo ajuste exige motivo e fica auditado."
+                    : "Consulte parcelas, contratos e auditoria. Baixa, edição e cancelamento permanecem exclusivamente com a gestão financeira."}
                 </p>
               </div>
 
@@ -278,6 +417,12 @@ export default function SuporteFinanceiroPage() {
           {erro && (
             <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-black text-red-700">
               {erro}
+            </div>
+          )}
+
+          {sucesso && (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-black text-emerald-700">
+              {sucesso}
             </div>
           )}
 
@@ -398,6 +543,15 @@ export default function SuporteFinanceiroPage() {
                             label="Atualização"
                             valor={formatarDataHora(cobranca.updated_at)}
                           />
+                          {podeAjustar && (
+                            <button
+                              type="button"
+                              onClick={() => abrirAjuste(cobranca)}
+                              className="col-span-2 rounded-xl bg-[#08163F] px-4 py-2.5 text-xs font-black text-white transition hover:brightness-110 md:ml-auto md:w-fit"
+                            >
+                              Ajuste administrativo
+                            </button>
+                          )}
                         </div>
                       </article>
                     );
@@ -424,7 +578,13 @@ export default function SuporteFinanceiroPage() {
                         <p className="text-sm font-black">
                           {textoHistorico(item)}
                         </p>
+                        {item.motivo && (
+                          <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">
+                            Motivo: {item.motivo}
+                          </p>
+                        )}
                         <p className="mt-1 text-xs font-bold text-slate-400">
+                          {item.alterado_por_nome || "Sistema CEO Club"} ·{" "}
                           {formatarDataHora(item.created_at)}
                         </p>
                       </div>
@@ -435,18 +595,181 @@ export default function SuporteFinanceiroPage() {
 
               <section className="rounded-[24px] border border-blue-100 bg-[#eef2ff] p-5">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-[#12317C]">
-                  Limite de acesso
+                  {podeAjustar ? "Seu acesso individual" : "Limite de acesso"}
                 </p>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                  Esta tela não permite criar, editar, dar baixa, cancelar ou
-                  excluir cobranças. Se a falha for de negócio, encaminhe para a
-                  mentora ou para o perfil Financeiro.
+                  {podeAjustar
+                    ? "Você pode corrigir vencimento, data e forma de pagamento ou status, sempre informando o motivo. Criação, valores, total do contrato e exclusão continuam exclusivamente com a Mirelen."
+                    : "Esta tela não permite criar, editar, dar baixa, cancelar ou excluir cobranças. Se a falha for de negócio, encaminhe para a Mirelen no perfil Financeiro."}
                 </p>
               </section>
             </aside>
           </section>
         </section>
       </section>
+
+      {ajusteSelecionado && podeAjustar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <form
+            onSubmit={salvarAjuste}
+            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[26px] bg-white shadow-2xl"
+          >
+            <div className="bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-200">
+                    Ajuste administrativo auditado
+                  </p>
+                  <h2 className="mt-2 break-words text-2xl font-black">
+                    {ajusteSelecionado.titulo}
+                  </h2>
+                  <p className="mt-2 text-sm font-semibold text-blue-100">
+                    Parcela {ajusteSelecionado.parcela_atual}/
+                    {ajusteSelecionado.quantidade_parcelas} ·{" "}
+                    {formatarMoeda(ajusteSelecionado.valor_parcela)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fecharAjuste}
+                  disabled={salvandoAjuste}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-2xl font-black transition hover:bg-white/20 disabled:opacity-50"
+                  aria-label="Fechar ajuste"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4 p-5 sm:p-6">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-900">
+                Valores e total do contrato ficam protegidos. Para alterar dinheiro
+                ou criar cobranças, use o fluxo da Mirelen no perfil Financeiro.
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-black">Vencimento</span>
+                  <input
+                    type="date"
+                    required
+                    value={formularioAjuste.data_vencimento}
+                    onChange={(evento) =>
+                      setFormularioAjuste((estadoAtual) => ({
+                        ...estadoAtual,
+                        data_vencimento: evento.target.value,
+                      }))
+                    }
+                    className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C]"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-black">Status</span>
+                  <select
+                    value={formularioAjuste.status}
+                    onChange={(evento) =>
+                      atualizarStatusAjuste(
+                        evento.target.value as StatusFinanceiro
+                      )
+                    }
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C]"
+                  >
+                    {statusDisponiveis.slice(1).map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-black">Forma de pagamento</span>
+                  <select
+                    value={formularioAjuste.forma_pagamento}
+                    onChange={(evento) =>
+                      setFormularioAjuste((estadoAtual) => ({
+                        ...estadoAtual,
+                        forma_pagamento: evento.target.value,
+                      }))
+                    }
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C]"
+                  >
+                    {[
+                      "Crédito",
+                      "Débito",
+                      "Pix",
+                      "Boleto",
+                      "Dinheiro",
+                    ].map((forma) => (
+                      <option key={forma} value={forma}>
+                        {forma}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-black">Data do pagamento</span>
+                  <input
+                    type="date"
+                    required={formularioAjuste.status === "Pago"}
+                    disabled={formularioAjuste.status !== "Pago"}
+                    value={formularioAjuste.data_pagamento}
+                    onChange={(evento) =>
+                      setFormularioAjuste((estadoAtual) => ({
+                        ...estadoAtual,
+                        data_pagamento: evento.target.value,
+                      }))
+                    }
+                    className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-[#12317C] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                  />
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="text-sm font-black">Motivo do ajuste</span>
+                <textarea
+                  required
+                  minLength={10}
+                  maxLength={500}
+                  rows={4}
+                  value={formularioAjuste.motivo}
+                  onChange={(evento) =>
+                    setFormularioAjuste((estadoAtual) => ({
+                      ...estadoAtual,
+                      motivo: evento.target.value,
+                    }))
+                  }
+                  placeholder="Ex.: pagamento confirmado pela Mirelen em 04/08; correção da data informada."
+                  className="mt-2 w-full resize-y rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold leading-6 outline-none focus:border-[#12317C]"
+                />
+                <span className="mt-1 block text-right text-xs font-bold text-slate-400">
+                  {formularioAjuste.motivo.length}/500
+                </span>
+              </label>
+
+              <div className="flex flex-wrap justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={fecharAjuste}
+                  disabled={salvandoAjuste}
+                  className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-black text-slate-700 transition hover:bg-slate-200 disabled:opacity-50"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="submit"
+                  disabled={salvandoAjuste}
+                  className="rounded-xl bg-[#08163F] px-5 py-2.5 text-sm font-black text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {salvandoAjuste ? "Salvando..." : "Salvar ajuste auditado"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
     </main>
   );
 }
@@ -511,12 +834,25 @@ function StatusBadge({ status }: { status: StatusFinanceiro }) {
 }
 
 function textoHistorico(item: HistoricoFinanceiro) {
+  const prefixo =
+    item.origem === "ajuste_administrativo"
+      ? "Ajuste administrativo · "
+      : "";
+
   if (item.acao === "criado") return "Parcela criada";
   if (item.acao === "excluido") return "Parcela excluída por operação administrativa";
   if (item.status_anterior !== item.status_novo) {
-    return `Status: ${item.status_anterior || "—"} → ${item.status_novo || "—"}`;
+    return `${prefixo}status: ${item.status_anterior || "—"} → ${item.status_novo || "—"}`;
   }
-  return "Dados da parcela atualizados";
+  return `${prefixo}dados da parcela atualizados`;
+}
+
+function dataLocalISO() {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+  const dia = String(hoje.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
 }
 
 function normalizar(valor: string) {
