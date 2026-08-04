@@ -350,21 +350,25 @@ export async function POST(request: NextRequest) {
     const respostasPorPergunta = new Map(
       corpo.respostas.map((resposta) => [resposta.perguntaId, resposta])
     );
-    const perguntaObrigatoriaSemResposta = perguntas.find(
+    const perguntasExigidas = simulado.exigir_todas_respostas
+      ? perguntas
+      : perguntas.filter((pergunta) => pergunta.obrigatoria !== false);
+    const perguntaSemResposta = perguntasExigidas.find(
       (pergunta) =>
-        pergunta.obrigatoria !== false &&
         !respostaPreenchida(
           pergunta,
           respostasPorPergunta.get(pergunta.id)
         )
     );
 
-    if (
-      simulado.exigir_todas_respostas &&
-      perguntaObrigatoriaSemResposta
-    ) {
+    if (perguntaSemResposta) {
       return NextResponse.json(
-        { error: "Responda todas as perguntas obrigatórias antes de enviar." },
+        {
+          error: simulado.exigir_todas_respostas
+            ? "Responda todas as perguntas antes de enviar."
+            : "Responda todas as perguntas obrigatórias antes de enviar.",
+          perguntaId: perguntaSemResposta.id,
+        },
         { status: 400 }
       );
     }

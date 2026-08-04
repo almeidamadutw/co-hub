@@ -78,6 +78,37 @@ type ResultadoEnvio = {
   percentual: number;
 } | null;
 
+function respostaEstaPreenchida(
+  pergunta: PerguntaPublica,
+  resposta: RespostaFormulario | undefined
+) {
+  if (!resposta) return false;
+
+  if (
+    pergunta.tipo === "multipla_escolha" ||
+    pergunta.tipo === "sim_nao"
+  ) {
+    return Boolean(resposta.alternativaId);
+  }
+
+  if (pergunta.tipo === "caixa_selecao") {
+    return Boolean(resposta.alternativasIds?.length);
+  }
+
+  if (pergunta.tipo === "escala") {
+    return (
+      resposta.respostaNumero !== null &&
+      resposta.respostaNumero !== undefined
+    );
+  }
+
+  if (pergunta.tipo === "upload") {
+    return Boolean(resposta.arquivoUrl?.trim());
+  }
+
+  return Boolean(resposta.respostaTexto?.trim());
+}
+
 async function obterTokenSessao() {
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? "";
@@ -248,6 +279,29 @@ export default function MentoradoPraticarPage() {
 
   async function enviarTentativa() {
     if (!simuladoAberto) return;
+
+    const perguntasExigidas = simuladoAberto.exigir_todas_respostas
+      ? simuladoAberto.perguntas
+      : simuladoAberto.perguntas.filter(
+          (pergunta) => pergunta.obrigatoria !== false
+        );
+    const perguntaSemResposta = perguntasExigidas.find(
+      (pergunta) =>
+        !respostaEstaPreenchida(pergunta, respostas[pergunta.id])
+    );
+
+    if (perguntaSemResposta) {
+      setSucesso("");
+      setErro(
+        simuladoAberto.exigir_todas_respostas
+          ? "Responda todas as perguntas antes de enviar."
+          : "Responda todas as perguntas obrigatórias antes de enviar."
+      );
+      document
+        .getElementById(`pergunta-${perguntaSemResposta.id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
 
     try {
       setEnviando(true);
@@ -428,6 +482,10 @@ export default function MentoradoPraticarPage() {
                         key={pergunta.id}
                         pergunta={pergunta}
                         numero={indice + 1}
+                        exigirResposta={
+                          simuladoAberto.exigir_todas_respostas ||
+                          pergunta.obrigatoria !== false
+                        }
                         resposta={respostas[pergunta.id]}
                         onAtualizar={(alteracao) =>
                           atualizarResposta(pergunta.id, alteracao)
@@ -535,12 +593,14 @@ export default function MentoradoPraticarPage() {
 function PerguntaCard({
   pergunta,
   numero,
+  exigirResposta,
   resposta,
   onAtualizar,
   onAlternarCheckbox,
 }: {
   pergunta: PerguntaPublica;
   numero: number;
+  exigirResposta: boolean;
   resposta?: RespostaFormulario;
   onAtualizar: (alteracao: Partial<RespostaFormulario>) => void;
   onAlternarCheckbox: (alternativaId: string) => void;
@@ -556,7 +616,10 @@ function PerguntaCard({
       : [];
 
   return (
-    <article className="rounded-[20px] border border-slate-100 bg-[#fbfcfe] p-5">
+    <article
+      id={`pergunta-${pergunta.id}`}
+      className="scroll-mt-24 rounded-[20px] border border-slate-100 bg-[#fbfcfe] p-5"
+    >
       <div className="flex items-start gap-3">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#08163F] text-xs font-black text-white">
           {numero}
@@ -564,7 +627,7 @@ function PerguntaCard({
         <div className="min-w-0">
           <h3 className="break-words text-base font-black sm:text-lg">
             {pergunta.enunciado}
-            {pergunta.obrigatoria !== false && (
+            {exigirResposta && (
               <span className="ml-1 text-red-500">*</span>
             )}
           </h3>
