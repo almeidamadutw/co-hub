@@ -337,11 +337,9 @@ export default function SuportePage() {
 
   const nomeCurto = usuario?.nome?.trim().split(/\s+/)[0] || "Suporte";
 
-  if (carregando && !usuario) {
+  if (carregando || !usuario) {
     return <PageLoading pagina="central de T.I" />;
   }
-
-  if (!usuario) return null;
 
   return (
     <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
