@@ -73,7 +73,14 @@ function ticketEstaPendente(ticket: TicketResumo) {
 }
 
 function ticketEstaAtrasado(ticket: TicketResumo, agora: number) {
-  if (!ticketEstaPendente(ticket) || !ticket.created_at || !agora) return false;
+  const status = normalizar(ticket.status);
+  if (
+    !["aberto", "em_analise"].includes(status) ||
+    !ticket.created_at ||
+    !agora
+  ) {
+    return false;
+  }
 
   const criadoEm = new Date(ticket.created_at).getTime();
   return !Number.isNaN(criadoEm) && agora - criadoEm >= UM_DIA_EM_MS;
@@ -145,7 +152,7 @@ function formatarPrioridade(prioridade: string | null) {
   if (valor === "alta") return "Alta";
   if (valor === "baixa") return "Baixa";
 
-  return "Normal";
+  return "Média";
 }
 
 function formatarAcao(acao: string) {

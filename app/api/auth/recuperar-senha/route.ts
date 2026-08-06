@@ -63,7 +63,7 @@ async function abrirTicketSeNecessario(perfil: PerfilRecuperacao) {
     .from("suporte_tickets")
     .select("id")
     .eq("usuario_id", perfil.id)
-    .eq("categoria", "Alteração de senha")
+    .in("categoria", ["alteracao_senha", "Alteração de senha"])
     .eq("status", "aberto")
     .limit(1)
     .maybeSingle();
@@ -75,13 +75,16 @@ async function abrirTicketSeNecessario(perfil: PerfilRecuperacao) {
     nome_usuario: perfil.nome ?? "Usuário sem nome",
     email_usuario: perfil.email ?? "E-mail não informado",
     tipo_usuario: perfil.role ?? "mentorado",
-    categoria: "Alteração de senha",
+    role_usuario: perfil.role ?? "mentorado",
+    categoria: "alteracao_senha",
     assunto: "Solicitação de nova troca de senha",
     mensagem:
       "O usuário solicitou uma nova troca de senha após utilizar a recuperação automática. É necessária a liberação do suporte/T.I.",
     status: "aberto",
-    prioridade: "media",
+    prioridade: "alta",
     origem: "sistema",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   });
 
   if (error) {
