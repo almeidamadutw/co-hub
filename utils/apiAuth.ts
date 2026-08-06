@@ -65,6 +65,7 @@ export function criarClientePublico(token?: string) {
       autoRefreshToken: false,
       persistSession: false,
       detectSessionInUrl: false,
+      flowType: "implicit",
     },
     global: token
       ? {

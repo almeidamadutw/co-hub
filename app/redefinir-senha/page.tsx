@@ -1,19 +1,32 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/utils/supabase";
-import { logoutUsuario } from "@/utils/auth";
+import { limparUsuarioLogado, logoutUsuario } from "@/utils/auth";
+import {
+  criarClienteRecuperacaoSenha,
+  lerMarcadorRecuperacao,
+  limparMarcadorRecuperacao,
+  salvarMarcadorRecuperacao,
+} from "@/utils/supabaseRecovery";
+
+type ClienteRecuperacao = ReturnType<typeof criarClienteRecuperacaoSenha>;
 
 export default function RedefinirSenhaPage() {
   const router = useRouter();
+  const clienteRecuperacaoRef = useRef<ClienteRecuperacao | null>(null);
+  const redirecionamentoRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
   const [loading, setLoading] = useState(false);
   const [validandoLink, setValidandoLink] = useState(true);
+  const [linkValido, setLinkValido] = useState(false);
+  const [solicitacaoId, setSolicitacaoId] = useState("");
 
   const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
@@ -28,76 +41,168 @@ export default function RedefinirSenhaPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  const prepararSessaoDeRecuperacao = useCallback(async () => {
-    setValidandoLink(true);
-    setErro("");
+  useEffect(() => {
+    let ativo = true;
 
-    try {
-      const url = new URL(window.location.href);
-      const code = url.searchParams.get("code");
+    async function invalidarRecuperacao(
+      cliente: ClienteRecuperacao,
+      mensagem: string
+    ) {
+      limparMarcadorRecuperacao();
+      await cliente.auth.signOut({ scope: "local" }).catch(() => undefined);
 
-      const hashParams = new URLSearchParams(
-        window.location.hash.replace("#", "")
-      );
-
-      const accessToken = hashParams.get("access_token");
-      const refreshToken = hashParams.get("refresh_token");
-
-      if (code) {
-        const { error } = await withTimeout(
-          supabase.auth.exchangeCodeForSession(code),
-          15000
-        );
-
-        if (error) {
-          setErro(
-            "Esse link de recuperação está inválido ou expirou. Solicite um novo link."
-          );
-          return;
-        }
-
-        window.history.replaceState({}, document.title, "/redefinir-senha");
-      } else if (accessToken && refreshToken) {
-        const { error } = await withTimeout(
-          supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          }),
-          15000
-        );
-
-        if (error) {
-          setErro(
-            "Esse link de recuperação está inválido ou expirou. Solicite um novo link."
-          );
-          return;
-        }
-
-        window.history.replaceState({}, document.title, "/redefinir-senha");
-      }
-
-      const { data, error } = await withTimeout(
-        supabase.auth.getSession(),
-        15000
-      );
-
-      if (error || !data.session) {
-        setErro(
-          "Não encontramos uma sessão válida para redefinir a senha. Solicite um novo link de recuperação."
-        );
-      }
-    } catch {
-      setErro(
-        "Não foi possível validar o link de recuperação. Solicite um novo link e tente novamente."
-      );
-    } finally {
-      setValidandoLink(false);
+      if (!ativo) return;
+      setLinkValido(false);
+      setSolicitacaoId("");
+      setErro(mensagem);
     }
+
+    async function validarNoServidor(token: string, userId: string) {
+      const response = await withTimeout(
+        fetch("/api/auth/redefinicao-senha", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        }),
+        10000
+      );
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok || !payload?.ok || !payload?.solicitacaoId) {
+        throw new Error(
+          payload?.error ||
+            "Esse link não corresponde a uma recuperação ativa."
+        );
+      }
+
+      const marcador = {
+        userId,
+        solicitacaoId: String(payload.solicitacaoId),
+      };
+      salvarMarcadorRecuperacao(marcador);
+
+      return marcador.solicitacaoId;
+    }
+
+    async function preparar() {
+      setValidandoLink(true);
+      setErro("");
+
+      const cliente = criarClienteRecuperacaoSenha();
+      clienteRecuperacaoRef.current = cliente;
+
+      try {
+        const hashParams = new URLSearchParams(
+          window.location.hash.replace(/^#/, "")
+        );
+        const tipo = hashParams.get("type");
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
+        const recebeuLink = Boolean(accessToken || refreshToken || tipo);
+
+        if (recebeuLink) {
+          limparMarcadorRecuperacao();
+
+          if (tipo !== "recovery" || !accessToken || !refreshToken) {
+            await invalidarRecuperacao(
+              cliente,
+              "Esse link de recuperação está incompleto ou inválido. Solicite um novo link."
+            );
+            return;
+          }
+
+          // A sessão normal do aplicativo não pode virar uma sessão de
+          // recuperação. O cliente abaixo usa um storage isolado nesta aba.
+          await logoutUsuario();
+
+          const { data, error } = await withTimeout(
+            cliente.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            }),
+            15000
+          );
+
+          if (error || !data.session || !data.user) {
+            await invalidarRecuperacao(
+              cliente,
+              "Esse link de recuperação está inválido ou expirou. Solicite um novo link."
+            );
+            return;
+          }
+
+          const id = await validarNoServidor(
+            data.session.access_token,
+            data.user.id
+          );
+
+          window.history.replaceState({}, document.title, "/redefinir-senha");
+
+          if (!ativo) return;
+          setSolicitacaoId(id);
+          setLinkValido(true);
+          return;
+        }
+
+        const marcador = lerMarcadorRecuperacao();
+        const { data, error } = await withTimeout(cliente.auth.getUser(), 15000);
+
+        if (
+          error ||
+          !data.user ||
+          !marcador?.userId ||
+          marcador.userId !== data.user.id ||
+          !marcador.solicitacaoId
+        ) {
+          await invalidarRecuperacao(
+            cliente,
+            "Abra o link enviado por e-mail para redefinir sua senha."
+          );
+          return;
+        }
+
+        const { data: sessao } = await cliente.auth.getSession();
+        const token = sessao.session?.access_token;
+
+        if (!token) {
+          await invalidarRecuperacao(
+            cliente,
+            "Sua sessão de recuperação expirou. Solicite um novo link."
+          );
+          return;
+        }
+
+        const id = await validarNoServidor(token, data.user.id);
+
+        if (!ativo) return;
+        setSolicitacaoId(id);
+        setLinkValido(true);
+      } catch (error) {
+        await invalidarRecuperacao(
+          cliente,
+          error instanceof Error
+            ? error.message
+            : "Não foi possível validar o link de recuperação. Solicite um novo link."
+        );
+      } finally {
+        if (ativo) setValidandoLink(false);
+      }
+    }
+
+    void preparar();
+
+    return () => {
+      ativo = false;
+    };
   }, []);
 
   useEffect(() => {
-    void prepararSessaoDeRecuperacao();
-  }, [prepararSessaoDeRecuperacao]);
+    return () => {
+      if (redirecionamentoRef.current) {
+        clearTimeout(redirecionamentoRef.current);
+      }
+    };
+  }, []);
 
   async function handleRedefinirSenha(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -105,20 +210,29 @@ export default function RedefinirSenhaPage() {
     setMensagem("");
     setErro("");
 
-    const senhaLimpa = novaSenha.trim();
-    const confirmarSenhaLimpa = confirmarSenha.trim();
+    if (!linkValido || !solicitacaoId) {
+      setErro("Abra um link válido de recuperação antes de salvar a senha.");
+      return;
+    }
 
-    if (!senhaLimpa || !confirmarSenhaLimpa) {
+    if (!novaSenha || !confirmarSenha) {
       setErro("Preencha a nova senha e a confirmação.");
       return;
     }
 
-    if (senhaLimpa.length < 6) {
-      setErro("A nova senha precisa ter pelo menos 6 caracteres.");
+    if (
+      novaSenha.length < 8 ||
+      novaSenha.length > 128 ||
+      !/[A-Za-zÀ-ÖØ-öø-ÿ]/.test(novaSenha) ||
+      !/\d/.test(novaSenha)
+    ) {
+      setErro(
+        "Use de 8 a 128 caracteres, com pelo menos uma letra e um número."
+      );
       return;
     }
 
-    if (senhaLimpa !== confirmarSenhaLimpa) {
+    if (novaSenha !== confirmarSenha) {
       setErro("As senhas não conferem.");
       return;
     }
@@ -126,8 +240,15 @@ export default function RedefinirSenhaPage() {
     setLoading(true);
 
     try {
+      const cliente = clienteRecuperacaoRef.current;
+
+      if (!cliente) {
+        setErro("Sua sessão de recuperação expirou. Solicite um novo link.");
+        return;
+      }
+
       const { data: sessaoAtual, error: erroSessao } = await withTimeout(
-        supabase.auth.getSession(),
+        cliente.auth.getSession(),
         15000
       );
 
@@ -140,101 +261,57 @@ export default function RedefinirSenhaPage() {
         return;
       }
 
-      const validacaoResponse = await withTimeout(
+      const response = await withTimeout(
         fetch("/api/auth/redefinicao-senha", {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
           cache: "no-store",
-        }),
-        10000
-      );
-      const validacaoPayload = await validacaoResponse.json().catch(() => null);
-
-      if (!validacaoResponse.ok || !validacaoPayload?.ok) {
-        setErro(
-          validacaoPayload?.error ||
-            "Não foi possível validar a liberação desta troca de senha. Solicite ajuda ao suporte."
-        );
-        return;
-      }
-
-      const { error } = await withTimeout(
-        supabase.auth.updateUser({
-          password: senhaLimpa,
+          body: JSON.stringify({ solicitacaoId, novaSenha }),
         }),
         15000
       );
+      const payload = await response.json().catch(() => null);
 
-      if (error) {
-        setErro(traduzirErroSenha(error.message));
+      if (!response.ok || !payload?.ok) {
+        setErro(
+          payload?.error ||
+            "Não foi possível redefinir sua senha. Solicite um novo link."
+        );
         return;
       }
 
-      let historicoRegistrado = true;
-
-      try {
-        const registroResponse = await withTimeout(
-          fetch("/api/auth/redefinicao-senha", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          10000
-        );
-        const registroPayload = await registroResponse.json().catch(() => null);
-
-        if (!registroResponse.ok || !registroPayload?.ok) {
-          throw new Error(
-            registroPayload?.error || "Não foi possível registrar o histórico."
-          );
-        }
-      } catch (erroRegistro) {
-        historicoRegistrado = false;
-        console.error("Erro ao registrar histórico de troca de senha:", erroRegistro);
-      }
-
-      await logoutUsuario();
+      await cliente.auth.signOut({ scope: "global" }).catch(() => undefined);
+      limparMarcadorRecuperacao();
+      limparUsuarioLogado();
 
       setSenhaAtualizada(true);
+      setLinkValido(false);
       setNovaSenha("");
       setConfirmarSenha("");
       setMensagem(
-        historicoRegistrado
-          ? "Senha redefinida com sucesso. Agora você já pode acessar sua conta."
-          : "Senha redefinida com sucesso, mas o histórico da troca não foi registrado. Avise o suporte caso a data não apareça no painel."
+        payload.mensagem ||
+          "Senha redefinida com sucesso. Agora você já pode acessar sua conta."
       );
 
-      setTimeout(() => {
+      redirecionamentoRef.current = setTimeout(() => {
         router.replace("/login");
-      }, historicoRegistrado ? 1800 : 2600);
-    } catch {
+      }, 2200);
+    } catch (error) {
       setErro(
-        "A redefinição demorou demais ou falhou. Solicite um novo link e tente novamente."
+        error instanceof Error && error.message.includes("Tempo limite")
+          ? "A redefinição demorou demais. Confira sua conexão e tente novamente."
+          : "Não foi possível redefinir sua senha. Solicite um novo link e tente novamente."
       );
     } finally {
       setLoading(false);
     }
   }
 
-  function traduzirErroSenha(mensagemErro: string) {
-    const erroNormalizado = mensagemErro.toLowerCase();
-
-    if (erroNormalizado.includes("new password should be different")) {
-      return "A nova senha precisa ser diferente da senha anterior.";
-    }
-
-    if (erroNormalizado.includes("session") || erroNormalizado.includes("jwt")) {
-      return "Sua sessão de redefinição expirou. Solicite um novo link de recuperação.";
-    }
-
-    if (erroNormalizado.includes("password")) {
-      return "Não foi possível salvar essa senha. Tente uma senha diferente.";
-    }
-
-    return "Não foi possível redefinir sua senha. Solicite um novo link de recuperação e tente novamente.";
-  }
-
   return (
-    <main className="flex min-h-screen items-center justify-center overflow-hidden bg-[#f3f5f8] p-3 sm:p-4">
+    <main className="flex min-h-dvh items-center justify-center overflow-x-hidden bg-[#f3f5f8] p-3 py-4 sm:p-4">
       <section className="grid w-full max-w-6xl overflow-hidden rounded-[24px] bg-white shadow-[0_20px_50px_rgba(15,23,42,0.10)] lg:min-h-[640px] lg:grid-cols-[0.95fr_1.05fr] xl:min-h-[680px]">
         <div className="relative hidden lg:flex">
           <Image
@@ -318,8 +395,15 @@ export default function RedefinirSenhaPage() {
 
                 <div className="relative">
                   <input
+                    id="nova-senha"
+                    name="novaSenha"
                     type={verNovaSenha ? "text" : "password"}
                     placeholder="Digite sua nova senha"
+                    autoComplete="new-password"
+                    minLength={8}
+                    maxLength={128}
+                    required
+                    aria-describedby="requisitos-senha"
                     className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 pr-20 text-sm font-semibold text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40 disabled:cursor-not-allowed disabled:opacity-70 sm:py-3"
                     value={novaSenha}
                     onChange={(e) => {
@@ -327,14 +411,22 @@ export default function RedefinirSenhaPage() {
                       setErro("");
                       setMensagem("");
                     }}
-                    disabled={senhaAtualizada || loading || validandoLink}
+                    disabled={
+                      senhaAtualizada || loading || validandoLink || !linkValido
+                    }
                   />
 
                   <button
                     type="button"
                     onClick={() => setVerNovaSenha((valor) => !valor)}
+                    aria-label={
+                      verNovaSenha ? "Ocultar nova senha" : "Mostrar nova senha"
+                    }
+                    aria-pressed={verNovaSenha}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#C9CED6] transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={senhaAtualizada || loading || validandoLink}
+                    disabled={
+                      senhaAtualizada || loading || validandoLink || !linkValido
+                    }
                   >
                     {verNovaSenha ? "Ocultar" : "Mostrar"}
                   </button>
@@ -348,8 +440,14 @@ export default function RedefinirSenhaPage() {
 
                 <div className="relative">
                   <input
+                    id="confirmar-nova-senha"
+                    name="confirmarNovaSenha"
                     type={verConfirmarSenha ? "text" : "password"}
                     placeholder="Confirme sua nova senha"
+                    autoComplete="new-password"
+                    minLength={8}
+                    maxLength={128}
+                    required
                     className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 pr-20 text-sm font-semibold text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40 disabled:cursor-not-allowed disabled:opacity-70 sm:py-3"
                     value={confirmarSenha}
                     onChange={(e) => {
@@ -357,22 +455,60 @@ export default function RedefinirSenhaPage() {
                       setErro("");
                       setMensagem("");
                     }}
-                    disabled={senhaAtualizada || loading || validandoLink}
+                    disabled={
+                      senhaAtualizada || loading || validandoLink || !linkValido
+                    }
                   />
 
                   <button
                     type="button"
                     onClick={() => setVerConfirmarSenha((valor) => !valor)}
+                    aria-label={
+                      verConfirmarSenha
+                        ? "Ocultar confirmação da senha"
+                        : "Mostrar confirmação da senha"
+                    }
+                    aria-pressed={verConfirmarSenha}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#C9CED6] transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={senhaAtualizada || loading || validandoLink}
+                    disabled={
+                      senhaAtualizada || loading || validandoLink || !linkValido
+                    }
                   >
                     {verConfirmarSenha ? "Ocultar" : "Mostrar"}
                   </button>
                 </div>
               </label>
 
+              {!senhaAtualizada && (
+                <div
+                  id="requisitos-senha"
+                  className="grid gap-1.5 rounded-2xl border border-white/10 bg-white/5 p-3 text-xs font-semibold text-[#D9DEE7] sm:grid-cols-2"
+                >
+                  <RegraSenha
+                    ok={novaSenha.length >= 8 && novaSenha.length <= 128}
+                    texto="8 a 128 caracteres"
+                  />
+                  <RegraSenha
+                    ok={/[A-Za-zÀ-ÖØ-öø-ÿ]/.test(novaSenha)}
+                    texto="Pelo menos uma letra"
+                  />
+                  <RegraSenha
+                    ok={/\d/.test(novaSenha)}
+                    texto="Pelo menos um número"
+                  />
+                  <RegraSenha
+                    ok={Boolean(confirmarSenha) && novaSenha === confirmarSenha}
+                    texto="As duas senhas conferem"
+                  />
+                </div>
+              )}
+
               {mensagem && (
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm font-semibold leading-5 text-emerald-100">
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm font-semibold leading-5 text-emerald-100"
+                >
                   {mensagem}
 
                   {senhaAtualizada && (
@@ -389,7 +525,11 @@ export default function RedefinirSenhaPage() {
               )}
 
               {erro && (
-                <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm font-semibold leading-5 text-red-200">
+                <div
+                  role="alert"
+                  aria-live="assertive"
+                  className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm font-semibold leading-5 text-red-200"
+                >
                   {erro}
 
                   <div className="mt-3">
@@ -406,7 +546,7 @@ export default function RedefinirSenhaPage() {
               {!senhaAtualizada && (
                 <button
                   type="submit"
-                  disabled={loading || validandoLink}
+                  disabled={loading || validandoLink || !linkValido}
                   className="w-full rounded-2xl py-3 text-sm font-bold text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70 sm:text-base"
                   style={{
                     background:
@@ -438,6 +578,14 @@ export default function RedefinirSenhaPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function RegraSenha({ ok, texto }: { ok: boolean; texto: string }) {
+  return (
+    <span className={ok ? "text-emerald-200" : "text-[#D9DEE7]"}>
+      <span aria-hidden="true">{ok ? "✓" : "•"}</span> {texto}
+    </span>
   );
 }
 

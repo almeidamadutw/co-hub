@@ -46,11 +46,19 @@ export function getUsuarioLogado(): User | null {
 export function limparUsuarioLogado() {
   if (typeof window === "undefined") return;
 
-  localStorage.removeItem(OLD_STORAGE_KEY);
-  sessionStorage.removeItem(OLD_STORAGE_KEY);
+  try {
+    localStorage.removeItem(OLD_STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Alguns navegadores podem bloquear o storage mesmo no cliente.
+  }
 
-  localStorage.removeItem(STORAGE_KEY);
-  sessionStorage.removeItem(STORAGE_KEY);
+  try {
+    sessionStorage.removeItem(OLD_STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // O logout do Supabase ainda será executado sem o cache local.
+  }
 }
 
 export async function logoutUsuario() {

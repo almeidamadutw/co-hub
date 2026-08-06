@@ -11,6 +11,7 @@ import {
 } from "@/utils/auth";
 import type { User } from "@/utils/auth";
 import SuporteSidebar from "@/components/SuporteSidebar";
+import { obterCabecalhoAutorizacao } from "@/utils/apiAuthClient";
 
 type UsuarioResetSenha = {
   id: string;
@@ -21,6 +22,10 @@ type UsuarioResetSenha = {
   role: string | null;
   trocas_senha: number | null;
   ultima_troca_senha: string | null;
+  total_resets_senha: number | null;
+  total_solicitacoes_senha: number | null;
+  ultima_solicitacao_senha: string | null;
+  recuperacao_automatica_disponivel: boolean | null;
 };
 
 export default function ResetSenhaSuportePage() {
@@ -36,29 +41,37 @@ export default function ResetSenhaSuportePage() {
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
 
-  async function carregarUsuarios() {
+  async function carregarUsuarios(podeAtualizar = () => true) {
     setErro("");
 
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, nome, email, telefone, status, role, trocas_senha, ultima_troca_senha"
+        "id, nome, email, telefone, status, role, trocas_senha, ultima_troca_senha, total_resets_senha, total_solicitacoes_senha, ultima_solicitacao_senha, recuperacao_automatica_disponivel"
       )
       .is("excluido_em", null)
-      .in("role", ["mentor", "mentorado"])
+      .in("role", ["mentor", "mentorado", "financeiro", "suporte"])
       .order("nome", { ascending: true });
 
     if (error) {
-      setErro(`Não foi possível carregar os usuários: ${error.message}`);
+      if (podeAtualizar()) {
+        setErro(`Não foi possível carregar os usuários: ${error.message}`);
+      }
       return;
     }
 
-    setUsuarios((data || []) as UsuarioResetSenha[]);
+    if (podeAtualizar()) {
+      setUsuarios((data || []) as UsuarioResetSenha[]);
+    }
   }
 
   useEffect(() => {
+    let ativo = true;
+
     async function carregar() {
       const user = await sincronizarUsuarioComSessao();
+
+      if (!ativo) return;
 
       if (!user) {
         router.replace("/login");
@@ -79,11 +92,18 @@ export default function ResetSenhaSuportePage() {
         setBusca(buscaInicial);
       }
 
-      await carregarUsuarios();
-      setCarregando(false);
+      await carregarUsuarios(() => ativo);
+
+      if (ativo) {
+        setCarregando(false);
+      }
     }
 
     void carregar();
+
+    return () => {
+      ativo = false;
+    };
   }, [router]);
 
   const usuariosFiltrados = useMemo(() => {
@@ -123,6 +143,8 @@ export default function ResetSenhaSuportePage() {
   function formatarPerfil(role: string | null) {
     if (role === "mentor") return "Mentor";
     if (role === "mentorado") return "Mentorado";
+    if (role === "financeiro") return "Financeiro";
+    if (role === "suporte") return "Suporte";
     return "Usuário";
   }
 
@@ -136,6 +158,11 @@ export default function ResetSenhaSuportePage() {
     if (statusAtual === "suspenso") return "Suspenso";
 
     return "Sem status";
+  }
+
+  function statusPermiteRecuperacao(status: string | null) {
+    const valor = status?.trim().toLowerCase();
+    return !valor || valor === "ativo";
   }
 
   async function resetarSenhaUsuario(item: UsuarioResetSenha) {
@@ -159,68 +186,38 @@ export default function ResetSenhaSuportePage() {
 
     setResetandoId(item.id);
 
-    const { error: liberarError } = await supabase.rpc(
-      "suporte_liberar_reset_senha",
-      {
-        p_profile_id: item.id,
-      }
-    );
+    try {
+      const headers = await obterCabecalhoAutorizacao();
+      const response = await fetch("/api/auth/recuperar-senha/suporte", {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ profileId: item.id }),
+      });
+      const payload = await response.json().catch(() => null);
 
-    if (liberarError) {
+      if (!response.ok || !payload?.ok) {
+        throw new Error(
+          payload?.error || "Não foi possível liberar e enviar o novo link."
+        );
+      }
+
+      setMensagem(
+        `Novo link enviado para ${emailNormalizado}. O histórico anterior foi preservado.`
+      );
+      await carregarUsuarios();
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível liberar e enviar o novo link."
+      );
+    } finally {
       setResetandoId(null);
-      setErro(
-        `Não foi possível liberar o reset de senha: ${
-          liberarError.message || "erro de permissão ou validação no Supabase"
-        }`
-      );
-      return;
     }
-
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      emailNormalizado,
-      {
-        redirectTo: `${window.location.origin}/redefinir-senha`,
-      }
-    );
-
-    setResetandoId(null);
-
-    if (resetError) {
-      setUsuarios((listaAtual) =>
-        listaAtual.map((usuarioAtual) =>
-          usuarioAtual.id === item.id
-            ? {
-                ...usuarioAtual,
-                trocas_senha: 0,
-                ultima_troca_senha: null,
-              }
-            : usuarioAtual
-        )
-      );
-
-      setErro(
-        `O controle de senha foi liberado e o histórico foi atualizado, mas o e-mail não foi enviado: ${resetError.message}`
-      );
-      return;
-    }
-
-    setUsuarios((listaAtual) =>
-      listaAtual.map((usuarioAtual) =>
-        usuarioAtual.id === item.id
-          ? {
-              ...usuarioAtual,
-              trocas_senha: 0,
-              ultima_troca_senha: null,
-            }
-          : usuarioAtual
-      )
-    );
-
-    setMensagem(
-      `Acesso liberado, novo link enviado para ${emailNormalizado} e histórico atualizado.`
-    );
-
-    await carregarUsuarios();
   }
 
   if (carregando || !usuario) {
@@ -263,21 +260,28 @@ export default function ResetSenhaSuportePage() {
             </h2>
 
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#D9DEE7]">
-              Use esta tela quando um mentor ou mentorado precisar receber um
-              novo link de redefinição. O sistema libera uma nova troca,
-              envia o e-mail de recuperação e registra tudo no histórico de
-              segurança.
+              Use esta tela quando qualquer usuário ativo precisar receber um
+              novo link. A liberação, o envio e a auditoria acontecem juntos,
+              sem zerar as trocas anteriores.
             </p>
           </div>
 
           {mensagem && (
-            <div className="mb-4 rounded-2xl bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-700">
+            <div
+              role="status"
+              aria-live="polite"
+              className="mb-4 rounded-2xl bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-700"
+            >
               {mensagem}
             </div>
           )}
 
           {erro && (
-            <div className="mb-4 rounded-2xl bg-red-50 p-4 text-sm font-bold leading-6 text-red-700">
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="mb-4 rounded-2xl bg-red-50 p-4 text-sm font-bold leading-6 text-red-700"
+            >
               {erro}
             </div>
           )}
@@ -289,6 +293,8 @@ export default function ResetSenhaSuportePage() {
               </span>
 
               <input
+                type="search"
+                name="buscaUsuario"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 placeholder="Digite nome, e-mail, telefone, perfil ou status"
@@ -345,7 +351,7 @@ export default function ResetSenhaSuportePage() {
                       </p>
                     )}
 
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                       <InfoMini
                         label="Trocas registradas"
                         value={String(item.trocas_senha ?? 0)}
@@ -355,6 +361,30 @@ export default function ResetSenhaSuportePage() {
                         label="Última troca"
                         value={formatarData(item.ultima_troca_senha)}
                       />
+
+                      <InfoMini
+                        label="Links enviados"
+                        value={String(item.total_resets_senha ?? 0)}
+                      />
+
+                      <InfoMini
+                        label="Recuperação automática"
+                        value={
+                          item.recuperacao_automatica_disponivel
+                            ? "Disponível"
+                            : "Exige liberação"
+                        }
+                      />
+
+                      <InfoMini
+                        label="Solicitações recebidas"
+                        value={String(item.total_solicitacoes_senha ?? 0)}
+                      />
+
+                      <InfoMini
+                        label="Última solicitação"
+                        value={formatarData(item.ultima_solicitacao_senha)}
+                      />
                     </div>
                   </div>
 
@@ -362,12 +392,19 @@ export default function ResetSenhaSuportePage() {
                     <button
                       type="button"
                       onClick={() => resetarSenhaUsuario(item)}
-                      disabled={resetandoId === item.id}
+                      disabled={
+                        resetandoId === item.id ||
+                        !statusPermiteRecuperacao(item.status)
+                      }
                       className="w-full rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 xl:w-auto"
                     >
                       {resetandoId === item.id
                         ? "Enviando..."
-                        : "Enviar novo link"}
+                        : !statusPermiteRecuperacao(item.status)
+                        ? "Usuário inativo"
+                        : item.recuperacao_automatica_disponivel
+                        ? "Enviar link autorizado"
+                        : "Liberar e enviar novo link"}
                     </button>
                   </div>
                 </div>

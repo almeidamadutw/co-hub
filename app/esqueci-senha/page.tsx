@@ -60,7 +60,7 @@ export default function EsqueciSenhaPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center overflow-hidden bg-[#f3f5f8] p-3 sm:p-4">
+    <main className="flex min-h-dvh items-center justify-center overflow-x-hidden bg-[#f3f5f8] p-3 py-4 sm:p-4">
       <section className="grid w-full max-w-6xl overflow-hidden rounded-[24px] bg-white shadow-[0_20px_50px_rgba(15,23,42,0.10)] lg:min-h-[640px] lg:grid-cols-[0.95fr_1.05fr] xl:min-h-[680px]">
         <div className="relative hidden lg:flex">
           <Image
@@ -143,8 +143,14 @@ export default function EsqueciSenhaPage() {
                 </span>
 
                 <input
+                  id="email-recuperacao"
+                  name="email"
                   type="email"
                   placeholder="exemplo: seunome@ceoclubmentoria.com.br"
+                  autoComplete="email"
+                  inputMode="email"
+                  maxLength={254}
+                  required
                   className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white outline-none backdrop-blur-sm transition placeholder:text-[#C9CED6] focus:border-[#E5E7EB] focus:ring-2 focus:ring-[#E5E7EB]/40 sm:py-3"
                   value={email}
                   onChange={(e) => {
@@ -152,31 +158,44 @@ export default function EsqueciSenhaPage() {
                     setErro("");
                     setMensagem("");
                   }}
+                  disabled={loading || Boolean(mensagem)}
                 />
               </label>
 
               {mensagem && (
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm font-semibold leading-5 text-emerald-100">
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm font-semibold leading-5 text-emerald-100"
+                >
                   {mensagem}
                 </div>
               )}
 
               {erro && (
-                <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm font-semibold leading-5 text-red-200">
+                <div
+                  role="alert"
+                  aria-live="assertive"
+                  className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm font-semibold leading-5 text-red-200"
+                >
                   {erro}
                 </div>
               )}
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || Boolean(mensagem)}
                 className="w-full rounded-2xl py-3 text-sm font-bold text-[#08163F] shadow-[0_10px_24px_rgba(191,195,201,0.30)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70 sm:text-base"
                 style={{
                   background:
                     "linear-gradient(180deg, #F3F4F6 0%, #D1D5DB 55%, #9CA3AF 100%)",
                 }}
               >
-                {loading ? "Enviando..." : "Enviar link de recuperação"}
+                {loading
+                  ? "Enviando..."
+                  : mensagem
+                  ? "Solicitação registrada"
+                  : "Enviar link de recuperação"}
               </button>
             </form>
 
@@ -190,7 +209,8 @@ export default function EsqueciSenhaPage() {
             </div>
 
             <p className="mt-5 break-words text-center text-xs font-semibold leading-5 text-[#C9CED6]">
-              O link será enviado pelo e-mail oficial do CEO Club.
+              Na primeira recuperação, o link é automático. Depois disso, o
+              Suporte recebe a solicitação para liberar um novo envio.
             </p>
           </div>
         </div>

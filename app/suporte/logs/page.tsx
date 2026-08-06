@@ -31,6 +31,16 @@ const acoesFiltro = [
   { label: "Exclusão de usuário", value: "exclusao_usuario" },
   { label: "Atualização de usuário", value: "atualizacao_usuario" },
   { label: "Reset de senha", value: "reset_senha" },
+  { label: "Recuperação liberada", value: "reset_senha_liberado" },
+  {
+    label: "Recuperação encaminhada",
+    value: "recuperacao_senha_encaminhada",
+  },
+  {
+    label: "Recuperação concluída",
+    value: "recuperacao_senha_concluida",
+  },
+  { label: "Falha no envio de senha", value: "reset_senha_envio_falhou" },
   { label: "Chamado respondido", value: "ticket_respondido" },
   { label: "Chamado resolvido", value: "ticket_resolvido" },
   { label: "Alteração de status", value: "alteracao_status" },
@@ -118,7 +128,14 @@ export default function SuporteLogsPage() {
   const resumo = (() => {
     return {
       total: logs.length,
-      resetSenha: logs.filter((log) => log.acao === "reset_senha").length,
+      resetSenha: logs.filter(
+        (log) =>
+          log.acao === "reset_senha" ||
+          log.acao === "reset_senha_liberado" ||
+          log.acao === "reset_senha_envio_falhou" ||
+          log.acao === "recuperacao_senha_encaminhada" ||
+          log.acao === "recuperacao_senha_concluida"
+      ).length,
       usuarios: logs.filter(
         (log) =>
           log.acao === "criacao_usuario" ||
@@ -149,6 +166,16 @@ export default function SuporteLogsPage() {
     if (acao === "exclusao_usuario") return "Exclusão de usuário";
     if (acao === "atualizacao_usuario") return "Atualização de usuário";
     if (acao === "reset_senha") return "Reset de senha";
+    if (acao === "reset_senha_liberado") return "Recuperação liberada";
+    if (acao === "reset_senha_envio_falhou") {
+      return "Falha no envio de recuperação";
+    }
+    if (acao === "recuperacao_senha_encaminhada") {
+      return "Recuperação encaminhada";
+    }
+    if (acao === "recuperacao_senha_concluida") {
+      return "Recuperação concluída";
+    }
     if (acao === "ticket_respondido") return "Chamado respondido";
     if (acao === "ticket_resolvido") return "Chamado resolvido";
     if (acao === "alteracao_status") return "Alteração de status";

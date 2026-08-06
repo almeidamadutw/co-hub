@@ -160,6 +160,14 @@ function formatarAcao(acao: string) {
   if (acao === "exclusao_usuario") return "Usuário excluído";
   if (acao === "atualizacao_usuario") return "Usuário atualizado";
   if (acao === "reset_senha") return "Reset de senha";
+  if (acao === "reset_senha_liberado") return "Recuperação liberada";
+  if (acao === "reset_senha_envio_falhou") return "Envio de recuperação falhou";
+  if (acao === "recuperacao_senha_encaminhada") {
+    return "Recuperação encaminhada";
+  }
+  if (acao === "recuperacao_senha_concluida") {
+    return "Recuperação concluída";
+  }
   if (acao === "ticket_respondido") return "Chamado respondido";
   if (acao === "ticket_resolvido") return "Chamado resolvido";
   if (acao === "alteracao_status") return "Status alterado";
