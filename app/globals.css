@@ -101,7 +101,8 @@ body {
 }
 
 .ceo-field,
-.input-suporte {
+.input-suporte,
+.input-ceo {
   width: 100%;
   border-radius: 1rem;
   border: 1px solid rgba(148, 163, 184, 0.28);
@@ -120,13 +121,15 @@ body {
 }
 
 .ceo-field::placeholder,
-.input-suporte::placeholder {
+.input-suporte::placeholder,
+.input-ceo::placeholder {
   color: #94a3b8;
   font-weight: 800;
 }
 
 .ceo-field:focus,
-.input-suporte:focus {
+.input-suporte:focus,
+.input-ceo:focus {
   border-color: rgba(18, 49, 124, 0.65);
   background: #ffffff;
   box-shadow:
@@ -134,13 +137,15 @@ body {
     0 8px 22px rgba(15, 23, 42, 0.06);
 }
 
-textarea.ceo-field {
+textarea.ceo-field,
+textarea.input-ceo {
   resize: vertical;
   line-height: 1.65;
 }
 
 select.ceo-field,
-select.input-suporte {
+select.input-suporte,
+select.input-ceo {
   cursor: pointer;
   appearance: none;
   background-image:
