@@ -13,7 +13,6 @@ import {
 import { aplicarStatusFinanceiroEfetivo } from "@/utils/financeiroStatus";
 import {
   idsModulosLiberados,
-  moduloEstaLiberado,
   ModuloLiberacaoGlobal,
 } from "@/utils/moduloLiberacoes";
 import { supabase } from "@/utils/supabase";
@@ -88,8 +87,12 @@ type MentoradoResumo = Mentorado & {
   progresso: number;
   aulasConcluidas: number;
   totalAulas: number;
-  financeiroAberto: number;
   cobrancasAtrasadas: number;
+  encontrosAguardando: number;
+};
+
+type MentoradoPrioritario = MentoradoResumo & {
+  motivos: string[];
 };
 
 function normalizar(valor: string | null | undefined) {
@@ -323,6 +326,21 @@ export default function DashboardPage() {
     [aulasLiberadas.length, aulasLiberadasIds, progressoAulas]
   );
 
+  const eventosAguardandoPorMentorado = useMemo(() => {
+    const mapa = new Map<string, number>();
+
+    eventos.forEach((evento) => {
+      if (evento.status !== "Aguardando" || !eventoNoFuturo(evento)) return;
+
+      mapa.set(
+        evento.mentorado_id,
+        (mapa.get(evento.mentorado_id) ?? 0) + 1
+      );
+    });
+
+    return mapa;
+  }, [eventos]);
+
   const mentoradosComResumo = useMemo<MentoradoResumo[]>(() => {
     return mentoradosAcompanhados.map((mentorado) => {
       const progresso = calcularProgressoMentorado(mentorado.id);
@@ -330,59 +348,55 @@ export default function DashboardPage() {
         (item) => item.mentorado_id === mentorado.id
       );
 
-      const financeiroAberto = cobrancasDoMentorado
-        .filter(
-          (item) => item.status !== "Pago" && item.status !== "Cancelado"
-        )
-        .reduce((acc, item) => acc + Number(item.valor_parcela || 0), 0);
-
-      const cobrancasAtrasadas = cobrancasDoMentorado.filter(
-        (item) => item.status === "Atrasado"
-      ).length;
-
       return {
         ...mentorado,
         progresso: progresso.progresso,
         aulasConcluidas: progresso.aulasConcluidas,
         totalAulas: progresso.totalAulas,
-        financeiroAberto,
-        cobrancasAtrasadas,
+        cobrancasAtrasadas: cobrancasDoMentorado.filter(
+          (item) => item.status === "Atrasado"
+        ).length,
+        encontrosAguardando:
+          eventosAguardandoPorMentorado.get(mentorado.id) ?? 0,
       };
     });
-  }, [mentoradosAcompanhados, calcularProgressoMentorado, cobrancas]);
+  }, [
+    mentoradosAcompanhados,
+    calcularProgressoMentorado,
+    cobrancas,
+    eventosAguardandoPorMentorado,
+  ]);
+
+  const mentoradosAtivosComResumo = useMemo(
+    () =>
+      mentoradosComResumo.filter((mentorado) =>
+        mentoradoEstaAtivo(mentorado)
+      ),
+    [mentoradosComResumo]
+  );
 
   const resumoFinanceiro = useMemo(() => {
-    const emAberto = cobrancas.filter(
-      (item) => item.status !== "Pago" && item.status !== "Cancelado"
-    );
     const atrasadas = cobrancas.filter((item) => item.status === "Atrasado");
 
     return {
-      totalAberto: emAberto.reduce(
-        (acc, item) => acc + Number(item.valor_parcela || 0),
-        0
-      ),
+      quantidadeAtrasada: atrasadas.length,
       totalAtrasado: atrasadas.reduce(
         (acc, item) => acc + Number(item.valor_parcela || 0),
         0
       ),
-      quantidadeAberta: emAberto.length,
-      quantidadeAtrasada: atrasadas.length,
     };
   }, [cobrancas]);
 
   const progressoMedio = useMemo(() => {
-    if (mentoradosAtivos.length === 0) return 0;
-
-    const resumosAtivos = mentoradosAtivos.map((mentorado) =>
-      calcularProgressoMentorado(mentorado.id)
-    );
+    if (mentoradosAtivosComResumo.length === 0) return 0;
 
     return Math.round(
-      resumosAtivos.reduce((acc, item) => acc + item.progresso, 0) /
-        resumosAtivos.length
+      mentoradosAtivosComResumo.reduce(
+        (acc, item) => acc + item.progresso,
+        0
+      ) / mentoradosAtivosComResumo.length
     );
-  }, [mentoradosAtivos, calcularProgressoMentorado]);
+  }, [mentoradosAtivosComResumo]);
 
   const proximosEventos = useMemo<EventoComMentorado[]>(() => {
     const agora = new Date();
@@ -407,7 +421,7 @@ export default function DashboardPage() {
 
         return dataA - dataB;
       })
-      .slice(0, 5)
+      .slice(0, 4)
       .map((evento) => ({
         ...evento,
         mentoradoNome:
@@ -416,29 +430,53 @@ export default function DashboardPage() {
       }));
   }, [eventos, mentorados]);
 
-  const pendencias = useMemo(() => {
-    return {
-      mentoradosPendentes: mentorados.filter(
-        (item) => normalizar(item.status) === "pendente"
-      ).length,
-      cobrancasAtrasadas: resumoFinanceiro.quantidadeAtrasada,
-      eventosAguardando: eventos.filter(
-        (evento) =>
-          evento.status === "Aguardando" && eventoNoFuturo(evento)
-      ).length,
-    };
-  }, [mentorados, eventos, resumoFinanceiro.quantidadeAtrasada]);
+  const mentoradosPrioritarios = useMemo<MentoradoPrioritario[]>(() => {
+    return mentoradosComResumo
+      .map((mentorado) => {
+        const motivos: string[] = [];
+        const status = normalizar(mentorado.status);
 
-  const totalPendencias =
-    pendencias.mentoradosPendentes +
-    pendencias.cobrancasAtrasadas +
-    pendencias.eventosAguardando;
+        if (status === "pendente") {
+          motivos.push("Acesso pendente");
+        }
 
-  const mentoradosOrdenados = useMemo(() => {
-    return [...mentoradosComResumo]
+        if (mentorado.cobrancasAtrasadas > 0) {
+          motivos.push(
+            mentorado.cobrancasAtrasadas === 1
+              ? "1 cobrança atrasada"
+              : `${mentorado.cobrancasAtrasadas} cobranças atrasadas`
+          );
+        }
+
+        if (mentorado.encontrosAguardando > 0) {
+          motivos.push(
+            mentorado.encontrosAguardando === 1
+              ? "Encontro aguardando"
+              : `${mentorado.encontrosAguardando} encontros aguardando`
+          );
+        }
+
+        if (
+          mentoradoEstaAtivo(mentorado) &&
+          mentorado.totalAulas > 0 &&
+          mentorado.progresso === 0
+        ) {
+          motivos.push("Sem progresso registrado");
+        }
+
+        return {
+          ...mentorado,
+          motivos,
+        };
+      })
+      .filter((mentorado) => mentorado.motivos.length > 0)
       .sort((a, b) => {
         if (b.cobrancasAtrasadas !== a.cobrancasAtrasadas) {
           return b.cobrancasAtrasadas - a.cobrancasAtrasadas;
+        }
+
+        if (b.motivos.length !== a.motivos.length) {
+          return b.motivos.length - a.motivos.length;
         }
 
         if (a.progresso !== b.progresso) {
@@ -447,8 +485,64 @@ export default function DashboardPage() {
 
         return a.nome.localeCompare(b.nome, "pt-BR");
       })
-      .slice(0, 6);
+      .slice(0, 5);
   }, [mentoradosComResumo]);
+
+  const resumoJornada = useMemo(() => {
+    return mentoradosAtivosComResumo.reduce(
+      (resumo, mentorado) => {
+        if (mentorado.progresso <= 0) {
+          resumo.semProgresso += 1;
+        } else if (mentorado.progresso >= 100) {
+          resumo.concluidos += 1;
+        } else {
+          resumo.emAndamento += 1;
+        }
+
+        return resumo;
+      },
+      {
+        semProgresso: 0,
+        emAndamento: 0,
+        concluidos: 0,
+      }
+    );
+  }, [mentoradosAtivosComResumo]);
+
+  const encontrosAguardando = useMemo(
+    () =>
+      eventos.filter(
+        (evento) =>
+          evento.status === "Aguardando" && eventoNoFuturo(evento)
+      ).length,
+    [eventos]
+  );
+
+  const proximaLiberacaoAgendada = useMemo(() => {
+    const agora = Date.now();
+
+    const liberacao = liberacoes
+      .filter(
+        (item) =>
+          item.status_liberacao === "agendado" &&
+          item.liberar_em &&
+          new Date(item.liberar_em).getTime() > agora
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.liberar_em as string).getTime() -
+          new Date(b.liberar_em as string).getTime()
+      )[0];
+
+    if (!liberacao?.liberar_em) return null;
+
+    return {
+      data: liberacao.liberar_em,
+      modulo:
+        modulos.find((item) => item.id === liberacao.modulo_id)?.titulo ??
+        "Módulo",
+    };
+  }, [liberacoes, modulos]);
 
   async function sair() {
     await logoutUsuario();
@@ -458,6 +552,8 @@ export default function DashboardPage() {
   if (!usuario || carregandoDados) {
     return <PageLoading pagina="painel da mentora" />;
   }
+
+  const proximoEvento = proximosEventos[0] ?? null;
 
   return (
     <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
@@ -494,26 +590,18 @@ export default function DashboardPage() {
         </header>
 
         <div className="relative min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px] lg:p-6">
+          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px]">
             <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 shadow-lg sm:h-24 sm:w-24">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#D9DEE7] to-[#9CA3AF] text-2xl font-black uppercase text-white sm:h-16 sm:w-16">
-                    {usuario.nome.charAt(0)}
-                  </div>
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
-                    CEO Club
-                  </p>
-                  <h2 className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
-                    Olá, {usuario.nome}
-                  </h2>
-                  <p className="mt-2 max-w-2xl break-words text-sm font-semibold leading-6 text-[#D9DEE7]">
-                    Acompanhe mentorados, progresso, encontros, financeiro e conteúdo da mentoria em uma visão única.
-                  </p>
-                </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#C9CED6] sm:text-xs">
+                  CEO Club
+                </p>
+                <h2 className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl">
+                  Olá, {usuario.nome}
+                </h2>
+                <p className="mt-2 max-w-2xl break-words text-sm font-semibold leading-6 text-[#D9DEE7]">
+                  O que precisa da sua atenção hoje, sem repetir as telas de gestão.
+                </p>
               </div>
 
               <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -550,104 +638,118 @@ export default function DashboardPage() {
           )}
 
           <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <KPI titulo="Mentorados ativos" valor={mentoradosAtivos.length} destaque />
-            <KPI titulo="Progresso médio" valor={`${progressoMedio}%`} />
-            <KPI titulo="Em aberto" valor={formatarMoeda(resumoFinanceiro.totalAberto)} />
+            <KPI
+              titulo="Mentorados ativos"
+              valor={mentoradosAtivos.length}
+              subtexto="em acompanhamento"
+              destaque
+              onClick={() => router.push("/mentor/mentorados/lista")}
+            />
+
+            <KPI
+              titulo="Progresso médio"
+              valor={`${progressoMedio}%`}
+              subtexto={`${resumoJornada.emAndamento} em andamento`}
+              onClick={() => router.push("/mentor/relatorios")}
+            />
+
+            <KPI
+              titulo="Próximo encontro"
+              valor={
+                proximoEvento
+                  ? `${formatarData(proximoEvento.data)} · ${limparHorario(
+                      proximoEvento.horario
+                    )}`
+                  : "Sem agenda"
+              }
+              subtexto={proximoEvento?.mentoradoNome ?? "nenhum encontro futuro"}
+              onClick={() => router.push("/mentor/agenda")}
+            />
+
+            <KPI
+              titulo="Mentorados em atenção"
+              valor={mentoradosPrioritarios.length}
+              subtexto="com sinal para acompanhar"
+              alerta={mentoradosPrioritarios.length > 0}
+              onClick={() => router.push("/mentor/mentorados/lista")}
+            />
+
             <KPI
               titulo="Cobranças atrasadas"
               valor={resumoFinanceiro.quantidadeAtrasada}
+              subtexto={
+                resumoFinanceiro.quantidadeAtrasada > 0
+                  ? formatarMoeda(resumoFinanceiro.totalAtrasado)
+                  : "nenhuma pendência"
+              }
               alerta={resumoFinanceiro.quantidadeAtrasada > 0}
-            />
-            <KPI
-              titulo="Pendências"
-              valor={totalPendencias}
-              alerta={totalPendencias > 0}
+              onClick={() => router.push("/mentor/financeiro")}
             />
           </section>
 
-          <section className="mb-4 min-w-0 rounded-[20px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-sm font-bold text-gray-500">
-                Evolução geral dos mentorados ativos
-              </p>
-              <p className="text-sm font-black text-[#08163F]">{progressoMedio}%</p>
-            </div>
-
-            <div className="h-3 overflow-hidden rounded-full bg-gray-100">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] via-[#12317C] to-[#07122F]"
-                style={{ width: `${Math.min(100, Math.max(0, progressoMedio))}%` }}
-              />
-            </div>
-
-            <p className="mt-3 break-words text-sm font-semibold text-gray-500">
-              Média baseada apenas nas aulas dos módulos já liberados aos mentorados.
-            </p>
-          </section>
-
-          <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-            <Card titulo="Mentorados em acompanhamento">
-              {mentoradosOrdenados.length === 0 ? (
+          <section className="mb-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+            <Card
+              titulo="Mentorados que pedem atenção"
+              subtitulo="Sinais objetivos do sistema para você decidir onde acompanhar primeiro."
+              acao="Ver todos"
+              onAcao={() => router.push("/mentor/mentorados/lista")}
+            >
+              {mentoradosPrioritarios.length === 0 ? (
                 <EmptyState
-                  titulo="Nenhum mentorado em acompanhamento"
-                  texto="Quando houver mentorados ativos ou pendentes, eles aparecerão aqui. Os acessos são administrados pela área de Suporte."
-                  botao="Ver mentorados"
-                  onClick={() => router.push("/mentor/mentorados/lista")}
+                  titulo="Nenhum sinal prioritário agora"
+                  texto="Quando houver acesso pendente, cobrança atrasada, encontro aguardando ou ausência de progresso registrado, o mentorado aparecerá aqui."
                 />
               ) : (
-                <div className="space-y-4">
-                  {mentoradosOrdenados.map((mentorado) => (
+                <div className="space-y-3">
+                  {mentoradosPrioritarios.map((mentorado) => (
                     <button
                       key={mentorado.id}
                       type="button"
                       onClick={() =>
                         router.push(`/mentor/mentorados/${mentorado.id}`)
                       }
-                      className="w-full min-w-0 rounded-2xl border border-gray-100 bg-[#f9fafb] p-3 text-left transition hover:border-[#12317C]/20 hover:bg-white hover:shadow-md sm:p-4"
+                      className="w-full min-w-0 rounded-2xl border border-gray-100 bg-[#f9fafb] p-4 text-left transition hover:border-[#12317C]/20 hover:bg-white hover:shadow-md"
                     >
                       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-3">
-                            <p className="break-words font-black text-[#08163F]">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="break-words text-sm font-black text-[#08163F] sm:text-base">
                               {mentorado.nome}
                             </p>
                             <StatusBadge status={mentorado.status || "Ativo"} />
                           </div>
 
-                          <p className="mt-1 break-words text-sm font-medium text-gray-500">
-                            {mentorado.email || "E-mail não informado"}
-                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {mentorado.motivos.map((motivo) => (
+                              <span
+                                key={motivo}
+                                className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-black text-amber-700"
+                              >
+                                {motivo}
+                              </span>
+                            ))}
+                          </div>
 
-                          <p className="mt-2 text-xs font-bold text-gray-400">
-                            {mentorado.aulasConcluidas}/{mentorado.totalAulas} aulas · {mentorado.progresso}% concluído
-                          </p>
-
-                          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] via-[#12317C] to-[#07122F]"
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  Math.max(0, mentorado.progresso)
-                                )}%`,
-                              }}
-                            />
+                          <div className="mt-4 flex items-center gap-3">
+                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-white">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] via-[#12317C] to-[#07122F]"
+                                style={{
+                                  width: `${Math.min(
+                                    100,
+                                    Math.max(0, mentorado.progresso)
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="shrink-0 text-xs font-black text-gray-500">
+                              {mentorado.progresso}%
+                            </span>
                           </div>
                         </div>
 
-                        <div className="min-w-0 text-left md:text-right">
-                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">
-                            Em aberto
-                          </p>
-                          <p className="mt-1 break-words text-sm font-black text-[#08163F]">
-                            {formatarMoeda(mentorado.financeiroAberto)}
-                          </p>
-
-                          {mentorado.cobrancasAtrasadas > 0 && (
-                            <p className="mt-1 text-xs font-black text-red-600">
-                              {mentorado.cobrancasAtrasadas} atrasada(s)
-                            </p>
-                          )}
+                        <div className="shrink-0 text-xs font-black text-[#12317C]">
+                          Abrir perfil →
                         </div>
                       </div>
                     </button>
@@ -656,178 +758,158 @@ export default function DashboardPage() {
               )}
             </Card>
 
-            <div className="min-w-0 space-y-4">
-              <Card titulo="Financeiro">
-                <div className="min-w-0 rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white sm:p-5">
-                  <p className="text-sm font-bold text-[#C9CED6]">Em aberto</p>
-                  <p className="mt-2 break-words text-xl font-black leading-tight sm:text-2xl">
-                    {formatarMoeda(resumoFinanceiro.totalAberto)}
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-[#D9DEE7]">
-                    {resumoFinanceiro.quantidadeAberta} cobrança(s) em aberto.
-                  </p>
+            <Card
+              titulo="Próximos encontros"
+              subtitulo={
+                encontrosAguardando > 0
+                  ? `${encontrosAguardando} aguardando confirmação`
+                  : "Agenda futura da mentoria"
+              }
+              acao="Abrir agenda"
+              onAcao={() => router.push("/mentor/agenda")}
+            >
+              {proximosEventos.length === 0 ? (
+                <EmptyState
+                  titulo="Nenhum encontro futuro"
+                  texto="Os próximos encontros confirmados ou aguardando aparecerão aqui."
+                  botao="Agendar encontro"
+                  onClick={() => router.push("/mentor/agenda")}
+                />
+              ) : (
+                <div className="space-y-3">
+                  {proximosEventos.map((evento, index) => (
+                    <button
+                      key={evento.id}
+                      type="button"
+                      onClick={() => router.push("/mentor/agenda")}
+                      className={`w-full min-w-0 rounded-2xl p-3 text-left transition hover:bg-white hover:shadow-md ${
+                        index === 0
+                          ? "border border-[#12317C]/15 bg-[#eef3ff]"
+                          : "bg-[#f9fafb]"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-400">
+                            {formatarData(evento.data)} ·{" "}
+                            {limparHorario(evento.horario)}
+                          </p>
+                          <p className="mt-1 break-words text-sm font-black text-[#08163F]">
+                            {evento.titulo || evento.tipo}
+                          </p>
+                          <p className="mt-1 break-words text-xs font-semibold text-gray-500">
+                            {evento.mentoradoNome}
+                          </p>
+                        </div>
 
-                  {resumoFinanceiro.quantidadeAtrasada > 0 && (
-                    <div className="mt-4 rounded-2xl bg-red-500/15 p-3">
-                      <p className="text-xs font-black uppercase tracking-[0.18em] text-red-100">
-                        Atenção
-                      </p>
-                      <p className="mt-2 font-black">
-                        {resumoFinanceiro.quantidadeAtrasada} cobrança(s) atrasada(s), totalizando {formatarMoeda(resumoFinanceiro.totalAtrasado)}.
-                      </p>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => router.push("/mentor/financeiro")}
-                    className="mt-5 rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-[#08163F] transition hover:brightness-95"
-                  >
-                    Abrir financeiro →
-                  </button>
+                        <StatusAgenda status={evento.status} />
+                      </div>
+                    </button>
+                  ))}
                 </div>
-              </Card>
+              )}
+            </Card>
+          </section>
 
-              <Card titulo="Próximos encontros">
-                {proximosEventos.length === 0 ? (
-                  <EmptyState
-                    titulo="Nenhum encontro futuro"
-                    texto="Quando houver encontros futuros e não cancelados, eles aparecerão aqui."
-                    botao="Abrir agenda"
-                    onClick={() => router.push("/mentor/agenda")}
-                  />
-                ) : (
-                  <div className="space-y-3">
-                    {proximosEventos.map((evento) => (
-                      <button
-                        key={evento.id}
-                        type="button"
-                        onClick={() => router.push("/mentor/agenda")}
-                        className="w-full min-w-0 rounded-2xl bg-[#f9fafb] p-3 text-left transition hover:bg-white hover:shadow-md"
-                      >
-                        <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">
-                          {formatarData(evento.data)} · {limparHorario(evento.horario)}
-                        </p>
-                        <p className="mt-1 break-words text-sm font-black text-[#08163F]">
-                          {evento.titulo || evento.tipo}
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-gray-500">
-                          {evento.mentoradoNome} · {evento.status}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            </div>
-
-            <Card titulo="Módulos e aulas">
-              <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <ResumoBox titulo="Módulos ativos" valor={String(modulos.length)} />
-                <ResumoBox titulo="Módulos liberados" valor={String(modulosLiberados.length)} />
-                <ResumoBox titulo="Aulas liberadas" valor={String(aulasLiberadas.length)} />
-                <ResumoBox titulo="Simulados ativos" valor={String(simulados.length)} />
+          <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <Card
+              titulo="Jornada dos mentorados"
+              subtitulo="Distribuição dos mentorados ativos pelas etapas de progresso."
+              acao="Abrir relatórios"
+              onAcao={() => router.push("/mentor/relatorios")}
+            >
+              <div className="grid gap-3 sm:grid-cols-3">
+                <ResumoBox
+                  titulo="Sem progresso"
+                  valor={String(resumoJornada.semProgresso)}
+                  descricao="ainda sem aula concluída"
+                  alerta={resumoJornada.semProgresso > 0}
+                />
+                <ResumoBox
+                  titulo="Em andamento"
+                  valor={String(resumoJornada.emAndamento)}
+                  descricao="entre 1% e 99%"
+                />
+                <ResumoBox
+                  titulo="Concluídos"
+                  valor={String(resumoJornada.concluidos)}
+                  descricao="100% das aulas liberadas"
+                />
               </div>
 
-              <div className="mt-5 space-y-3">
-                {modulos.slice(0, 4).map((modulo) => {
-                  const aulasDoModulo = aulas.filter(
-                    (aula) => aula.modulo_id === modulo.id && aula.ativo !== false
-                  );
-                  const liberacao = liberacoes.find(
-                    (item) => item.modulo_id === modulo.id
-                  );
+              <div className="mt-4 rounded-2xl bg-[#f9fafb] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-gray-500">
+                    Progresso médio
+                  </p>
+                  <p className="text-sm font-black text-[#08163F]">
+                    {progressoMedio}%
+                  </p>
+                </div>
 
-                  return (
-                    <button
-                      key={modulo.id}
-                      type="button"
-                      onClick={() => router.push("/mentor/modulos")}
-                      className="w-full min-w-0 rounded-2xl bg-[#f9fafb] p-4 text-left transition hover:bg-white hover:shadow-md"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
-                          Módulo {modulo.ordem ?? "—"}
-                        </p>
-                        <LiberacaoBadge liberacao={liberacao} />
-                      </div>
-                      <p className="mt-1 break-words text-sm font-black text-[#08163F]">
-                        {modulo.titulo}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-gray-500">
-                        {aulasDoModulo.length} aula(s) ativa(s)
-                      </p>
-                    </button>
-                  );
-                })}
-
-                {modulos.length === 0 && (
-                  <EmptyState
-                    titulo="Nenhum módulo cadastrado"
-                    texto="Crie módulos e aulas para liberar conteúdo aos mentorados."
-                    botao="Gerenciar módulos"
-                    onClick={() => router.push("/mentor/modulos")}
+                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#5B7FFF] via-[#12317C] to-[#07122F]"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.max(0, progressoMedio)
+                      )}%`,
+                    }}
                   />
-                )}
+                </div>
+
+                <p className="mt-3 text-xs font-semibold leading-5 text-gray-500">
+                  O cálculo considera somente aulas de módulos já liberados aos mentorados.
+                </p>
               </div>
             </Card>
 
-            <div className="min-w-0 space-y-4">
-              <Card titulo="Pendências prioritárias">
-                <div className="space-y-3">
-                  <PendenciaItem
-                    titulo="Cobranças atrasadas"
-                    valor={pendencias.cobrancasAtrasadas}
-                    texto="Acompanhar valores em atraso."
-                    alerta={pendencias.cobrancasAtrasadas > 0}
-                    onClick={() => router.push("/mentor/financeiro")}
-                  />
-                  <PendenciaItem
-                    titulo="Encontros aguardando"
-                    valor={pendencias.eventosAguardando}
-                    texto="Eventos futuros aguardando confirmação."
-                    alerta={pendencias.eventosAguardando > 0}
-                    onClick={() => router.push("/mentor/agenda")}
-                  />
-                  <PendenciaItem
-                    titulo="Mentorados pendentes"
-                    valor={pendencias.mentoradosPendentes}
-                    texto="Acessos pendentes são regularizados pelo Suporte."
-                    alerta={pendencias.mentoradosPendentes > 0}
-                    onClick={() => router.push("/mentor/mentorados/lista")}
-                  />
-                </div>
-              </Card>
+            <Card
+              titulo="Conteúdo da mentoria"
+              subtitulo="Resumo operacional, sem repetir a tela de Módulos."
+              acao="Gerenciar módulos"
+              onAcao={() => router.push("/mentor/modulos")}
+            >
+              <div className="grid gap-3 sm:grid-cols-3">
+                <ResumoBox
+                  titulo="Módulos liberados"
+                  valor={`${modulosLiberados.length}/${modulos.length}`}
+                  descricao="ativos e disponíveis"
+                />
+                <ResumoBox
+                  titulo="Aulas liberadas"
+                  valor={String(aulasLiberadas.length)}
+                  descricao="conteúdo disponível"
+                />
+                <ResumoBox
+                  titulo="Simulados ativos"
+                  valor={String(simulados.length)}
+                  descricao="para prática"
+                />
+              </div>
 
-              <Card titulo="Ações rápidas">
-                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                  <ActionButton
-                    label="Ver mentorados"
-                    onClick={() => router.push("/mentor/mentorados/lista")}
-                  />
-                  <ActionButton
-                    label="Agenda"
-                    onClick={() => router.push("/mentor/agenda")}
-                  />
-                  <ActionButton
-                    label="Módulos"
-                    onClick={() => router.push("/mentor/modulos")}
-                  />
-                  <ActionButton
-                    label="Simulados"
-                    onClick={() => router.push("/mentor/simulados")}
-                  />
-                  <ActionButton
-                    label="Biblioteca"
-                    onClick={() => router.push("/mentor/biblioteca")}
-                  />
-                  <ActionButton
-                    label="Relatórios"
-                    onClick={() => router.push("/mentor/relatorios")}
-                  />
-                </div>
-              </Card>
-            </div>
+              <div className="mt-4 rounded-2xl border border-[#D9DEE7] bg-[#f9fafb] p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
+                  Próxima liberação
+                </p>
+
+                {proximaLiberacaoAgendada ? (
+                  <>
+                    <p className="mt-2 break-words text-sm font-black text-[#08163F]">
+                      {proximaLiberacaoAgendada.modulo}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-gray-500">
+                      {formatarDataHora(proximaLiberacaoAgendada.data)}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm font-semibold text-gray-500">
+                    Nenhum módulo com liberação futura agendada.
+                  </p>
+                )}
+              </div>
+            </Card>
           </section>
         </div>
       </section>
@@ -849,6 +931,20 @@ function formatarData(data: string) {
   return `${dia}/${mes}/${ano}`;
 }
 
+function formatarDataHora(data: string) {
+  const valor = new Date(data);
+
+  if (Number.isNaN(valor.getTime())) return "Data não informada";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(valor);
+}
+
 function limparHorario(horario: string) {
   return horario?.slice(0, 5) || "";
 }
@@ -866,56 +962,103 @@ function eventoNoFuturo(evento: EventoAgenda, agora = new Date()) {
 function KPI({
   titulo,
   valor,
+  subtexto,
   destaque,
   alerta,
+  onClick,
 }: {
   titulo: string;
   valor: React.ReactNode;
+  subtexto?: string;
   destaque?: boolean;
   alerta?: boolean;
+  onClick?: () => void;
 }) {
-  return (
-    <div
-      className={`min-w-0 overflow-hidden rounded-[20px] p-4 shadow-lg shadow-slate-200/70 sm:p-5 ${
-        destaque
-          ? "bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-white"
-          : alerta
-          ? "bg-yellow-50 text-yellow-800"
-          : "bg-white text-[#08163F]"
-      }`}
-    >
+  const conteudo = (
+    <>
       <p
         className={`break-words text-xs font-black sm:text-sm ${
           destaque
             ? "text-[#C9CED6]"
             : alerta
-            ? "text-yellow-600"
+            ? "text-amber-600"
             : "text-gray-500"
         }`}
       >
         {titulo}
       </p>
-      <p className="mt-3 break-words text-xl font-black leading-tight sm:text-2xl lg:text-3xl">
+      <p className="mt-2 break-words text-xl font-black leading-tight sm:text-2xl">
         {valor}
       </p>
-    </div>
+      {subtexto && (
+        <p
+          className={`mt-2 line-clamp-2 text-xs font-semibold leading-5 ${
+            destaque ? "text-[#D9DEE7]" : "text-gray-400"
+          }`}
+        >
+          {subtexto}
+        </p>
+      )}
+    </>
+  );
+
+  const classe = `min-w-0 overflow-hidden rounded-[20px] p-4 text-left shadow-lg shadow-slate-200/70 transition sm:p-5 ${
+    destaque
+      ? "bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] text-white"
+      : alerta
+      ? "border border-amber-200 bg-amber-50/80 text-amber-900"
+      : "bg-white text-[#08163F]"
+  } ${onClick ? "hover:-translate-y-0.5 hover:shadow-xl" : ""}`;
+
+  if (!onClick) {
+    return <div className={classe}>{conteudo}</div>;
+  }
+
+  return (
+    <button type="button" onClick={onClick} className={classe}>
+      {conteudo}
+    </button>
   );
 }
 
 function Card({
   titulo,
+  subtitulo,
+  acao,
+  onAcao,
   children,
 }: {
   titulo: string;
+  subtitulo?: string;
+  acao?: string;
+  onAcao?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <section className="min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
-      <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
-        <h3 className="break-words text-lg font-black text-[#050816] sm:text-xl">
-          {titulo}
-        </h3>
+      <div className="flex flex-col gap-3 border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="min-w-0">
+          <h3 className="break-words text-lg font-black text-[#050816] sm:text-xl">
+            {titulo}
+          </h3>
+          {subtitulo && (
+            <p className="mt-1 break-words text-xs font-semibold leading-5 text-gray-500">
+              {subtitulo}
+            </p>
+          )}
+        </div>
+
+        {acao && onAcao && (
+          <button
+            type="button"
+            onClick={onAcao}
+            className="shrink-0 self-start rounded-xl bg-white px-3 py-2 text-xs font-black text-[#12317C] shadow-sm transition hover:shadow-md sm:self-auto"
+          >
+            {acao} →
+          </button>
+        )}
       </div>
+
       <div className="min-w-0 p-4 sm:p-5">{children}</div>
     </section>
   );
@@ -934,10 +1077,10 @@ function EmptyState({
 }) {
   return (
     <div className="min-w-0 rounded-[22px] bg-[#f9fafb] p-4 text-center sm:p-6">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[20px] bg-white text-2xl shadow-sm sm:h-16 sm:w-16 sm:text-3xl">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[18px] bg-white text-xl shadow-sm">
         ✦
       </div>
-      <h3 className="mt-4 break-words text-base font-black text-[#08163F] sm:text-lg">
+      <h3 className="mt-3 break-words text-base font-black text-[#08163F]">
         {titulo}
       </h3>
       <p className="mx-auto mt-2 max-w-md break-words text-sm font-semibold leading-relaxed text-gray-500">
@@ -948,7 +1091,7 @@ function EmptyState({
         <button
           type="button"
           onClick={onClick}
-          className="mt-5 rounded-2xl bg-white px-5 py-2.5 text-sm font-black text-[#08163F] shadow-sm transition hover:shadow-md"
+          className="mt-4 rounded-2xl bg-white px-5 py-2.5 text-sm font-black text-[#08163F] shadow-sm transition hover:shadow-md"
         >
           {botao} →
         </button>
@@ -957,74 +1100,35 @@ function EmptyState({
   );
 }
 
-function ActionButton({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="min-w-0 rounded-2xl bg-[#f9fafb] p-4 text-left text-sm font-black text-[#08163F] transition hover:bg-white hover:shadow-md"
-    >
-      {label} →
-    </button>
-  );
-}
-
-function PendenciaItem({
+function ResumoBox({
   titulo,
   valor,
-  texto,
+  descricao,
   alerta,
-  onClick,
 }: {
   titulo: string;
-  valor: number;
-  texto: string;
-  alerta: boolean;
-  onClick: () => void;
+  valor: string;
+  descricao: string;
+  alerta?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full rounded-2xl border p-4 text-left transition hover:bg-white hover:shadow-md ${
-        alerta
-          ? "border-amber-200 bg-amber-50/70"
-          : "border-gray-100 bg-[#f9fafb]"
+    <div
+      className={`min-w-0 rounded-2xl p-4 ${
+        alerta ? "border border-amber-200 bg-amber-50/70" : "bg-[#f9fafb]"
       }`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-black text-[#08163F]">{titulo}</p>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-black ${
-            alerta
-              ? "bg-amber-100 text-amber-700"
-              : "bg-emerald-50 text-emerald-700"
-          }`}
-        >
-          {valor}
-        </span>
-      </div>
-      <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">
-        {texto}
-      </p>
-    </button>
-  );
-}
-
-function ResumoBox({ titulo, valor }: { titulo: string; valor: string }) {
-  return (
-    <div className="min-w-0 rounded-2xl bg-[#f9fafb] p-4">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
+      <p
+        className={`text-[10px] font-black uppercase tracking-[0.16em] ${
+          alerta ? "text-amber-600" : "text-gray-400"
+        }`}
+      >
         {titulo}
       </p>
       <p className="mt-2 break-words text-xl font-black text-[#08163F]">
         {valor}
+      </p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">
+        {descricao}
       </p>
     </div>
   );
@@ -1045,33 +1149,23 @@ function StatusBadge({ status }: { status: string }) {
       : "bg-blue-50 text-blue-700";
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black ${classe}`}>
+    <span className={`rounded-full px-3 py-1 text-[11px] font-black ${classe}`}>
       {status}
     </span>
   );
 }
 
-function LiberacaoBadge({
-  liberacao,
-}: {
-  liberacao: ModuloLiberacaoGlobal | undefined;
-}) {
-  const liberado = moduloEstaLiberado(liberacao);
-  const agendado =
-    !liberado &&
-    liberacao?.status_liberacao === "agendado" &&
-    Boolean(liberacao.liberar_em);
-
-  const texto = liberado ? "Liberado" : agendado ? "Agendado" : "Fechado";
-  const classe = liberado
-    ? "bg-emerald-50 text-emerald-700"
-    : agendado
-    ? "bg-blue-50 text-blue-700"
-    : "bg-slate-100 text-slate-600";
+function StatusAgenda({ status }: { status: EventoAgenda["status"] }) {
+  const classe =
+    status === "Confirmada"
+      ? "bg-emerald-50 text-emerald-700"
+      : status === "Aguardando"
+      ? "bg-amber-50 text-amber-700"
+      : "bg-slate-100 text-slate-600";
 
   return (
-    <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${classe}`}>
-      {texto}
+    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${classe}`}>
+      {status}
     </span>
   );
 }
