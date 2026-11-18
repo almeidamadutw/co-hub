@@ -400,8 +400,8 @@ export default function MentorMentoradoPerfilPage() {
 
   if (naoEncontrado || !mentorado) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f3f5f8] p-4 text-[#08163F]">
-        <section className="w-full max-w-xl rounded-[28px] bg-white p-8 text-center shadow-xl shadow-slate-200/70">
+      <main className="ceo-screen flex min-h-screen items-center justify-center bg-[#f3f5f8] p-4 text-[#08163F]" data-ceo-screen="mentor/mentorados/[id]">>
+        <section className="ceo-screen-panel w-full max-w-xl rounded-[28px] bg-white p-8 text-center shadow-xl shadow-slate-200/70">
           <h1 className="text-2xl font-black">Mentorado não encontrado</h1>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
             O cadastro pode ter sido removido ou o endereço não corresponde a um mentorado ativo no sistema.
@@ -421,7 +421,7 @@ export default function MentorMentoradoPerfilPage() {
   const inicial = mentorado.nome.charAt(0).toUpperCase();
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/mentorados/[id]">>
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
@@ -429,7 +429,7 @@ export default function MentorMentoradoPerfilPage() {
       />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -468,10 +468,10 @@ export default function MentorMentoradoPerfilPage() {
         </header>
 
         <div className="px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <section className="mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px]">
+          <section className="ceo-screen-hero mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px]">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 p-1.5 sm:h-24 sm:w-24">
+                <div className="ceo-screen-panel flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 p-1.5 sm:h-24 sm:w-24">
                   {fotoPerfil ? (
                     <Image
                       src={fotoPerfil}
@@ -530,7 +530,7 @@ export default function MentorMentoradoPerfilPage() {
             </div>
           )}
 
-          <section className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="ceo-screen-metrics mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KPI titulo="Progresso" valor={`${progressoGeral.percentual}%`} destaque />
             <KPI
               titulo="Próximo encontro"
@@ -581,7 +581,7 @@ export default function MentorMentoradoPerfilPage() {
               </Card>
 
               <aside className="space-y-4">
-                <div className="rounded-[22px] bg-white p-5 shadow-lg shadow-slate-200/70">
+                <div className="ceo-screen-panel rounded-[22px] bg-white p-5 shadow-lg shadow-slate-200/70">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Acompanhamento</p>
                   <p className="mt-3 text-3xl font-black text-[#08163F]">{progressoGeral.percentual}%</p>
                   <p className="mt-1 text-sm font-semibold text-slate-500">{progressoGeral.concluidas} de {progressoGeral.total} aulas liberadas</p>
@@ -723,7 +723,7 @@ function AbaButton({ ativa, onClick, children }: { ativa: boolean; onClick: () =
 }
 
 function Card({ titulo, subtitulo, children }: { titulo: string; subtitulo?: string; children: React.ReactNode }) {
-  return <section className="min-w-0 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5 lg:p-6"><h3 className="text-xl font-black text-[#050816] sm:text-2xl">{titulo}</h3>{subtitulo && <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{subtitulo}</p>}<div className="mt-5">{children}</div></section>;
+  return <section className="ceo-screen-panel min-w-0 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5 lg:p-6"><h3 className="text-xl font-black text-[#050816] sm:text-2xl">{titulo}</h3>{subtitulo && <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{subtitulo}</p>}<div className="mt-5">{children}</div></section>;
 }
 
 function KPI({ titulo, valor, destaque, alerta }: { titulo: string; valor: React.ReactNode; destaque?: boolean; alerta?: boolean }) {
