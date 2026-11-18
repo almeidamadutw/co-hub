@@ -783,7 +783,7 @@ export default function RelatoriosPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/relatorios">>
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
@@ -794,7 +794,7 @@ export default function RelatoriosPage() {
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#12317C]/15 blur-3xl" />
         <div className="pointer-events-none absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-slate-300/30 blur-3xl" />
 
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#07122F] to-[#12317C] text-xs font-black text-white shadow-lg">
               CC
@@ -826,7 +826,7 @@ export default function RelatoriosPage() {
         </header>
 
         <div className="ceo-stack !max-w-7xl">
-          <section className="relative min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl shadow-[#07122F]/20 sm:p-5">
+          <section className="ceo-screen-hero relative min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl shadow-[#07122F]/20 sm:p-5">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
             <div className="absolute -bottom-32 left-20 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl" />
 
@@ -845,7 +845,7 @@ export default function RelatoriosPage() {
                 </p>
               </div>
 
-              <div className="min-w-0 rounded-[20px] border border-white/15 bg-white/10 p-4 backdrop-blur-md sm:max-w-[280px]">
+              <div className="ceo-screen-panel min-w-0 rounded-[20px] border border-white/15 bg-white/10 p-4 backdrop-blur-md sm:max-w-[280px]">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-100">
                   Progresso médio
                 </p>
@@ -857,7 +857,7 @@ export default function RelatoriosPage() {
             </div>
           </section>
 
-          <section className="mt-3 min-w-0 rounded-[20px] border border-white/50 bg-white/85 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm sm:p-5">
+          <section className="ceo-screen-panel mt-3 min-w-0 rounded-[20px] border border-white/50 bg-white/85 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-sm sm:p-5">
             <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.1fr)_minmax(180px,0.8fr)_minmax(160px,0.7fr)_minmax(170px,0.7fr)]">
               <input
                 value={busca}
@@ -917,14 +917,14 @@ export default function RelatoriosPage() {
             </div>
           ))}
 
-          <section className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="ceo-screen-metrics mt-3 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KPI titulo="Progresso médio" valor={`${resumoProgresso.percentualMedio}%`} texto={`${resumoProgresso.aulasConcluidasMedia} aulas por mentorado em média.`} destaque />
             <KPI titulo="Mentorados" valor={String(mentoradosFiltrados.length)} texto={`${resumoProgresso.semProgresso} sem progresso registrado.`} alerta={resumoProgresso.semProgresso > 0} />
             <KPI titulo="Presença" valor={`${resumoAgenda.taxaPresenca}%`} texto={`${resumoAgenda.concluidos}/${resumoAgenda.total} eventos concluídos.`} />
             <KPI titulo="Recebimento" valor={`${resumoFinanceiro.taxaRecebimento}%`} texto={`${formatarMoeda(resumoFinanceiro.recebido)} recebidos.`} />
           </section>
 
-          <section className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="ceo-screen-metrics mt-3 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KPI titulo="Receita prevista" valor={formatarMoeda(resumoFinanceiro.previsto)} texto="Soma das parcelas dentro dos filtros." />
             <KPI titulo="Em aberto" valor={formatarMoeda(resumoFinanceiro.aberto)} texto="Pendentes e atrasadas." />
             <KPI titulo="Atrasado" valor={formatarMoeda(resumoFinanceiro.atrasado)} texto={`${resumoFinanceiro.mentoradosComAtraso} mentorado(s) com atraso.`} alerta={resumoFinanceiro.atrasado > 0} />
@@ -1148,7 +1148,7 @@ export default function RelatoriosPage() {
             </Card>
           </section>
 
-          <section className="mt-3 min-w-0 rounded-[20px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:rounded-[22px]">
+          <section className="ceo-screen-panel mt-3 min-w-0 rounded-[20px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:rounded-[22px]">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
@@ -1263,7 +1263,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="min-w-0 overflow-hidden rounded-[20px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:rounded-[22px]">
+    <section className="ceo-screen-panel min-w-0 overflow-hidden rounded-[20px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:rounded-[22px]">
       <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
         {etiqueta}
       </p>
@@ -1282,7 +1282,7 @@ function Card({
 function EmptyState({ titulo, texto }: { titulo: string; texto: string }) {
   return (
     <div className="min-w-0 rounded-[22px] border border-dashed border-slate-200 bg-[#f9fafb] p-5 text-center sm:p-6">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[18px] bg-white text-xl shadow-sm sm:h-14 sm:w-14">
+      <div className="ceo-screen-panel mx-auto flex h-12 w-12 items-center justify-center rounded-[18px] bg-white text-xl shadow-sm sm:h-14 sm:w-14">
         ◌
       </div>
 
