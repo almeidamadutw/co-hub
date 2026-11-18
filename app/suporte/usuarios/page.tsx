@@ -1053,6 +1053,14 @@ export default function SuporteUsuariosPage() {
         </header>
 
         <section className="mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+          <div className="ceo-screen-banner">
+            <div>
+              <p className="ceo-screen-banner-eyebrow">ADMINISTRAÇÃO <span aria-hidden="true">/</span> CEO CLUB</p>
+              <h2>Gestão de pessoas e acessos.</h2>
+              <p>Uma visão organizada dos usuários, perfis e permissões da mentoria.</p>
+            </div>
+            <span className="ceo-screen-banner-detail">GOVERNANÇA & SEGURANÇA</span>
+          </div>
           {erro && (
             <div className="mb-4 rounded-2xl bg-red-50 p-4 text-sm font-bold leading-6 text-red-700">
               {erro}
