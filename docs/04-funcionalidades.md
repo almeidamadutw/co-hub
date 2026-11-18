@@ -40,3 +40,10 @@ A tela de acesso reúne a marca do CEO Club, a coroa prateada e o formulário de
 - No desktop, a barra lateral é fixa com navegação rolável; no celular, o botão **Menu** abre um painel com fechamento explícito e camada escurecida.
 - O rodapé identifica a conta e oferece **Sair da plataforma**. Os links originais de cada perfil, inclusive o acesso adicional de suporte para a mentora, foram preservados.
 - Os layouts de `/mentor`, `/mentorado` e `/suporte` ativam as novas superfícies, fundos e cabeçalhos usando a classe `ceo-workspace`. `/login` continua independente. Não há alteração de autorização, APIs ou tabelas.
+
+
+## Layout da área interna, revisão 2026-11-18
+
+- A tela de `mentor/modulos` adota hero executivo navy/prata, tipografia editorial, ações de criação e cinco indicadores compactos (módulos, ativos, aulas, aulas com vídeo, materiais). As métricas de módulos completos e sem aulas aparecem em uma faixa discreta, sem duplicação de cartões.
+- Busca, filtros e cartões dos módulos mantêm comportamentos, estados e dados existentes; recebem componentes visuais menores e bordas metálicas discretas.
+- `ceo-workspace` uniformiza fundos, cartões e campos das páginas autenticadas, sem se aplicar à entrada pública e sem mudar dados/API.
