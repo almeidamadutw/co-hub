@@ -400,7 +400,7 @@ export default function MentorMentoradoPerfilPage() {
 
   if (naoEncontrado || !mentorado) {
     return (
-      <main className="ceo-screen flex min-h-screen items-center justify-center bg-[#f3f5f8] p-4 text-[#08163F]" data-ceo-screen="mentor/mentorados/[id]">>
+      <main className="ceo-screen flex min-h-screen items-center justify-center bg-[#f3f5f8] p-4 text-[#08163F]" data-ceo-screen="mentor/mentorados/[id]">
         <section className="ceo-screen-panel w-full max-w-xl rounded-[28px] bg-white p-8 text-center shadow-xl shadow-slate-200/70">
           <h1 className="text-2xl font-black">Mentorado não encontrado</h1>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
@@ -421,7 +421,7 @@ export default function MentorMentoradoPerfilPage() {
   const inicial = mentorado.nome.charAt(0).toUpperCase();
 
   return (
-    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/mentorados/[id]">>
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/mentorados/[id]">
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
