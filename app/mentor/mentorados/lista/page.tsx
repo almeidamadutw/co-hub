@@ -385,7 +385,7 @@ export default function MentorMentoradosListaPage() {
   }
 
   return (
-    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/mentorados/lista">>
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/mentorados/lista">
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
