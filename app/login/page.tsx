@@ -199,16 +199,19 @@ export default function LoginPage() {
                   <button type="button" aria-pressed={mostrarSenha} aria-label="Mostrar senha"
                     onClick={() => setMostrarSenha(!mostrarSenha)}>{mostrarSenha ? "Ocultar" : "Ver"}</button>
                 </div>
-                <div className={styles.options}>
-                  <label><input type="checkbox" checked={manterConectado}
-                    onChange={(e) => setManterConectado(e.target.checked)} />Manter conectado</label>
-                  <Link href="/esqueci-senha">Ativar ou recuperar acesso</Link>
-                </div>
+                <label className={styles.remember}>
+                  <input type="checkbox" checked={manterConectado}
+                    onChange={(e) => setManterConectado(e.target.checked)} />
+                  <span>Manter conectado</span>
+                </label>
                 {erro && <p role="alert" className={styles.error}>{erro}</p>}
                 <button className={styles.action} disabled={carregando || verificandoSessao}>
                   {verificandoSessao ? "Verificando sessão…" : carregando ? "Entrando…" : "Entrar"}
                   <span aria-hidden="true">→</span>
                 </button>
+                <Link href="/esqueci-senha" className={styles.recoverLink}>
+                  Ativar ou recuperar acesso <span aria-hidden="true">›</span>
+                </Link>
               </form>
             </>
           ) : (

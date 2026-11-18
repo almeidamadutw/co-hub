@@ -1,5 +1,9 @@
 # Histórico da documentação | CEO Club plataforma
 
+## 2026-11-18 — Ajustes visuais no login
+
+A coroa percorre cada trecho da animação em seis segundos. O formulário usa um interruptor para manter a sessão e um botão secundário de recuperação abaixo de **Entrar**. Build e lint aprovados. Testados a duração da animação, o movimento reduzido, a seleção por teclado e o acesso à recuperação em Chromium nas larguras de 320, 390, 1024 e 1440 px.
+
 ## 2026-11-18 — Login curto e códigos de acesso
 
 - Contas existentes usam o identificador curto com a senha atual. Novos cadastros ativos recebem um código de ativação exibido ao suporte.

@@ -62,7 +62,7 @@
   mask-image: radial-gradient(ellipse, black 48%, transparent 74%);
 }
 @media (min-width: 701px) and (prefers-reduced-motion: no-preference) {
-  .crown { animation: float 10s ease-in-out infinite alternate; }
+  .crown { animation: float 6s ease-in-out infinite alternate; }
 }
 @keyframes float { from { transform: translateY(4px) rotate(-2deg); } to { transform: translateY(-5px) rotate(2deg); } }
 .footer { border-top: 1px solid #ffffff24; }
@@ -80,9 +80,31 @@
 .form .password input { padding-right: 78px; }
 .password { position: relative; }
 .password button { position: absolute; right: 12px; top: 0; bottom: 0; cursor: pointer; font-size: 14px; }
-.options { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-block: 6px; font-size: 14px; }
-.options label { display: flex; align-items: center; gap: 8px; }
-.options a { text-decoration: underline; text-underline-offset: 3px; }
+.remember {
+  display: inline-flex; align-items: center; justify-self: start;
+  min-height: 44px; gap: 11px; cursor: pointer;
+}
+.remember input {
+  appearance: none; width: 34px; height: 20px; border: 1px solid #71829c;
+  border-radius: 20px; background: #182236; position: relative; cursor: pointer;
+}
+.remember input::after {
+  content: ''; position: absolute; inset: 3px auto auto 3px;
+  width: 12px; height: 12px; border-radius: 50%; background: #b6c3d4;
+}
+.remember input:checked { background: #b6c9e5; border-color: #cddbf0; }
+.remember input:checked::after { background: #13223b; transform: translateX(14px); }
+.recoverLink {
+  display: flex; justify-content: center; align-items: center; gap: 10px;
+  min-height: 44px; border: 1px solid #43536d; border-radius: 100px;
+  color: #c6d4e9; font-size: 14px; font-weight: 500;
+}
+.recoverLink span { font-size: 20px; line-height: 1; }
+.recoverLink:hover, .recoverLink:focus-visible { background: #142137; color: #fff; }
+@media (forced-colors: active) {
+  .remember input { appearance: auto; }
+  .remember input::after { display: none; }
+}
 .form .action { margin-top: 4px; }
 .error { color: #ffc1c1; }
 @media (max-width: 700px) {

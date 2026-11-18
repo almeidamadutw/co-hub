@@ -1,7 +1,7 @@
 # Fluxos operacionais passo a passo
 
 ## Primeiro acesso e autenticação
-1. Em **Acessar plataforma**, informe seu login no formato `nome@ceoclubmentoria` e sua senha. O sistema abre a área do seu perfil.
+1. Em **Acessar plataforma**, informe seu login no formato `nome@ceoclubmentoria` e sua senha. Ajuste **Manter conectado** e selecione **Entrar**. O sistema abre a área do seu perfil.
 2. Para recuperar o acesso, abra **Ativar ou recuperar acesso**, informe o login e selecione **Solicitar código ao suporte**. Pedidos repetidos utilizam o chamado aberto.
 3. O suporte confirma a identidade da pessoa por um canal já conhecido. Em **Reset de senha**, seleciona a conta ativa e usa **Gerar código**. Entregue o código diretamente à pessoa.
 4. Com o código em mãos, selecione **Já tenho um código**, informe o login, digite o código e confirme sua nova senha. Volte ao login para entrar.
