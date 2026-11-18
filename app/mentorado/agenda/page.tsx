@@ -138,12 +138,12 @@ export default function AgendaMentoradoPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f6f7fb] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f6f7fb] text-[#08163F]" data-ceo-screen="mentorado/agenda">>
       <MentoradoSidebar nome={usuario.nome} />
 
       <section className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-7 lg:py-7 xl:px-9">
         <div className="mx-auto w-full max-w-[1320px]">
-          <header className="overflow-hidden rounded-[28px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:p-7">
+          <header className="ceo-screen-hero overflow-hidden rounded-[28px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:p-7">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#C9CED6] sm:text-xs">
@@ -169,14 +169,14 @@ export default function AgendaMentoradoPage() {
             </div>
           </header>
 
-          <section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="ceo-screen-metrics mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <ResumoCard label="Compromissos" valor={resumo.total} />
             <ResumoCard label="Confirmados" valor={resumo.confirmadas} />
             <ResumoCard label="Aguardando" valor={resumo.aguardando} />
             <ResumoCard label="Concluídos" valor={resumo.concluidas} />
           </section>
 
-          <section className="mt-5 rounded-[26px] border border-white/70 bg-white/90 p-4 shadow-xl shadow-slate-200/60 sm:p-5">
+          <section className="ceo-screen-panel mt-5 rounded-[26px] border border-white/70 bg-white/90 p-4 shadow-xl shadow-slate-200/60 sm:p-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-lg font-black">Compromissos</h2>
@@ -284,7 +284,7 @@ export default function AgendaMentoradoPage() {
 
 function ResumoCard({ label, valor }: { label: string; valor: number }) {
   return (
-    <article className="rounded-[22px] border border-white/70 bg-white/90 p-4 shadow-lg shadow-slate-200/50">
+    <article className="ceo-screen-panel rounded-[22px] border border-white/70 bg-white/90 p-4 shadow-lg shadow-slate-200/50">
       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
         {label}
       </p>
