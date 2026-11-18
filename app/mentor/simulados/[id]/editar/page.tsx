@@ -586,7 +586,7 @@ export default function SimuladoEditorPage() {
 
   if (!simulado || !formSimulado) {
     return (
-      <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/simulados/[id]/editar">>
+      <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/simulados/[id]/editar">
         <Sidebar
           nome={usuario.nome}
           role={usuario.role}
@@ -622,7 +622,7 @@ export default function SimuladoEditorPage() {
   }
 
   return (
-    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/simulados/[id]/editar">>
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/simulados/[id]/editar">
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
