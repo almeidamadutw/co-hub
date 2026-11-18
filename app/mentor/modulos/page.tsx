@@ -2214,20 +2214,6 @@ function formatarDataHora(data: string) {
   }).format(new Date(data));
 }
 
-function MiniInfo({ titulo, valor }: { titulo: string; valor: string }) {
-  return (
-    <div className="min-w-0 rounded-[22px] border border-slate-100 bg-[#f8fafc] p-4 shadow-sm">
-      <p className="break-words text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 sm:text-xs">
-        {titulo}
-      </p>
-
-      <p className="mt-3 break-words text-3xl font-black leading-none text-[#08163F] sm:text-4xl">
-        {valor}
-      </p>
-    </div>
-  );
-}
-
 function ResumoCard({
   titulo,
   valor,
