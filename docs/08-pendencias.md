@@ -22,4 +22,4 @@ Pedido, emissão, ativação e troca de senha implementados. Falta homologar o f
 
 
 ## Atualização de identidade interna, 2026-11-18
-O menu compartilhado e o tema navy/prata foram implementados na branch `design/ceo-interior-elegante-20261118` para avaliação. **Pendências:** verificação de build/lint e QA visual por perfil, conferência da responsividade em produção de preview e troca da coroa vetorial pela logo oficial prata com transparência quando enviada.
+O menu compartilhado e o tema navy/prata foram implementados na branch `design/ceo-interior-elegante-20261118` para avaliação. **Pendências:** lint e QA visual por perfil (build de preview Vercel aprovado), conferência da responsividade em produção de preview e troca da coroa vetorial pela logo oficial prata com transparência quando enviada.
