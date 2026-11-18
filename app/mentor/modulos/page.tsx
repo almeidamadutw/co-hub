@@ -1018,7 +1018,7 @@ export default function ModulosPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/modulos">>
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
