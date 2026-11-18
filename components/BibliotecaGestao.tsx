@@ -640,7 +640,7 @@ export default function BibliotecaGestao({
   }
 
   return (
-    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="components/BibliotecaGestao">>
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="components/BibliotecaGestao">
       {modoPainel === "suporte" ? (
         <SuporteSidebar nome={usuario.nome} role={usuario.role} />
       ) : (
