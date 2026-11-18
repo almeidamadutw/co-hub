@@ -1015,11 +1015,11 @@ export default function SuporteUsuariosPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="suporte/usuarios">>
       <SuporteSidebar nome={usuario.nome} role={usuario.role} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/90 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/90 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
               Suporte e T.I.
@@ -1220,7 +1220,7 @@ export default function SuporteUsuariosPage() {
             </form>
           )}
 
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+          <section className="ceo-screen-metrics grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <CardIndicador
               titulo="Usuários"
               valor={resumo.total}
@@ -1265,7 +1265,7 @@ export default function SuporteUsuariosPage() {
             />
           </section>
 
-          <section className="mt-4 grid gap-3 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_190px_190px_210px]">
+          <section className="ceo-screen-panel mt-4 grid gap-3 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_190px_190px_210px]">
             <Campo label="Buscar usuário">
               <input
                 value={busca}
@@ -1320,7 +1320,7 @@ export default function SuporteUsuariosPage() {
             </Campo>
           </section>
 
-          <section className="mt-4 overflow-hidden rounded-[24px] bg-white shadow-lg shadow-slate-200/70">
+          <section className="ceo-screen-panel mt-4 overflow-hidden rounded-[24px] bg-white shadow-lg shadow-slate-200/70">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-5">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">
@@ -1768,7 +1768,7 @@ export default function SuporteUsuariosPage() {
                 </div>
               </fieldset>
 
-              <div className="rounded-[22px] bg-white p-5 shadow-sm">
+              <div className="ceo-screen-panel rounded-[22px] bg-white p-5 shadow-sm">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
                   Ações rápidas
                 </p>
@@ -1809,7 +1809,7 @@ export default function SuporteUsuariosPage() {
                 </div>
               </div>
 
-              <div className="rounded-[22px] bg-white p-5 shadow-sm">
+              <div className="ceo-screen-panel rounded-[22px] bg-white p-5 shadow-sm">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
                   Perfil e permissões
                 </p>
@@ -1966,7 +1966,7 @@ export default function SuporteUsuariosPage() {
                   </div>
                 )}
 
-              <div className="rounded-[22px] bg-white p-5 shadow-sm">
+              <div className="ceo-screen-panel rounded-[22px] bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
@@ -2112,7 +2112,7 @@ function Tag({
 
 function InfoDetalhe({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
+    <div className="ceo-screen-panel rounded-2xl bg-white p-4 shadow-sm">
       <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">
         {label}
       </p>
