@@ -1051,7 +1051,7 @@ export default function SuporteUsuariosPage() {
       await navigator.clipboard.writeText(codigoAcessoGerado.codigo);
       setCodigoCopiado(true);
     } catch {
-      setMensagem("Não foi possível copiar automaticamente. Selecione o código mostrado e copie manualmente.");
+      window.prompt("Não foi possível copiar automaticamente. Selecione o código para copiá-lo:", codigoAcessoGerado.codigo);
     }
   }
 
@@ -2149,7 +2149,7 @@ export default function SuporteUsuariosPage() {
               </div>
               <p className="text-xs leading-5 text-[#677992]">
                 Confirme a identidade da pessoa antes de entregar o código por um canal conhecido.
-                Ele deve ser usado na opção “Já tenho um código” para definir uma senha e expira em até 2 horas.
+                Ele deve ser usado na opção “Já tenho um código” para definir uma senha e tem validade limitada.
                 Não salve nem registre este código no histórico de atendimento.
               </p>
               <div className="flex flex-wrap gap-3">
