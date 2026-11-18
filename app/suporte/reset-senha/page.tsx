@@ -251,7 +251,7 @@ export default function ResetSenhaSuportePage() {
         </header>
 
         <section className="mx-auto w-full max-w-[1280px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <div className="mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-xl lg:rounded-[26px] lg:p-6">
+          <div className="ceo-screen-hero mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-xl lg:rounded-[26px] lg:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#C9CED6]">
               Área restrita
             </p>
