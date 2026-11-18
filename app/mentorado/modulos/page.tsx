@@ -412,11 +412,11 @@ export default function MentoradoModulosPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentorado/modulos">
       <MentoradoSidebar nome={usuario.nome} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 onClick={() => router.push("/mentorado/dashboard")}
@@ -464,7 +464,7 @@ export default function MentoradoModulosPage() {
 
           {modulosDisponiveis.length === 0 ? (
             <section>
-              <div className="rounded-[24px] border border-dashed border-slate-200 bg-white p-6 text-center shadow-xl shadow-slate-200/70 sm:p-8">
+              <div className="ceo-screen-panel rounded-[24px] border border-dashed border-slate-200 bg-white p-6 text-center shadow-xl shadow-slate-200/70 sm:p-8">
                 <h1 className="break-words text-xl font-black sm:text-2xl">
                   Nenhum módulo liberado ainda
                 </h1>
@@ -476,7 +476,7 @@ export default function MentoradoModulosPage() {
           ) : (
             <div className="min-w-0 space-y-5">
               {moduloSelecionado && (
-                <section className="min-w-0 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-2xl shadow-[#07122F]/20 sm:p-5 lg:rounded-[28px] lg:p-6">
+                <section className="ceo-screen-hero min-w-0 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-2xl shadow-[#07122F]/20 sm:p-5 lg:rounded-[28px] lg:p-6">
                   <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-200">
@@ -497,7 +497,7 @@ export default function MentoradoModulosPage() {
                       </p>
                     </div>
 
-                    <div className="w-full rounded-[20px] border border-white/15 bg-white/10 p-3 backdrop-blur-sm lg:max-w-[240px]">
+                    <div className="ceo-screen-panel w-full rounded-[20px] border border-white/15 bg-white/10 p-3 backdrop-blur-sm lg:max-w-[240px]">
                       <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">
                         Status do mentorado
                       </p>
@@ -660,7 +660,7 @@ export default function MentoradoModulosPage() {
                 </section>
 
                 <aside className="min-w-0 lg:sticky lg:top-[84px] lg:max-h-[calc(100vh-100px)]">
-                  <section className="min-w-0 rounded-[22px] bg-white p-4 shadow-xl shadow-slate-200/70 sm:rounded-[24px]">
+                  <section className="ceo-screen-panel min-w-0 rounded-[22px] bg-white p-4 shadow-xl shadow-slate-200/70 sm:rounded-[24px]">
                     <div className="rounded-[20px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white sm:p-5">
                       <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-200">
                         Progresso do curso
@@ -790,7 +790,7 @@ export default function MentoradoModulosPage() {
 
       {modalArquivosAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-[min(96vw,52rem)] rounded-[24px] bg-white p-4 shadow-2xl sm:rounded-[30px] sm:p-6">
+          <div className="ceo-screen-panel w-full max-w-[min(96vw,52rem)] rounded-[24px] bg-white p-4 shadow-2xl sm:rounded-[30px] sm:p-6">
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">
@@ -898,7 +898,7 @@ function AulaListaButton({
 
 function InfoModuloCard({ titulo, texto }: { titulo: string; texto: string }) {
   return (
-    <article className="min-w-0 rounded-[20px] bg-white p-4 shadow-xl shadow-slate-200/70">
+    <article className="ceo-screen-panel min-w-0 rounded-[20px] bg-white p-4 shadow-xl shadow-slate-200/70">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
         {titulo}
       </p>
@@ -916,7 +916,7 @@ function AtividadePersonalizadaCard({
   atividade: AtividadePersonalizadaMentorado | null;
 }) {
   return (
-    <article className="min-w-0 rounded-[20px] bg-white p-4 shadow-xl shadow-slate-200/70 md:col-span-2">
+    <article className="ceo-screen-panel min-w-0 rounded-[20px] bg-white p-4 shadow-xl shadow-slate-200/70 md:col-span-2">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
@@ -966,7 +966,7 @@ function InfoAulaCard({
   acao?: React.ReactNode;
 }) {
   return (
-    <article className="w-full min-w-0 rounded-[20px] bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-5">
+    <article className="ceo-screen-panel w-full min-w-0 rounded-[20px] bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-5">
       <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">

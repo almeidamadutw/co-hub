@@ -424,11 +424,11 @@ const { data: perfilData, error: perfilError } = await supabase
   const inicial = nomeExibido?.charAt(0)?.toUpperCase() || "M";
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentorado/dashboard">
       <MentoradoSidebar nome={nomeExibido} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#08163F] text-xs font-black text-white shadow-lg">
               CC
@@ -466,7 +466,7 @@ const { data: perfilData, error: perfilError } = await supabase
             </div>
           )}
 
-          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-5 lg:rounded-[26px] lg:p-6">
+          <section className="ceo-screen-intro ceo-screen-panel mb-4 min-w-0 overflow-hidden rounded-[22px] bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-5 lg:rounded-[26px] lg:p-6">
             <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-center">
                 <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-[7px] border-white bg-gradient-to-br from-[#E5E7EB] to-[#BFC3C9] text-3xl font-black text-white shadow-xl sm:h-24 sm:w-24 sm:border-[8px]">
@@ -498,7 +498,7 @@ const { data: perfilData, error: perfilError } = await supabase
             </div>
           </section>
 
-          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="ceo-screen-metrics mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KPI
               titulo="Progresso geral"
               valor={`${resumo.progressoGeral}%`}
@@ -513,7 +513,7 @@ const { data: perfilData, error: perfilError } = await supabase
             />
           </section>
 
-          <section className="mb-4 min-w-0 rounded-[20px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5">
+          <section className="ceo-screen-panel mb-4 min-w-0 rounded-[20px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-bold text-gray-500">
                 Evolução da sua mentoria
@@ -803,7 +803,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
+    <section className="ceo-screen-panel min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
       <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
         <h3 className="break-words text-lg font-black text-[#050816] sm:text-xl">{titulo}</h3>
       </div>
@@ -826,7 +826,7 @@ function EmptyState({
 }) {
   return (
     <div className="min-w-0 rounded-[22px] bg-[#f9fafb] p-4 text-center sm:p-6">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[20px] bg-white text-2xl shadow-sm sm:h-16 sm:w-16 sm:text-3xl">
+      <div className="ceo-screen-panel mx-auto flex h-14 w-14 items-center justify-center rounded-[20px] bg-white text-2xl shadow-sm sm:h-16 sm:w-16 sm:text-3xl">
         ✦
       </div>
 

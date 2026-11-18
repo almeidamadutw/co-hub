@@ -640,7 +640,7 @@ export default function BibliotecaGestao({
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="components/BibliotecaGestao">
       {modoPainel === "suporte" ? (
         <SuporteSidebar nome={usuario.nome} role={usuario.role} />
       ) : (
@@ -653,7 +653,7 @@ export default function BibliotecaGestao({
 
       <section className="ceo-content no-scrollbar !p-4 sm:!p-5 lg:!p-6">
         <div className="ceo-stack !max-w-7xl">
-          <section className="overflow-hidden rounded-[28px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-2xl shadow-[#07122F]/20 sm:p-6 lg:p-8">
+          <section className="ceo-screen-hero overflow-hidden rounded-[28px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-2xl shadow-[#07122F]/20 sm:p-6 lg:p-8">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.28em] text-blue-200">Biblioteca CEO Club</p>
@@ -700,7 +700,7 @@ export default function BibliotecaGestao({
             ))}
           </section>
 
-          <section className="rounded-[26px] bg-white p-5 shadow-xl shadow-slate-200/70 sm:p-6">
+          <section className="ceo-screen-panel rounded-[26px] bg-white p-5 shadow-xl shadow-slate-200/70 sm:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Pastas</p>
@@ -752,7 +752,7 @@ export default function BibliotecaGestao({
             </div>
           </section>
 
-          <section className="rounded-[26px] bg-white p-5 shadow-xl shadow-slate-200/70 sm:p-6">
+          <section className="ceo-screen-panel rounded-[26px] bg-white p-5 shadow-xl shadow-slate-200/70 sm:p-6">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Arquivos</p>

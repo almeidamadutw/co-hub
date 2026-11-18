@@ -344,11 +344,11 @@ export default function SuporteFinanceiroPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="suporte/financeiro">
       <SuporteSidebar nome={usuario.nome} role={usuario.role} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/90 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/90 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
               {podeAjustar
@@ -377,7 +377,7 @@ export default function SuporteFinanceiroPage() {
         </header>
 
         <section className="mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <section className="overflow-hidden rounded-[24px] bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white shadow-xl lg:p-6">
+          <section className="ceo-screen-hero overflow-hidden rounded-[24px] bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white shadow-xl lg:p-6">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.26em] text-[#C9CED6]">
@@ -442,7 +442,7 @@ export default function SuporteFinanceiroPage() {
             />
           </section>
 
-          <section className="mt-4 rounded-[24px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5">
+          <section className="ceo-screen-panel mt-4 rounded-[24px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5">
             <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_180px_auto]">
               <input
                 value={busca}
@@ -478,7 +478,7 @@ export default function SuporteFinanceiroPage() {
           </section>
 
           <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
-            <div className="overflow-hidden rounded-[24px] bg-white shadow-lg shadow-slate-200/70">
+            <div className="ceo-screen-panel overflow-hidden rounded-[24px] bg-white shadow-lg shadow-slate-200/70">
               <div className="border-b border-slate-100 p-5">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
                   Registros consultados
@@ -561,7 +561,7 @@ export default function SuporteFinanceiroPage() {
             </div>
 
             <aside className="space-y-4">
-              <section className="rounded-[24px] bg-white p-5 shadow-lg shadow-slate-200/70">
+              <section className="ceo-screen-panel rounded-[24px] bg-white p-5 shadow-lg shadow-slate-200/70">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
                   Últimas alterações
                 </p>

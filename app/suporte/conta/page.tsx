@@ -356,11 +356,11 @@ export default function ContaSuportePage() {
   const inicial = (perfil?.nome || usuario.nome || "S").charAt(0).toUpperCase();
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="suporte/conta">
       <SuporteSidebar nome={usuario.nome} role={usuario.role} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -390,10 +390,10 @@ export default function ContaSuportePage() {
         </header>
 
         <section className="mx-auto w-full max-w-[1280px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <section className="mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px] lg:p-6">
+          <section className="ceo-screen-hero mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px] lg:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 p-1.5 shadow-lg sm:h-24 sm:w-24">
+                <div className="ceo-screen-panel flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 p-1.5 shadow-lg sm:h-24 sm:w-24">
                   {fotoPerfil ? (
                     <Image
                       src={fotoPerfil}
@@ -499,7 +499,7 @@ export default function ContaSuportePage() {
 
           {aba === "dados" && (
             <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
-              <div className="min-w-0 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5 lg:p-6">
+              <div className="ceo-screen-panel min-w-0 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5 lg:p-6">
                 <div className="mb-5">
                   <h3 className="text-xl font-black text-[#050816] sm:text-2xl">
                     Dados básicos
@@ -621,7 +621,7 @@ export default function ContaSuportePage() {
               </div>
 
               <aside className="min-w-0 space-y-4">
-                <div className="rounded-[22px] bg-white p-5 shadow-lg shadow-slate-200/70">
+                <div className="ceo-screen-panel rounded-[22px] bg-white p-5 shadow-lg shadow-slate-200/70">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
                     Acesso da conta
                   </p>
@@ -653,7 +653,7 @@ export default function ContaSuportePage() {
 
           {aba === "seguranca" && (
             <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
-              <div className="min-w-0 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5 lg:p-6">
+              <div className="ceo-screen-panel min-w-0 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5 lg:p-6">
                 <h3 className="text-xl font-black text-[#050816] sm:text-2xl">
                   Segurança da conta
                 </h3>

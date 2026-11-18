@@ -168,6 +168,22 @@ function formatarStatus(status: string | null) {
   return "Sem status";
 }
 
+function necessitaCodigoDeAtivacao(perfil: Perfil) {
+  return !perfil.last_sign_in_at || Boolean(perfil.precisa_trocar_senha);
+}
+
+function podeGerarCodigo(perfil: Perfil) {
+  return normalizar(perfil.status) === "ativo" && Boolean(perfil.email);
+}
+
+type CodigoAcessoGerado = {
+  perfilId: string;
+  nome: string;
+  login: string;
+  codigo: string;
+  finalidade: "ativacao" | "troca";
+};
+
 function temAcessoTi(perfil: Perfil) {
   return normalizar(perfil.role) === "suporte" || Boolean(perfil.acesso_suporte);
 }
@@ -263,6 +279,9 @@ export default function SuporteUsuariosPage() {
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
   const [avisoAuth, setAvisoAuth] = useState("");
+  const [gerandoCodigoId, setGerandoCodigoId] = useState<string | null>(null);
+  const [codigoAcessoGerado, setCodigoAcessoGerado] = useState<CodigoAcessoGerado | null>(null);
+  const [codigoCopiado, setCodigoCopiado] = useState(false);
 
   async function carregarUsuarios(mostrarCarregamento = false) {
     if (mostrarCarregamento) setAtualizando(true);
@@ -734,7 +753,19 @@ export default function SuporteUsuariosPage() {
         },
       });
 
-      setMensagem(payload.codigo ? `Entregue o código de ativação de ${email}: ${payload.codigo}` : "Conta criada. Para ativar, gere o código na área de troca de senha quando a conta estiver ativa.");
+      if (typeof payload?.codigo === "string" && /^\d{6,10}$/.test(payload.codigo)) {
+        setCodigoCopiado(false);
+        setCodigoAcessoGerado({
+          perfilId: String(payload?.usuario?.id ?? ""),
+          nome,
+          login: loginVisivel(email),
+          codigo: payload.codigo,
+          finalidade: "ativacao",
+        });
+        setMensagem("Conta criada. O código de ativação foi gerado e aparece em uma janela de uso único.");
+      } else {
+        setMensagem("Conta criada. Para gerar o código de ativação, coloque a conta como Ativo e use Gerar código na lista de usuários.");
+      }
       setNovoUsuario(novoUsuarioInicial);
       setMostrarNovoUsuario(false);
       await carregarUsuarios();
@@ -967,6 +998,63 @@ export default function SuporteUsuariosPage() {
     );
   }
 
+  async function gerarCodigoParaUsuario(perfil: Perfil) {
+    setErro("");
+    setMensagem("");
+    setCodigoCopiado(false);
+    setCodigoAcessoGerado(null);
+
+    if (!podeGerarCodigo(perfil)) {
+      setErro("Para gerar o código, o usuário precisa ter login e estar com status Ativo. Salve a alteração antes de continuar.");
+      return;
+    }
+
+    const finalidade = necessitaCodigoDeAtivacao(perfil) ? "ativacao" : "troca";
+    const login = loginVisivel(perfil.email);
+    const confirmado = window.confirm(
+      `Gerar código de ${finalidade === "ativacao" ? "ativação" : "troca de senha"} para ${perfil.nome || login}? O código anterior, se houver, poderá deixar de funcionar.`
+    );
+    if (!confirmado) return;
+
+    setGerandoCodigoId(perfil.id);
+    try {
+      const headers = await obterCabecalhoAutorizacao();
+      const resposta = await fetch("/api/auth/recuperar-senha/suporte", {
+        method: "POST",
+        cache: "no-store",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId: perfil.id }),
+      });
+      const payload = await resposta.json().catch(() => null);
+      if (!resposta.ok || !payload?.ok || typeof payload.codigo !== "string" || !/^\d{6,10}$/.test(payload.codigo)) {
+        throw new Error(payload?.error || "Não foi possível emitir o código.");
+      }
+
+      setCodigoAcessoGerado({
+        perfilId: perfil.id,
+        nome: perfil.nome || "Usuário",
+        login,
+        codigo: payload.codigo,
+        finalidade,
+      });
+      await carregarUsuarios();
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : "Não foi possível gerar o código de acesso.");
+    } finally {
+      setGerandoCodigoId(null);
+    }
+  }
+
+  async function copiarCodigoGerado() {
+    if (!codigoAcessoGerado) return;
+    try {
+      await navigator.clipboard.writeText(codigoAcessoGerado.codigo);
+      setCodigoCopiado(true);
+    } catch {
+      window.prompt("Não foi possível copiar automaticamente. Selecione o código para copiá-lo:", codigoAcessoGerado.codigo);
+    }
+  }
+
   function abrirResetSenha(perfil: Perfil) {
     router.push(
       `/suporte/reset-senha?busca=${encodeURIComponent(
@@ -1015,11 +1103,11 @@ export default function SuporteUsuariosPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="suporte/usuarios">
       <SuporteSidebar nome={usuario.nome} role={usuario.role} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/90 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/90 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
               Suporte e T.I.
@@ -1053,6 +1141,14 @@ export default function SuporteUsuariosPage() {
         </header>
 
         <section className="mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+          <div className="ceo-screen-banner">
+            <div>
+              <p className="ceo-screen-banner-eyebrow">ADMINISTRAÇÃO <span aria-hidden="true">/</span> CEO CLUB</p>
+              <h2>Gestão de pessoas e acessos.</h2>
+              <p>Uma visão organizada dos usuários, perfis e permissões da mentoria.</p>
+            </div>
+            <span className="ceo-screen-banner-detail">GOVERNANÇA & SEGURANÇA</span>
+          </div>
           {erro && (
             <div className="mb-4 rounded-2xl bg-red-50 p-4 text-sm font-bold leading-6 text-red-700">
               {erro}
@@ -1220,7 +1316,7 @@ export default function SuporteUsuariosPage() {
             </form>
           )}
 
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+          <section className="ceo-screen-metrics grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <CardIndicador
               titulo="Usuários"
               valor={resumo.total}
@@ -1265,7 +1361,7 @@ export default function SuporteUsuariosPage() {
             />
           </section>
 
-          <section className="mt-4 grid gap-3 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_190px_190px_210px]">
+          <section className="ceo-screen-panel mt-4 grid gap-3 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_190px_190px_210px]">
             <Campo label="Buscar usuário">
               <input
                 value={busca}
@@ -1320,7 +1416,7 @@ export default function SuporteUsuariosPage() {
             </Campo>
           </section>
 
-          <section className="mt-4 overflow-hidden rounded-[24px] bg-white shadow-lg shadow-slate-200/70">
+          <section className="ceo-screen-panel mt-4 overflow-hidden rounded-[24px] bg-white shadow-lg shadow-slate-200/70">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-5">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">
@@ -1431,10 +1527,19 @@ export default function SuporteUsuariosPage() {
                       </button>
                       <button
                         type="button"
+                        disabled={gerandoCodigoId !== null || !podeGerarCodigo(perfil)}
+                        onClick={() => void gerarCodigoParaUsuario(perfil)}
+                        title={podeGerarCodigo(perfil) ? "Gerar código de uso único" : "Ative a conta e confirme o login para gerar um código"}
+                        className="rounded-xl border border-[#c2d1e5] bg-[#e7eef8] px-3 py-2.5 text-xs font-bold text-[#173252] transition hover:bg-[#d6e4f4] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {gerandoCodigoId === perfil.id ? "Gerando..." : necessitaCodigoDeAtivacao(perfil) ? "Gerar código de ativação" : "Gerar código"}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => abrirResetSenha(perfil)}
                         className="rounded-xl bg-[#eef2ff] px-3 py-2.5 text-xs font-black text-[#12317C] transition hover:bg-[#e0e7ff]"
                       >
-                        Senha
+                        Central de senhas
                       </button>
                       {whatsapp && (
                         <a
@@ -1768,7 +1873,7 @@ export default function SuporteUsuariosPage() {
                 </div>
               </fieldset>
 
-              <div className="rounded-[22px] bg-white p-5 shadow-sm">
+              <div className="ceo-screen-panel rounded-[22px] bg-white p-5 shadow-sm">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
                   Ações rápidas
                 </p>
@@ -1782,10 +1887,19 @@ export default function SuporteUsuariosPage() {
                   </button>
                   <button
                     type="button"
+                    disabled={gerandoCodigoId !== null || !podeGerarCodigo(perfilSelecionado)}
+                    onClick={() => void gerarCodigoParaUsuario(perfilSelecionado)}
+                    className="rounded-xl bg-[#e5edf8] px-4 py-2.5 text-xs font-bold text-[#163354] disabled:cursor-not-allowed disabled:opacity-50"
+                    title={!podeGerarCodigo(perfilSelecionado) ? "Salve o status Ativo e informe o login" : undefined}
+                  >
+                    {gerandoCodigoId === perfilSelecionado.id ? "Gerando código..." : necessitaCodigoDeAtivacao(perfilSelecionado) ? "Gerar código de ativação" : "Gerar código de troca"}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => abrirResetSenha(perfilSelecionado)}
                     className="rounded-xl bg-[#eef2ff] px-4 py-2.5 text-xs font-black text-[#12317C]"
                   >
-                    Resetar senha
+                    Central de senhas
                   </button>
                   <button
                     type="button"
@@ -1809,7 +1923,7 @@ export default function SuporteUsuariosPage() {
                 </div>
               </div>
 
-              <div className="rounded-[22px] bg-white p-5 shadow-sm">
+              <div className="ceo-screen-panel rounded-[22px] bg-white p-5 shadow-sm">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
                   Perfil e permissões
                 </p>
@@ -1966,7 +2080,7 @@ export default function SuporteUsuariosPage() {
                   </div>
                 )}
 
-              <div className="rounded-[22px] bg-white p-5 shadow-sm">
+              <div className="ceo-screen-panel rounded-[22px] bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
@@ -2014,6 +2128,40 @@ export default function SuporteUsuariosPage() {
               </div>
             </div>
           </aside>
+        </div>
+      )}
+
+      {codigoAcessoGerado && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#030a17]/75 p-4 backdrop-blur-md" role="presentation">
+          <section role="dialog" aria-modal="true" aria-labelledby="codigo-acesso-titulo" className="w-full max-w-[480px] overflow-hidden rounded-[22px] border border-[#a6bbd5]/30 bg-[#f9fbff] shadow-[0_30px_100px_rgba(0,0,0,.4)]">
+            <div className="bg-gradient-to-br from-[#071526] to-[#1d3656] p-6 text-white">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#b9cce4]">Acesso seguro / CEO Club</p>
+              <h2 id="codigo-acesso-titulo" className="mt-2 font-serif text-[30px] font-normal">
+                {codigoAcessoGerado.finalidade === "ativacao" ? "Código de ativação" : "Código de troca de senha"}
+              </h2>
+              <p className="mt-2 text-sm text-[#c0d0e5]">Código de uso único gerado para {codigoAcessoGerado.nome}.</p>
+            </div>
+            <div className="space-y-4 p-6">
+              <p className="text-xs font-semibold text-[#667891]">{codigoAcessoGerado.login}</p>
+              <div className="rounded-xl border border-[#c9d6e6] bg-white p-5 text-center">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#71839e]">Código temporário</p>
+                <code className="select-all break-all font-mono text-[clamp(26px,6vw,36px)] font-bold tracking-[.2em] text-[#0d2442]">{codigoAcessoGerado.codigo}</code>
+              </div>
+              <p className="text-xs leading-5 text-[#677992]">
+                Confirme a identidade da pessoa antes de entregar o código por um canal conhecido.
+                Ele deve ser usado na opção “Já tenho um código” para definir uma senha e tem validade limitada.
+                Não salve nem registre este código no histórico de atendimento.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button type="button" onClick={() => void copiarCodigoGerado()} className="min-h-11 flex-1 rounded-xl bg-[#102745] px-4 py-3 text-sm font-bold text-white">
+                  {codigoCopiado ? "Código copiado" : "Copiar código"}
+                </button>
+                <button type="button" onClick={() => { setCodigoAcessoGerado(null); setCodigoCopiado(false); }} className="min-h-11 flex-1 rounded-xl border border-[#cbd7e7] bg-white px-4 py-3 text-sm font-bold text-[#152d4a]">
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
       )}
     </main>
@@ -2112,7 +2260,7 @@ function Tag({
 
 function InfoDetalhe({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
+    <div className="ceo-screen-panel rounded-2xl bg-white p-4 shadow-sm">
       <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">
         {label}
       </p>

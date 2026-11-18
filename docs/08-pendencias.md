@@ -29,3 +29,9 @@ O menu compartilhado e o tema navy/prata foram implementados na branch `design/c
 - Implementado na branch de trabalho: hero e KPI mais compactos na tela de Módulos; ajuste das superfícies globais e campos dos painéis.
 - A validar em preview: responsividade, leitura de títulos longos, modais existentes e consistência com os dashboards de mentorado e suporte.
 - A logo oficial transparente ainda requer um arquivo de imagem acessível no repositório ou no chat para substituição segura; não substituir a marca por recorte de print.
+
+
+## Etapa visual completa e códigos de acesso, 2026-11-18
+- Implementado em branch de revisão: classes de design system em todos os painéis e Biblioteca; nova central de emissão e cópia de códigos dentro de **Suporte → Usuários**.
+- Pendente: homologação visual em dispositivos reais, verificação das áreas que possuam layouts próprios e testes funcionais autenticados da emissão, expiração, cópia e consumo de OTP.
+- A marca prateada oficial foi enviada em PNG com fundo preto; a substituição do símbolo provisório ainda depende de disponibilizar uma versão transparente incorporável ao repositório, preservando o traço oficial.

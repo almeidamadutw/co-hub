@@ -47,3 +47,11 @@
 3. Confira o resumo compacto e os indicadores de módulos, aulas, materiais e vídeos.
 4. Use o campo de busca e os dois filtros; **Limpar** restaura a visualização completa.
 5. Na lista, abra, edite, altere liberação ou reordene cada módulo. A apresentação mudou, mas os comandos continuam com o mesmo comportamento.
+
+
+## Suporte: gerar código de ativação no cadastro e na lista
+1. Abra **Suporte → Usuários** e cadastre uma conta com status **Ativo**. Se o backend emitir o código, ele será exibido imediatamente na janela de uso único. Copie e entregue somente após confirmar a identidade por um canal conhecido.
+2. Para uma conta já cadastrada, busque a pessoa e clique em **Gerar código de ativação** (primeiro acesso) ou **Gerar código** (conta já utilizada). A mesma ação está na **Ficha do usuário → Ações rápidas**.
+3. Confirme a emissão e copie o código exibido. O código é temporário e não fica gravado no histórico de tela. Um código novo pode invalidar o anterior.
+4. Oriente a pessoa a abrir **Ativar ou recuperar acesso → Já tenho um código**, informar o login `nome@ceoclubmentoria` e definir uma senha.
+5. Se a conta estiver **Pendente**, **Inativa** ou sem login, salve o status **Ativo** antes de emitir o código. A área de **Reset de senha** permanece acessível para operações de suporte.

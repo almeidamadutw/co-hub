@@ -1,5 +1,12 @@
 # Histórico da documentação | CEO Club plataforma
 
+## 2026-11-18 — Sistema visual interno e códigos de ativação em Usuários
+
+- Aplicado o design system executivo navy/prata nas páginas reais de mentor, mentorado e suporte, incluindo biblioteca compartilhada e telas financeiras, mantendo os dados e handlers.
+- Criados estilos comuns para barra superior, banners, cartões, indicadores, formulários e controles, com foco em responsividade e consistência com a barra lateral.
+- Em Suporte → Usuários, contas ativas agora têm ação visível para gerar código temporário de ativação/troca diretamente na lista e ficha, reutilizando o endpoint já autorizado. A janela de uso único exibe o código e permite copiá-lo; não é registrado em logs ou armazenamento persistente.
+- Documentação funcional e pendências atualizadas. Build de preview e QA visual/autenticado devem ser registrados após execução.
+
 ## 2026-11-18 — Harmonização do conteúdo interno com a nova sidebar
 
 - Atualizada a página de Módulos do mentor com cabeçalho azul-marinho editorial, botões em prata, KPIs em grade compacta, faixa de status sem duplicação de indicadores e cartões com acabamento leve.

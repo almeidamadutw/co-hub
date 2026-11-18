@@ -47,3 +47,10 @@ A tela de acesso reúne a marca do CEO Club, a coroa prateada e o formulário de
 - A tela de `mentor/modulos` adota hero executivo navy/prata, tipografia editorial, ações de criação e cinco indicadores compactos (módulos, ativos, aulas, aulas com vídeo, materiais). As métricas de módulos completos e sem aulas aparecem em uma faixa discreta, sem duplicação de cartões.
 - Busca, filtros e cartões dos módulos mantêm comportamentos, estados e dados existentes; recebem componentes visuais menores e bordas metálicas discretas.
 - `ceo-workspace` uniformiza fundos, cartões e campos das páginas autenticadas, sem se aplicar à entrada pública e sem mudar dados/API.
+
+
+## Sistema visual compartilhado, 2026-11-18
+- As páginas de mentor, mentorado e suporte, incluindo biblioteca, relatórios, agenda, módulos, simulados, financeiro, contas, tickets, logs e gestão de usuários, recebem os marcadores de layout `ceo-screen`, `ceo-screen-topbar`, `ceo-screen-hero`, `ceo-screen-panel` e `ceo-screen-metrics`, com tokens visuais em `app/globals.css`.
+- Os componentes mantém os handlers, a busca, os filtros, os dados reais e a navegação já existentes. As mudanças são de apresentação (navegação, cor, hierarquia, sombra, tipografia, responsividade, estados de foco).
+- **Suporte → Usuários:** o código de ativação de novas contas ativas aparece em diálogo de uso único. Em contas existentes, o suporte pode clicar **Gerar código de ativação** (sem primeiro acesso concluído) ou **Gerar código** (contas já utilizadas), na lista e nas ações da ficha. O mesmo endpoint administrativo já autorizado em `/api/auth/recuperar-senha/suporte` emite código temporário, sem expor segredos em logs ou armazená-los na interface.
+- Contas sem status Ativo ou sem login não podem solicitar código; primeiro salve o status correto. A emissão exige autenticação de suporte no backend.

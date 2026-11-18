@@ -387,11 +387,11 @@ export default function SuportePage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="suporte">
       <SuporteSidebar nome={usuario.nome} role={usuario.role} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/90 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/90 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
               Área técnica
@@ -424,7 +424,7 @@ export default function SuportePage() {
         </header>
 
         <section className="mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <section className="overflow-hidden rounded-[24px] bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white shadow-xl lg:p-6">
+          <section className="ceo-screen-hero overflow-hidden rounded-[24px] bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white shadow-xl lg:p-6">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -486,7 +486,7 @@ export default function SuportePage() {
             </div>
           )}
 
-          <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="ceo-screen-metrics mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <CardIndicador
               titulo="Aguardando atendimento"
               valor={resumo.aguardando}
@@ -520,7 +520,7 @@ export default function SuportePage() {
           </section>
 
           <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-            <div className="overflow-hidden rounded-[24px] bg-white shadow-lg shadow-slate-200/70">
+            <div className="ceo-screen-panel overflow-hidden rounded-[24px] bg-white shadow-lg shadow-slate-200/70">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-5">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">
@@ -614,7 +614,7 @@ export default function SuportePage() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-[24px] bg-white p-5 shadow-lg shadow-slate-200/70">
+              <div className="ceo-screen-panel rounded-[24px] bg-white p-5 shadow-lg shadow-slate-200/70">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">
                   Checagem desta tela
                 </p>
@@ -645,7 +645,7 @@ export default function SuportePage() {
                 </div>
               </div>
 
-              <div className="rounded-[24px] bg-white p-5 shadow-lg shadow-slate-200/70">
+              <div className="ceo-screen-panel rounded-[24px] bg-white p-5 shadow-lg shadow-slate-200/70">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">
@@ -729,7 +729,7 @@ export default function SuportePage() {
             </div>
           </section>
 
-          <section className="mt-4 overflow-hidden rounded-[24px] bg-white shadow-lg shadow-slate-200/70">
+          <section className="ceo-screen-panel mt-4 overflow-hidden rounded-[24px] bg-white shadow-lg shadow-slate-200/70">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-5">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">
@@ -801,7 +801,7 @@ function CardIndicador({
   };
 
   return (
-    <div className="rounded-[22px] bg-white p-5 shadow-lg shadow-slate-200/70">
+    <div className="ceo-screen-panel rounded-[22px] bg-white p-5 shadow-lg shadow-slate-200/70">
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">
           {titulo}

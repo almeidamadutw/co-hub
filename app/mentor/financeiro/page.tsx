@@ -679,7 +679,7 @@ export default function FinanceiroPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/financeiro">
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
@@ -693,7 +693,7 @@ export default function FinanceiroPage() {
         <div className="pointer-events-none absolute bottom-[-140px] left-[18%] h-[320px] w-[320px] rounded-full bg-[#07122F]/10 blur-3xl" />
 
         <div className="relative z-10 mx-auto w-full max-w-[1440px]">
-          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:p-5 lg:rounded-[26px] lg:p-6">
+          <section className="ceo-screen-hero mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:p-5 lg:rounded-[26px] lg:p-6">
               <div className="flex min-w-0 flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="mb-2 text-[10px] font-black uppercase tracking-[0.28em] text-[#C9CED6] sm:text-xs">
@@ -747,7 +747,7 @@ export default function FinanceiroPage() {
             </div>
           </section>
 
-          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="ceo-screen-metrics mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <ResumoCard
               titulo="Total previsto"
               valor={formatarMoeda(resumo.totalPrevisto)}
@@ -768,7 +768,7 @@ export default function FinanceiroPage() {
             />
           </section>
 
-          <section className="mb-4 min-w-0 rounded-[20px] border border-white/50 bg-white/85 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5">
+          <section className="ceo-screen-panel mb-4 min-w-0 rounded-[20px] border border-white/50 bg-white/85 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(200px,0.7fr)]">
               <input
                 type="text"
@@ -1125,7 +1125,7 @@ export default function FinanceiroPage() {
                   </div>
 
                   {mostrarPreviewParcelas && previewParcelas.length > 0 && (
-                    <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                    <div className="ceo-screen-panel mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
                       <div className="grid grid-cols-[0.5fr_1fr_1fr_0.8fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-3 text-xs font-black uppercase tracking-[0.12em] text-white">
                         <span>Parcela</span>
                         <span>Vencimento</span>
@@ -1186,7 +1186,7 @@ export default function FinanceiroPage() {
             </form>
           )}
 
-          <section className="min-w-0 overflow-x-auto rounded-[20px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[24px]">
+          <section className="ceo-screen-panel min-w-0 overflow-x-auto rounded-[20px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[24px]">
             {podeGerenciar ? (
               <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white/90 p-4">
                 <div>
@@ -1434,7 +1434,7 @@ export default function FinanceiroPage() {
 
       {cobrancaSelecionada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-[min(96vw,48rem)] overflow-hidden rounded-[24px] bg-white shadow-2xl sm:rounded-[30px]">
+          <div className="ceo-screen-panel w-full max-w-[min(96vw,48rem)] overflow-hidden rounded-[24px] bg-white shadow-2xl sm:rounded-[30px]">
             <div className="bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>

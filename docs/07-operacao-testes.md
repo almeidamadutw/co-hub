@@ -40,3 +40,10 @@ Confirmar build, migrações, variáveis e estado do deploy no provedor real. N�
 - Verificação estática feita: eventos de `Nova aula`, `Novo módulo`, busca, filtros, reordenação, edição e liberação preservados; indicadores continuam derivados de `resumo`, sem inclusão de dados simulados.
 - Pendências de homologação: lint, build, revisão visual nas resoluções 390px e 1440px, navegação autenticada em cada perfil, contraste/foco por teclado e teste do menu lateral.
 - O redesign desta etapa não altera tabelas, migrações ou permissões do Supabase.
+
+
+## Revisão do design system e do fluxo de códigos em Usuários
+- Aplicação visual por marcadores nas páginas existentes de todos os perfis (mentor, mentorado, financeiro via área financeira, suporte) e na Biblioteca compartilhada. O login público e as chamadas Supabase permanecem independentes.
+- A emissão de código reutiliza a API `/api/auth/recuperar-senha/suporte`, autorizada no servidor para suporte, com uso único e expiração controlados pelo fluxo atual; sem migração ou credencial nova. O código não é persistido no frontend além do estado temporário da janela. Cópia só por interação explícita.
+- Verificar: criação de usuário ativo, emissão para perfil já ativo, bloqueio de emissão em conta não ativa, expiração e consumo do código, permissão de suporte, login sem domínio .com.br, estado de erros, fechamento e cópia do modal.
+- Executar build Next.js/TypeScript no preview Vercel e testar a navegação autenticada de todos os perfis em telas móveis e desktop antes de considerar homologado. Não afirmar que telas/dados de produção foram validados apenas pela compilação.
