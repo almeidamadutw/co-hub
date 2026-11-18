@@ -753,7 +753,7 @@ export default function SuporteUsuariosPage() {
         },
       });
 
-      if (typeof payload?.codigo === "string" && /^\\d{6,10}$/.test(payload.codigo)) {
+      if (typeof payload?.codigo === "string" && /^\d{6,10}$/.test(payload.codigo)) {
         setCodigoCopiado(false);
         setCodigoAcessoGerado({
           perfilId: String(payload?.usuario?.id ?? ""),
@@ -1026,7 +1026,7 @@ export default function SuporteUsuariosPage() {
         body: JSON.stringify({ profileId: perfil.id }),
       });
       const payload = await resposta.json().catch(() => null);
-      if (!resposta.ok || !payload?.ok || typeof payload.codigo !== "string" || !/^\\d{6,10}$/.test(payload.codigo)) {
+      if (!resposta.ok || !payload?.ok || typeof payload.codigo !== "string" || !/^\d{6,10}$/.test(payload.codigo)) {
         throw new Error(payload?.error || "Não foi possível emitir o código.");
       }
 
