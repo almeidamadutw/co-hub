@@ -285,7 +285,7 @@ export default function ContaPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/conta">>
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
@@ -293,7 +293,7 @@ export default function ContaPage() {
       />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <button
               onClick={voltar}
@@ -324,7 +324,7 @@ export default function ContaPage() {
           <div className="mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px] lg:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 p-1.5 shadow-lg sm:h-24 sm:w-24">
+                <div className="ceo-screen-panel flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 p-1.5 shadow-lg sm:h-24 sm:w-24">
                   {fotoPerfil ? (
                     <Image
                       src={fotoPerfil}
@@ -412,7 +412,7 @@ export default function ContaPage() {
 
           {aba === "dados" && (
             <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
-              <div className="rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5 lg:p-6">
+              <div className="ceo-screen-panel rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5 lg:p-6">
                 <div className="mb-5">
                   <h3 className="text-xl font-black text-[#050816] sm:text-2xl">
                     Dados básicos
@@ -561,7 +561,7 @@ export default function ContaPage() {
 
           {aba === "seguranca" && (
             <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
-              <div className="rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5 lg:p-6">
+              <div className="ceo-screen-panel rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5 lg:p-6">
                 <div className="mb-5">
                   <h3 className="text-xl font-black text-[#050816] sm:text-2xl">
                     Segurança
@@ -656,7 +656,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
+    <section className="ceo-screen-panel overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
       <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
         <h3 className="text-xl font-black text-[#050816] sm:text-2xl">
           {titulo}
