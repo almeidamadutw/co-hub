@@ -424,7 +424,7 @@ const { data: perfilData, error: perfilError } = await supabase
   const inicial = nomeExibido?.charAt(0)?.toUpperCase() || "M";
 
   return (
-    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentorado/dashboard">>
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentorado/dashboard">
       <MentoradoSidebar nome={nomeExibido} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
