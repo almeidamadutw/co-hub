@@ -21,7 +21,6 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     storage: supabaseAuthStorage,
     persistSession: true,
     autoRefreshToken: true,
-    // A página /redefinir-senha trata explicitamente links PKCE e implicit.
     detectSessionInUrl: false,
   },
 });

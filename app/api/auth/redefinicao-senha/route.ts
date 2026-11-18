@@ -1,231 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  criarClienteAdmin,
-  erroConfig,
-  responderPermissaoNegada,
-  verificarAcesso,
-} from "@/utils/apiAuth";
+import { criarClienteAdmin, criarClientePublico } from "@/utils/apiAuth";
+import { assinaturaDoCodigo } from "@/utils/passwordRecoveryServer";
+import { emailDoLogin } from "@/utils/loginCEO";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-const ROLES_AUTENTICADAS = [
-  "mentor",
-  "mentorado",
-  "financeiro",
-  "suporte",
-] as const;
-
-type ValidacaoRecuperacao = {
-  valida: boolean;
-  solicitacao_id: string | null;
-};
-
-function uuidValido(valor: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    valor
-  );
-}
-
-function senhaValida(senha: string) {
-  return (
-    senha.length >= 8 &&
-    senha.length <= 128 &&
-    /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(senha) &&
-    /\d/.test(senha)
-  );
-}
-
-function respostaSemCache(body: Record<string, unknown>, status = 200) {
-  return NextResponse.json(body, {
-    status,
-    headers: { "Cache-Control": "private, no-store" },
-  });
-}
-
-async function obterPermissao(request: NextRequest) {
-  return verificarAcesso(request, [...ROLES_AUTENTICADAS]);
-}
-
-async function validarRecuperacao(profileId: string) {
-  const admin = criarClienteAdmin();
-  const { data, error } = await admin.rpc("recuperacao_senha_validar", {
-    p_profile_id: profileId,
-  });
-
-  if (error) {
-    throw new Error(error.message || "Não foi possível validar a recuperação.");
-  }
-
-  return (Array.isArray(data) ? data[0] : data) as
-    | ValidacaoRecuperacao
-    | null;
-}
-
-export async function GET(request: NextRequest) {
-  const configuracao = erroConfig();
-
-  if (configuracao) {
-    return respostaSemCache({ ok: false, error: configuracao }, 500);
-  }
-
-  const permissao = await obterPermissao(request);
-
-  if (!permissao.ok) {
-    return responderPermissaoNegada(permissao);
-  }
-
-  try {
-    const validacao = await validarRecuperacao(permissao.userId);
-
-    if (!validacao?.valida || !validacao.solicitacao_id) {
-      return respostaSemCache(
-        {
-          ok: false,
-          error:
-            "Esse link não corresponde a uma recuperação ativa. Solicite um novo link.",
-        },
-        403
-      );
-    }
-
-    return respostaSemCache({
-      ok: true,
-      solicitacaoId: validacao.solicitacao_id,
-    });
-  } catch (error) {
-    console.error(
-      "Falha ao validar recuperação de senha:",
-      error instanceof Error ? error.message : "erro desconhecido"
-    );
-
-    return respostaSemCache(
-      { ok: false, error: "Não foi possível validar esta recuperação." },
-      500
-    );
-  }
+function resposta(body: Record<string, unknown>, status = 200) {
+  return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: NextRequest) {
-  const configuracao = erroConfig();
-
-  if (configuracao) {
-    return respostaSemCache({ ok: false, error: configuracao }, 500);
-  }
-
-  const permissao = await obterPermissao(request);
-
-  if (!permissao.ok) {
-    return responderPermissaoNegada(permissao);
-  }
-
   const body = await request.json().catch(() => null);
-  const solicitacaoId = String(body?.solicitacaoId ?? "").trim();
-  const novaSenha = typeof body?.novaSenha === "string" ? body.novaSenha : "";
-
-  if (!uuidValido(solicitacaoId)) {
-    return respostaSemCache(
-      { ok: false, error: "A solicitação de recuperação é inválida." },
-      400
-    );
+  const email = emailDoLogin(String(body?.login ?? ""));
+  const codigo = String(body?.codigo ?? "").trim();
+  const senha = typeof body?.senha === "string" ? body.senha : "";
+  if (!email || !/^\d{6,10}$/.test(codigo)) {
+    return resposta({ error: "Confira o login e o código recebido do suporte." }, 400);
+  }
+  if (senha !== senha.trim() || senha.length < 8 || senha.length > 128 || !/\p{L}/u.test(senha) || !/\d/.test(senha)) {
+    return resposta({ error: "Use de 8 a 128 caracteres com letra e número, sem espaços nas pontas." }, 400);
   }
 
-  if (!senhaValida(novaSenha)) {
-    return respostaSemCache(
-      {
-        ok: false,
-        error:
-          "Use uma senha de 8 a 128 caracteres, com pelo menos uma letra e um número.",
-      },
-      400
-    );
+  const cliente = criarClientePublico();
+  const { data, error } = await cliente.auth.verifyOtp({ email, token: codigo, type: "recovery" });
+  if (error || !data.user || !data.session) {
+    return resposta({ error: "Código inválido ou expirado. Confira o código mais recente ou solicite outro." }, 400);
   }
 
   try {
-    const validacao = await validarRecuperacao(permissao.userId);
-
-    if (
-      !validacao?.valida ||
-      validacao.solicitacao_id !== solicitacaoId
-    ) {
-      return respostaSemCache(
-        {
-          ok: false,
-          error:
-            "Essa recuperação expirou ou já foi utilizada. Solicite um novo link.",
-        },
-        403
-      );
-    }
-
+    const id = data.user.id;
     const admin = criarClienteAdmin();
-    const { error: senhaError } = await admin.auth.admin.updateUserById(
-      permissao.userId,
-      { password: novaSenha }
-    );
-
-    if (senhaError) {
-      const codigo = String(senhaError.code ?? "").toLowerCase();
-      const mensagem = senhaError.message.toLowerCase();
-
-      if (
-        codigo.includes("weak_password") ||
-        mensagem.includes("password") ||
-        mensagem.includes("senha")
-      ) {
-        return respostaSemCache(
-          {
-            ok: false,
-            error:
-              "Essa senha não atende aos requisitos de segurança. Escolha uma combinação diferente.",
-          },
-          400
-        );
-      }
-
-      throw new Error(senhaError.message);
-    }
-
-    const { data: concluida, error: conclusaoError } = await admin.rpc(
-      "recuperacao_senha_concluir",
-      {
-        p_profile_id: permissao.userId,
-        p_solicitacao_id: solicitacaoId,
-      }
-    );
-
-    if (conclusaoError || concluida !== true) {
-      console.error(
-        "Senha alterada sem conclusão do histórico:",
-        conclusaoError?.message ?? "retorno inválido"
-      );
-
-      return respostaSemCache({
-        ok: true,
-        historicoRegistrado: false,
-        mensagem:
-          "Senha redefinida com sucesso. O registro de auditoria precisará ser conferido pelo Suporte.",
-      });
-    }
-
-    return respostaSemCache({
-      ok: true,
-      historicoRegistrado: true,
-      mensagem: "Senha redefinida com sucesso.",
+    const { data: perfil } = await admin.from("profiles").select("status").eq("id", id).is("excluido_em", null).maybeSingle();
+    const { data: pedido } = await admin.rpc("pedido_do_codigo", {
+      p_perfil: id, p_assinatura: assinaturaDoCodigo(id, codigo),
     });
-  } catch (error) {
-    console.error(
-      "Falha ao redefinir senha:",
-      error instanceof Error ? error.message : "erro desconhecido"
-    );
-
-    return respostaSemCache(
-      {
-        ok: false,
-        error:
-          "Não foi possível redefinir a senha agora. Solicite um novo link e tente novamente.",
-      },
-      500
-    );
+    if (!perfil || (perfil.status && perfil.status.toLowerCase() !== "ativo") || !pedido) {
+      return resposta({ error: "Solicite uma nova liberação ao suporte." }, 403);
+    }
+    const alteracao = await cliente.auth.updateUser({ password: senha });
+    if (alteracao.error) return resposta({ error: "A senha foi recusada. Solicite outro código e escolha uma senha diferente." }, 400);
+    const registro = await admin.rpc("concluir_troca_por_codigo", { p_perfil: id, p_pedido: pedido });
+    if (registro.error || !registro.data) console.error("Falha ao registrar conclusão da troca por código", pedido);
+    return resposta({ ok: true, mensagem: "Senha salva. Entre com seu login e a nova senha." });
+  } finally {
+    await cliente.auth.signOut({ scope: "local" });
   }
 }

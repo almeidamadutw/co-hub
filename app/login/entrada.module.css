@@ -100,3 +100,9 @@
   .header span { font-size: 10px; }
   .hero:has(.form) .art { display: none; }
 }
+.recovery {
+  display: grid; place-items: center; min-height: var(--ceo-viewport-height);
+  padding: 32px 20px; color: #eef3ff; background: radial-gradient(ellipse at top right, #142953, #050b19 64%);
+}
+.recovery section { width: min(100%, 410px); }
+.recovery :focus-visible { outline: 2px solid #a8cbff; outline-offset: 3px; }

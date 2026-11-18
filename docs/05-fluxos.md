@@ -1,10 +1,11 @@
 # Fluxos operacionais passo a passo
 
 ## Primeiro acesso e autenticação
-1. Abra a plataforma em `/` ou `/login`. Selecione **Acessar plataforma** para abrir o formulário na mesma tela. Informe seu e-mail e senha e selecione **Entrar**.
-2. O sistema carrega o perfil e direciona para a área correspondente.
-3. Se houver falha de acesso, usar `/esqueci-senha` e o fluxo de redefinição.
-4. Suporte pode tratar casos por suas telas administrativas, respeitando política de acesso.
+1. Em **Acessar plataforma**, informe seu login no formato `nome@ceoclubmentoria` e sua senha. O sistema abre a área do seu perfil.
+2. Para recuperar o acesso, abra **Ativar ou recuperar acesso**, informe o login e selecione **Solicitar código ao suporte**. Pedidos repetidos utilizam o chamado aberto.
+3. O suporte confirma a identidade da pessoa por um canal já conhecido. Em **Reset de senha**, seleciona a conta ativa e usa **Gerar código**. Entregue o código diretamente à pessoa.
+4. Com o código em mãos, selecione **Já tenho um código**, informe o login, digite o código e confirme sua nova senha. Volte ao login para entrar.
+5. No cadastro de uma conta ativa em **Suporte → Usuários**, o sistema exibe o código de ativação ao suporte. Para uma conta cadastrada como pendente, ative-a quando apropriado e gere o código na central.
 
 ## Mentor: preparar conteúdo
 1. Entrar em `/mentor/modulos`.

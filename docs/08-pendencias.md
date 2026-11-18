@@ -15,3 +15,7 @@
 ## Identidade visual
 
 Entrada implementada em `/login`. A extensão da identidade aos painéis internos está planejada para depois da avaliação desta primeira tela.
+
+## Acesso por código
+
+Pedido, emissão, ativação e troca de senha implementados. Falta homologar o fluxo completo com uma conta dedicada no ambiente publicado.

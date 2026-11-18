@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { loginVisivel } from "@/utils/loginCEO";
 import PageLoading from "@/components/PageLoading";
 import { supabase } from "@/utils/supabase";
 import {
@@ -170,14 +171,14 @@ export default function ResetSenhaSuportePage() {
     setMensagem("");
 
     if (!item.id || !item.email) {
-      setErro("Este usuário não possui e-mail cadastrado.");
+      setErro("Este usuário não possui login cadastrado.");
       return;
     }
 
-    const emailNormalizado = item.email.trim().toLowerCase();
+    const emailNormalizado = loginVisivel(item.email);
 
     const confirmar = window.confirm(
-      `Deseja liberar uma nova troca de senha e enviar um novo link para ${
+      `Gerar um código de acesso para ${
         item.nome || emailNormalizado
       }?`
     );
@@ -201,19 +202,19 @@ export default function ResetSenhaSuportePage() {
 
       if (!response.ok || !payload?.ok) {
         throw new Error(
-          payload?.error || "Não foi possível liberar e enviar o novo link."
+          payload?.error || "Não foi possível gerar o código."
         );
       }
 
       setMensagem(
-        `Novo link enviado para ${emailNormalizado}. O histórico anterior foi preservado.`
+        `Código de uso único para ${emailNormalizado}: ${payload.codigo}`
       );
       await carregarUsuarios();
     } catch (error) {
       setErro(
         error instanceof Error
           ? error.message
-          : "Não foi possível liberar e enviar o novo link."
+          : "Não foi possível gerar o código."
       );
     } finally {
       setResetandoId(null);
@@ -260,9 +261,7 @@ export default function ResetSenhaSuportePage() {
             </h2>
 
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#D9DEE7]">
-              Use esta tela quando qualquer usuário ativo precisar receber um
-              novo link. A liberação, o envio e a auditoria acontecem juntos,
-              sem zerar as trocas anteriores.
+              Confirme a identidade da pessoa, gere o código e entregue a ela pelo canal de atendimento. O mesmo fluxo serve para ativação e troca de senha.
             </p>
           </div>
 
@@ -297,7 +296,7 @@ export default function ResetSenhaSuportePage() {
                 name="buscaUsuario"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                placeholder="Digite nome, e-mail, telefone, perfil ou status"
+                placeholder="Digite nome, login, telefone, perfil ou status"
                 className="mt-2 w-full rounded-2xl border border-gray-200 bg-[#f9fafb] px-4 py-3 text-sm font-bold text-[#08163F] outline-none transition placeholder:text-gray-400 focus:border-[#12317C] focus:bg-white focus:ring-4 focus:ring-[#12317C]/10"
               />
             </label>
@@ -342,7 +341,7 @@ export default function ResetSenhaSuportePage() {
                     </div>
 
                     <p className="mt-2 break-all text-sm font-bold text-gray-500">
-                      {item.email || "E-mail não informado"}
+                      {loginVisivel(item.email) || "Login não informado"}
                     </p>
 
                     {item.telefone && (
@@ -363,17 +362,8 @@ export default function ResetSenhaSuportePage() {
                       />
 
                       <InfoMini
-                        label="Links enviados"
+                        label="Liberações registradas"
                         value={String(item.total_resets_senha ?? 0)}
-                      />
-
-                      <InfoMini
-                        label="Recuperação automática"
-                        value={
-                          item.recuperacao_automatica_disponivel
-                            ? "Disponível"
-                            : "Exige liberação"
-                        }
                       />
 
                       <InfoMini
@@ -399,12 +389,10 @@ export default function ResetSenhaSuportePage() {
                       className="w-full rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 xl:w-auto"
                     >
                       {resetandoId === item.id
-                        ? "Enviando..."
+                        ? "Gerando..."
                         : !statusPermiteRecuperacao(item.status)
                         ? "Usuário inativo"
-                        : item.recuperacao_automatica_disponivel
-                        ? "Enviar link autorizado"
-                        : "Liberar e enviar novo link"}
+                        : "Gerar código"}
                     </button>
                   </div>
                 </div>

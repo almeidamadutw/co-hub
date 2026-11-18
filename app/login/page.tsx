@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { emailDoLogin } from "@/utils/loginCEO";
 import styles from "./entrada.module.css";
 import Link from "next/link";
 import Image from "next/image";
@@ -104,12 +105,12 @@ export default function LoginPage() {
     setErro("");
     setCarregando(true);
 
-    const emailNormalizado = email.toLowerCase().trim();
+    const emailNormalizado = emailDoLogin(email);
     const senhaNormalizada = senha.trim();
 
     if (!emailNormalizado || !senhaNormalizada) {
       setCarregando(false);
-      setErro("Preencha e-mail e senha para entrar.");
+      setErro("Use o login nome@ceoclubmentoria e informe sua senha.");
       return;
     }
 
@@ -123,7 +124,7 @@ export default function LoginPage() {
 
     if (loginError || !loginData.user) {
       setCarregando(false);
-      setErro("E-mail ou senha inválidos.");
+      setErro("Login ou senha inválidos.");
       return;
     }
 
@@ -186,9 +187,9 @@ export default function LoginPage() {
             <>
               <h1 id="titulo-entrada" className={styles.formTitle}>Seu acesso</h1>
               <form onSubmit={handleLogin} className={styles.form}>
-                <label htmlFor="email">E-mail de acesso</label>
-                <input id="email" type="email" autoComplete="username" autoFocus required
-                  placeholder="Seu e-mail cadastrado" value={email}
+                <label htmlFor="email">Login</label>
+                <input id="email" type="text" autoCapitalize="none" spellCheck={false} autoComplete="username" autoFocus required
+                  placeholder="nome@ceoclubmentoria" value={email}
                   onChange={(e) => { setEmail(e.target.value); setErro(""); }} />
                 <label htmlFor="senha">Senha</label>
                 <div className={styles.password}>
@@ -201,7 +202,7 @@ export default function LoginPage() {
                 <div className={styles.options}>
                   <label><input type="checkbox" checked={manterConectado}
                     onChange={(e) => setManterConectado(e.target.checked)} />Manter conectado</label>
-                  <Link href="/esqueci-senha">Esqueci minha senha</Link>
+                  <Link href="/esqueci-senha">Ativar ou recuperar acesso</Link>
                 </div>
                 {erro && <p role="alert" className={styles.error}>{erro}</p>}
                 <button className={styles.action} disabled={carregando || verificandoSessao}>

@@ -24,3 +24,9 @@ Supabase é a fonte de identidade/persistência. Há caminhos para armazenamento
 
 ## Segurança de dados
 Manter autenticação na API, políticas de Row Level Security, bucket de foto privado e validação de permissões financeiras; conferir migrações em `supabase/migrations`. Nunca documentar senhas ou registros pessoais reais.
+
+## Identidade e códigos de acesso
+
+A interface aceita `nome@ceoclubmentoria`. O adaptador em `utils/loginCEO.ts` resolve o endereço técnico já cadastrado no Auth. A senha e o UUID existentes continuam associados ao mesmo perfil. O suporte gera códigos com a API administrativa do Auth. A aplicação registra uma assinatura HMAC do código vinculada ao perfil e ao pedido, e valida a prova de uso único antes de alterar a senha. A validade segue o limite de OTP configurado no Auth e a janela de até duas horas da solicitação. A rotação da chave administrativa exige nova emissão para códigos pendentes.
+
+A migração `20261118131015_codigos_de_acesso.sql` registra o pedido na fila de chamados, vincula a emissão à solicitação e atualiza o histórico na conclusão. As quatro funções são restritas ao papel de serviço.

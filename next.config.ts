@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
       { source: "/simulados", destination: "/mentor/simulados", permanent: false },
       { source: "/financeiro", destination: "/mentor/financeiro", permanent: false },
       { source: "/relatorios", destination: "/mentor/relatorios", permanent: false },
-      { source: "/usuarios", destination: "/mentor/usuarios", permanent: false },
+      { source: "/usuarios", destination: "/suporte/usuarios", permanent: false },
       { source: "/conta", destination: "/mentor/conta", permanent: false },
     ];
   },

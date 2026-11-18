@@ -4,10 +4,7 @@ import {
   responderPermissaoNegada,
   verificarAcesso,
 } from "@/utils/apiAuth";
-import {
-  enviarLinkRecuperacao,
-  reservarRecuperacaoSenha,
-} from "@/utils/passwordRecoveryServer";
+import { gerarCodigo } from "@/utils/passwordRecoveryServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,52 +39,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const reserva = await reservarRecuperacaoSenha({
-      profileId,
-      origem: "suporte",
-      actorId: permissao.userId,
-    });
-
-    if (reserva.acao === "aguardar") {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Já existe um envio em processamento para este usuário. Aguarde alguns instantes.",
-        },
-        { status: 409, headers: { "Cache-Control": "private, no-store" } }
-      );
-    }
-
-    if (reserva.acao !== "enviar") {
-      return NextResponse.json(
-        { ok: false, error: "Não foi possível liberar este usuário agora." },
-        { status: 400, headers: { "Cache-Control": "private, no-store" } }
-      );
-    }
-
-    await enviarLinkRecuperacao(reserva, request);
-
-    return NextResponse.json(
-      {
-        ok: true,
-        mensagem: "Novo link liberado, enviado e registrado no histórico.",
-      },
-      { headers: { "Cache-Control": "private, no-store" } }
-    );
-  } catch (error) {
-    console.error(
-      "Falha na liberação de recuperação pelo Suporte:",
-      error instanceof Error ? error.message : "erro desconhecido"
-    );
-
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "Não foi possível enviar o link. A liberação foi revertida para não perder o controle do histórico.",
-      },
-      { status: 502, headers: { "Cache-Control": "private, no-store" } }
-    );
+    const codigo = await gerarCodigo(profileId, permissao.userId);
+    return NextResponse.json({ ok: true, codigo }, { headers: { "Cache-Control": "no-store" } });
+  } catch {
+    return NextResponse.json({ ok: false, error: "Confira se a conta está ativa e tente gerar o código novamente." }, { status: 409 });
   }
 }

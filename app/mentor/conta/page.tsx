@@ -1,5 +1,7 @@
 "use client";
 
+import { loginVisivel } from "@/utils/loginCEO";
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -349,7 +351,7 @@ export default function ContaPage() {
                   </h2>
 
                   <p className="mt-2 break-all text-sm font-semibold text-[#D9DEE7]">
-                    {usuario.email}
+                    {loginVisivel(usuario.email)}
                   </p>
                 </div>
               </div>
@@ -454,9 +456,9 @@ export default function ContaPage() {
                     />
                   </Campo>
 
-                  <Campo label="E-mail">
+                  <Campo label="Login">
                     <input
-                      value={usuario.email}
+                      value={loginVisivel(usuario.email)}
                       disabled
                       className="input-ceo cursor-not-allowed opacity-70"
                     />
@@ -572,16 +574,15 @@ export default function ContaPage() {
 
                 <div className="rounded-2xl border border-[#D9DEE7] bg-[#f9fafb] p-4">
                   <p className="text-sm font-bold leading-6 text-gray-600">
-                    Para alterar sua senha novamente, utilize o fluxo de
-                    recuperação ou solicite apoio do suporte/T.I.
+                    Solicite ao suporte o código para definir uma nova senha.
                   </p>
 
                   <button
                     type="button"
-                    onClick={() => router.push("/suporte")}
+                    onClick={() => router.push("/esqueci-senha")}
                     className="mt-4 w-fit rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
                   >
-                    Ir para suporte
+                    Solicitar código
                   </button>
                 </div>
               </div>
