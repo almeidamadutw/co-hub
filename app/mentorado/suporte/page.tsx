@@ -310,11 +310,11 @@ export default function SuporteMentoradoPage() {
   const agora = atualizadoEm ? new Date(atualizadoEm).getTime() : 0;
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentorado/suporte">>
       <MentoradoSidebar nome={usuario.nome} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/90 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/90 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
               Atendimento CEO Club
@@ -334,7 +334,7 @@ export default function SuporteMentoradoPage() {
         </header>
 
         <section className="mx-auto w-full max-w-[1460px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <section className="mb-4 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white shadow-xl lg:p-6">
+          <section className="ceo-screen-hero mb-4 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#040B1F] via-[#071A4A] to-[#0A2A6D] p-5 text-white shadow-xl lg:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.26em] text-[#C9CED6]">
               Estamos por aqui
             </p>
@@ -427,7 +427,7 @@ export default function SuporteMentoradoPage() {
             </div>
 
             <div className="space-y-4">
-              <section className="grid gap-3 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 md:grid-cols-[minmax(0,1fr)_220px]">
+              <section className="ceo-screen-panel grid gap-3 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 md:grid-cols-[minmax(0,1fr)_220px]">
                 <Campo label="Buscar chamado">
                   <input
                     value={busca}
@@ -450,7 +450,7 @@ export default function SuporteMentoradoPage() {
               </section>
 
               <section className="grid gap-4 2xl:grid-cols-[350px_minmax(0,1fr)]">
-                <div className="overflow-hidden rounded-[22px] bg-white shadow-lg shadow-slate-200/70">
+                <div className="ceo-screen-panel overflow-hidden rounded-[22px] bg-white shadow-lg shadow-slate-200/70">
                   <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4">
                     <h3 className="text-xl font-black text-[#050816]">Meus chamados</h3>
                     <p className="mt-1 text-sm font-semibold text-gray-500">
@@ -490,7 +490,7 @@ export default function SuporteMentoradoPage() {
                   </div>
                 </div>
 
-                <div className="min-h-[720px] overflow-hidden rounded-[22px] bg-white shadow-lg shadow-slate-200/70">
+                <div className="ceo-screen-panel min-h-[720px] overflow-hidden rounded-[22px] bg-white shadow-lg shadow-slate-200/70">
                   {!ticketSelecionado ? (
                     <div className="flex min-h-[720px] items-center justify-center p-8">
                       <EstadoVazio titulo="Selecione um chamado" texto="A conversa com o Suporte aparecerá aqui." />
@@ -528,7 +528,7 @@ export default function SuporteMentoradoPage() {
                         </TicketMensagemBolha>
 
                         {carregandoChat && (
-                          <div className="rounded-2xl bg-white p-4 text-sm font-bold text-gray-500 shadow-sm">
+                          <div className="ceo-screen-panel rounded-2xl bg-white p-4 text-sm font-bold text-gray-500 shadow-sm">
                             Carregando conversa...
                           </div>
                         )}
@@ -609,7 +609,7 @@ function Campo({ label, children }: { label: string; children: ReactNode }) {
 
 function Card({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
-    <div className="rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5">
+    <div className="ceo-screen-panel rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5">
       <h3 className="mb-4 text-xl font-black text-[#050816]">{titulo}</h3>
       {children}
     </div>
