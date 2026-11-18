@@ -201,11 +201,11 @@ export default function MentoradoBibliotecaPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentorado/biblioteca">>
       <MentoradoSidebar nome={usuario.nome} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 sm:text-xs">CEO Club</p>
             <h1 className="line-clamp-1 text-base font-black sm:text-lg md:text-xl">Minha Biblioteca</h1>
@@ -217,7 +217,7 @@ export default function MentoradoBibliotecaPage() {
         </header>
 
         <div className="px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <section className="overflow-hidden rounded-[28px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-2xl shadow-[#07122F]/20 sm:p-6 lg:p-8">
+          <section className="ceo-screen-hero overflow-hidden rounded-[28px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-2xl shadow-[#07122F]/20 sm:p-6 lg:p-8">
             <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-200">Biblioteca do mentorado</p>
             <h2 className="mt-3 max-w-4xl text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">Tudo que você precisa, separado por pastas.</h2>
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-blue-100 sm:text-base">Aqui aparecem materiais enviados para você, arquivos gerais do CEO Club e documentos das aulas liberadas.</p>
@@ -226,7 +226,7 @@ export default function MentoradoBibliotecaPage() {
           {erro ? <div className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-black text-red-700">{erro}</div> : null}
 
           {pastas.length > 0 ? (
-            <section className="mt-5 rounded-[26px] bg-white p-5 shadow-xl shadow-slate-200/70 sm:p-6">
+            <section className="ceo-screen-panel mt-5 rounded-[26px] bg-white p-5 shadow-xl shadow-slate-200/70 sm:p-6">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Pastas públicas</p>
@@ -253,7 +253,7 @@ export default function MentoradoBibliotecaPage() {
             </section>
           ) : null}
 
-          <section className="mt-5 rounded-[26px] bg-white p-5 shadow-xl shadow-slate-200/70 sm:p-6">
+          <section className="ceo-screen-panel mt-5 rounded-[26px] bg-white p-5 shadow-xl shadow-slate-200/70 sm:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Arquivos disponíveis</p>
