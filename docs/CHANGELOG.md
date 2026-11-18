@@ -1,5 +1,12 @@
 # Histórico da documentação | CEO Club plataforma
 
+## 2026-11-18 — Harmonização do conteúdo interno com a nova sidebar
+
+- Atualizada a página de Módulos do mentor com cabeçalho azul-marinho editorial, botões em prata, KPIs em grade compacta, faixa de status sem duplicação de indicadores e cartões com acabamento leve.
+- Estilos compartilhados refinados para cartões, superfícies, campos e fundo dos painéis internos.
+- Sem alteração dos dados, funções administrativas ou chamadas Supabase.
+- Build e QA visual dependem da validação de preview; arquivo de logo oficial transparente permanece pendente.
+
 ## 2026-11-18 — Reestilização dos painéis internos (branch de revisão)
 
 - Novo componente compartilhado de navegação executiva navy/prata para mentora, mentorado, financeiro e suporte, mantendo as rotas, o logout, as informações de perfil e o acesso condicional ao suporte.
