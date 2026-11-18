@@ -344,7 +344,7 @@ export default function SuporteFinanceiroPage() {
   }
 
   return (
-    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="suporte/financeiro">>
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="suporte/financeiro">
       <SuporteSidebar nome={usuario.nome} role={usuario.role} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
