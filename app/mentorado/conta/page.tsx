@@ -1,5 +1,7 @@
 "use client";
 
+import { loginVisivel } from "@/utils/loginCEO";
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -325,7 +327,7 @@ export default function ContaMentoradoPage() {
                     </h2>
 
                     <p className="mt-2 break-all text-sm font-semibold text-[#D9DEE7]">
-                      {usuario.email}
+                      {loginVisivel(usuario.email)}
                     </p>
                   </div>
                 </div>
@@ -430,9 +432,9 @@ export default function ContaMentoradoPage() {
                       />
                     </Campo>
 
-                    <Campo label="E-mail">
+                    <Campo label="Login">
                       <input
-                        value={usuario.email}
+                        value={loginVisivel(usuario.email)}
                         disabled
                         className="input-ceo cursor-not-allowed opacity-70"
                       />
@@ -550,14 +552,12 @@ export default function ContaMentoradoPage() {
 
                   <div className="rounded-2xl border border-[#D9DEE7] bg-[#f9fafb] p-4">
                     <p className="text-sm font-bold leading-6 text-gray-600">
-                      A primeira redefinição de senha pode ser feita pela tela
-                      de recuperação. Novas alterações passam por análise do
-                      suporte/T.I para proteger seu acesso.
+                      Solicite seu código ao suporte. Quando recebê-lo, selecione “Já tenho um código” e defina sua senha.
                     </p>
 
                     <button
                       type="button"
-                      onClick={() => router.push("/mentorado/suporte")}
+                      onClick={() => router.push("/esqueci-senha")}
                       className="mt-4 w-fit rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110"
                     >
                       Solicitar alteração de senha

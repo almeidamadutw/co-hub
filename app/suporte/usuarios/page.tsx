@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
+import { loginVisivel, emailDoLogin } from "@/utils/loginCEO";
 import PageLoading from "@/components/PageLoading";
 import SuporteSidebar from "@/components/SuporteSidebar";
 import {
@@ -79,7 +80,6 @@ type NovoUsuarioForm = {
   role: string;
   status: string;
   codigo_inscricao: string;
-  senha: string;
   acesso_suporte: boolean;
 };
 
@@ -106,7 +106,6 @@ const novoUsuarioInicial: NovoUsuarioForm = {
   role: "mentorado",
   status: "ativo",
   codigo_inscricao: "",
-  senha: "",
   acesso_suporte: false,
 };
 
@@ -205,7 +204,7 @@ function limparDescricao(descricao: string) {
 function edicaoDoPerfil(perfil: Perfil): EdicaoUsuario {
   return {
     nome: perfil.nome || "",
-    email: perfil.email || "",
+    email: loginVisivel(perfil.email),
     telefone: perfil.telefone || "",
     codigo_inscricao: perfil.codigo_inscricao || "",
     genero: perfil.genero || "",
@@ -497,7 +496,7 @@ export default function SuporteUsuariosPage() {
       Boolean(fotoArquivo) ||
       fotoRemovida ||
       (perfilSelecionado.nome || "") !== edicao.nome.trim() ||
-      normalizar(perfilSelecionado.email) !== normalizar(edicao.email) ||
+      loginVisivel(perfilSelecionado.email) !== normalizar(edicao.email) ||
       (perfilSelecionado.telefone || "") !== edicao.telefone.trim() ||
       (perfilSelecionado.codigo_inscricao || "") !==
         edicao.codigo_inscricao.trim() ||
@@ -668,18 +667,6 @@ export default function SuporteUsuariosPage() {
     setMensagem("");
   }
 
-  function gerarSenhaTemporaria() {
-    const caracteres =
-      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-    const valores = new Uint32Array(10);
-    window.crypto.getRandomValues(valores);
-    const parteAleatoria = Array.from(valores)
-      .map((valor) => caracteres[valor % caracteres.length])
-      .join("");
-
-    atualizarNovoUsuario("senha", `Cc9!${parteAleatoria}`);
-  }
-
   async function criarUsuario(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     if (!usuario) return;
@@ -689,20 +676,13 @@ export default function SuporteUsuariosPage() {
 
     const nome = novoUsuario.nome.trim();
     const email = novoUsuario.email.trim().toLowerCase();
-    const senha = novoUsuario.senha.trim();
-
-    if (!nome || !email || !senha) {
-      setErro("Preencha nome, e-mail e senha temporária.");
-      return;
-    }
-
-    if (senha.length < 8) {
-      setErro("A senha temporária precisa ter pelo menos 8 caracteres.");
+    if (!nome || !emailDoLogin(email)) {
+      setErro("Informe o nome e um login no formato nome@ceoclubmentoria.");
       return;
     }
 
     const confirmar = window.confirm(
-      `Deseja criar o acesso para ${nome} com o e-mail ${email}?`
+      `Deseja criar o acesso para ${nome} com o login ${email}?`
     );
 
     if (!confirmar) return;
@@ -720,7 +700,6 @@ export default function SuporteUsuariosPage() {
         body: JSON.stringify({
           nome,
           email,
-          senha,
           telefone: novoUsuario.telefone.trim(),
           role: novoUsuario.role,
           status: novoUsuario.status,
@@ -755,7 +734,7 @@ export default function SuporteUsuariosPage() {
         },
       });
 
-      setMensagem("Usuário criado com sucesso.");
+      setMensagem(payload.codigo ? `Entregue o código de ativação de ${email}: ${payload.codigo}` : "Conta criada. Para ativar, gere o código na área de troca de senha quando a conta estiver ativa.");
       setNovoUsuario(novoUsuarioInicial);
       setMostrarNovoUsuario(false);
       await carregarUsuarios();
@@ -785,12 +764,12 @@ export default function SuporteUsuariosPage() {
     const email = edicao.email.trim().toLowerCase();
 
     if (!nome || !email) {
-      setErro("Nome e e-mail são obrigatórios.");
+      setErro("Nome e login são obrigatórios.");
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setErro("Informe um e-mail válido.");
+    if (!emailDoLogin(email)) {
+      setErro("Use o formato nome@ceoclubmentoria.");
       return;
     }
 
@@ -902,10 +881,10 @@ export default function SuporteUsuariosPage() {
     if (!email) return;
 
     try {
-      await navigator.clipboard.writeText(email);
-      setMensagem("E-mail copiado.");
+      await navigator.clipboard.writeText(loginVisivel(email));
+      setMensagem("Login copiado.");
     } catch {
-      setErro("Não foi possível copiar o e-mail.");
+      setErro("Não foi possível copiar o login.");
     }
   }
 
@@ -1126,14 +1105,14 @@ export default function SuporteUsuariosPage() {
                   />
                 </Campo>
 
-                <Campo label="E-mail">
+                <Campo label="Login">
                   <input
-                    type="email"
+                    type="text" autoCapitalize="none"
                     value={novoUsuario.email}
                     onChange={(evento) =>
                       atualizarNovoUsuario("email", evento.target.value)
                     }
-                    placeholder="email@exemplo.com"
+                    placeholder="nome@ceoclubmentoria"
                     className="input-suporte"
                   />
                 </Campo>
@@ -1193,27 +1172,6 @@ export default function SuporteUsuariosPage() {
                       </option>
                     ))}
                   </select>
-                </Campo>
-
-                <Campo label="Senha temporária">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={novoUsuario.senha}
-                      onChange={(evento) =>
-                        atualizarNovoUsuario("senha", evento.target.value)
-                      }
-                      placeholder="Mínimo 8 caracteres"
-                      className="input-suporte"
-                    />
-                    <button
-                      type="button"
-                      onClick={gerarSenhaTemporaria}
-                      className="rounded-2xl bg-[#eef2ff] px-3 text-xs font-black text-[#12317C]"
-                    >
-                      Gerar
-                    </button>
-                  </div>
                 </Campo>
 
                 <Campo label="Permissão adicional">
@@ -1312,7 +1270,7 @@ export default function SuporteUsuariosPage() {
               <input
                 value={busca}
                 onChange={(evento) => setBusca(evento.target.value)}
-                placeholder="Nome, e-mail, telefone ou código"
+                placeholder="Nome, login, telefone ou código"
                 className="input-suporte"
               />
             </Campo>
@@ -1437,7 +1395,7 @@ export default function SuporteUsuariosPage() {
                         )}
                       </div>
                       <p className="mt-1 break-all text-sm font-bold text-gray-500">
-                        {perfil.email || "E-mail não informado"}
+                        {loginVisivel(perfil.email) || "Login não informado"}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-gray-400">
                         {perfil.telefone || "Telefone não informado"}
@@ -1533,7 +1491,7 @@ export default function SuporteUsuariosPage() {
                     {perfilSelecionado.nome || "Usuário sem nome"}
                   </h2>
                   <p className="mt-1 break-all text-sm font-semibold text-white/70">
-                    {perfilSelecionado.email || "E-mail não informado"}
+                    {loginVisivel(perfilSelecionado.email) || "Login não informado"}
                   </p>
                 </div>
               </div>
@@ -1716,9 +1674,9 @@ export default function SuporteUsuariosPage() {
                     />
                   </Campo>
 
-                  <Campo label="E-mail de acesso">
+                  <Campo label="Login">
                     <input
-                      type="email"
+                      type="text" autoCapitalize="none"
                       value={edicao.email}
                       onChange={(evento) =>
                         atualizarEdicao("email", evento.target.value)
@@ -1820,7 +1778,7 @@ export default function SuporteUsuariosPage() {
                     onClick={() => void copiarEmail(perfilSelecionado.email)}
                     className="rounded-xl bg-[#f3f5f8] px-4 py-2.5 text-xs font-black text-[#08163F]"
                   >
-                    Copiar e-mail
+                    Copiar login
                   </button>
                   <button
                     type="button"

@@ -1,5 +1,18 @@
 # Histórico da documentação | CEO Club plataforma
 
+## 2026-11-18 — Login curto e códigos de acesso
+
+- Contas existentes usam o identificador curto com a senha atual. Novos cadastros ativos recebem um código de ativação exibido ao suporte.
+- A recuperação abre um chamado. A emissão fica disponível na central de suporte e a pessoa define sua nova senha com o código.
+- Build e lint dos arquivos centrais de acesso aprovados. No Chromium, com Auth e RPCs simulados, foram testados o login curto, o pedido, a emissão autorizada, a definição de senha e a recusa de reutilização. A API recusou emissão anônima.
+- Migração aplicada. Verificadas as permissões no banco e a compatibilidade dos sete cadastros existentes.
+
+## 2026-11-18 — Entrada da plataforma
+
+- Nova composição em azul-marinho e prata com coroa ilustrada e abertura do formulário na própria rota.
+- Build de produção e lint da página aprovados. Testes locais em Chromium nas larguras de 320, 390, 768 e 1440 px verificaram a entrada por `/`, o foco no e-mail, a visibilidade da senha, a desmarcação de manter conectado, o erro de credenciais com resposta simulada e a navegação para recuperar a senha.
+- A homologação de login com contas reais dos quatro perfis depende do ambiente de teste.
+
 ## 2026-11-11 — Primeira versão padronizada
 - Substituído o README vazio por guia funcional e técnico.
 - Criados capítulos sobre perfis, módulos, jornadas, banco/APIs, integrações, acesso, testes e pendências.

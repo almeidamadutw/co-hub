@@ -1,5 +1,7 @@
 "use client";
 
+import { loginVisivel } from "@/utils/loginCEO";
+
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -416,7 +418,7 @@ export default function ContaSuportePage() {
                     {perfil?.nome || usuario.nome}
                   </h2>
                   <p className="mt-2 break-all text-sm font-semibold text-[#D9DEE7]">
-                    {perfil?.email || usuario.email}
+                    {loginVisivel(perfil?.email || usuario.email)}
                   </p>
                 </div>
               </div>
@@ -526,9 +528,9 @@ export default function ContaSuportePage() {
                     />
                   </Campo>
 
-                  <Campo label="E-mail">
+                  <Campo label="Login">
                     <input
-                      value={perfil?.email || usuario.email}
+                      value={loginVisivel(perfil?.email || usuario.email)}
                       readOnly
                       disabled
                       className="input-ceo cursor-not-allowed bg-gray-100 text-gray-500"
@@ -642,7 +644,7 @@ export default function ContaSuportePage() {
                     Permissões protegidas
                   </h4>
                   <p className="mt-2 text-sm font-semibold leading-6 text-gray-500">
-                    E-mail, role, status e acessos administrativos não podem ser alterados por esta tela. Esses dados continuam centralizados na gestão de usuários e nos logs técnicos.
+                    Login, perfil, status e acessos administrativos não podem ser alterados por esta tela. Esses dados continuam centralizados na gestão de usuários e nos logs técnicos.
                   </p>
                 </div>
               </aside>
@@ -662,13 +664,13 @@ export default function ContaSuportePage() {
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <div className="rounded-2xl border border-[#D9DEE7] bg-[#f9fafb] p-4">
                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">
-                      E-mail de acesso
+                      Login de acesso
                     </p>
                     <p className="mt-2 break-all text-sm font-black text-[#08163F]">
-                      {perfil?.email || usuario.email}
+                      {loginVisivel(perfil?.email || usuario.email)}
                     </p>
                     <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">
-                      O e-mail é a identidade de acesso e não é editado por esta página.
+                      O suporte administra o login da plataforma.
                     </p>
                   </div>
 
@@ -687,7 +689,7 @@ export default function ContaSuportePage() {
 
                 <div className="mt-5 rounded-2xl bg-[#f3f5f8] p-4">
                   <p className="text-sm font-bold leading-6 text-gray-600">
-                    Para trocar a senha da sua própria conta, encerre a sessão e use “Esqueci minha senha” na tela de login. A central “Reset de senha” do suporte continua destinada ao atendimento dos demais usuários.
+                    Para trocar a senha da sua própria conta, encerre a sessão e use “Ativar ou recuperar acesso” na tela de login. A central “Reset de senha” do suporte continua destinada ao atendimento dos demais usuários.
                   </p>
                 </div>
               </div>

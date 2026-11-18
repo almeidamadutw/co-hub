@@ -1,3 +1,6 @@
+import { randomBytes } from "node:crypto";
+import { gerarCodigo } from "@/utils/passwordRecoveryServer";
+import { emailDoLogin } from "@/utils/loginCEO";
 import { NextRequest, NextResponse } from "next/server";
 import {
   criarClienteAdmin,
@@ -197,31 +200,24 @@ export async function POST(req: NextRequest) {
   }
 
   const nome = String(body.nome ?? "").trim();
-  const email = String(body.email ?? "").toLowerCase().trim();
-  const senha = String(body.senha ?? "").trim();
+  const email = emailDoLogin(String(body.email ?? ""));
+  const senha = randomBytes(32).toString("base64url");
   const role = normalizarRole(body.role ?? "mentorado");
   const telefone = String(body.telefone ?? "").trim();
   const status = normalizarStatus(body.status ?? "Ativo");
   const codigoInscricao = String(body.codigo_inscricao ?? "").trim();
   const acessoSuporte = Boolean(body.acesso_suporte);
 
-  if (!nome || !email || !senha) {
+  if (!nome || !email) {
     return NextResponse.json(
-      { error: "Preencha nome, e-mail e senha temporária." },
+      { error: "Informe o nome e o login no formato nome@ceoclubmentoria." },
       { status: 400 }
     );
   }
 
   if (!validarEmail(email)) {
     return NextResponse.json(
-      { error: "Informe um e-mail válido." },
-      { status: 400 }
-    );
-  }
-
-  if (senha.length < 6) {
-    return NextResponse.json(
-      { error: "A senha temporária precisa ter pelo menos 6 caracteres." },
+      { error: "Use o formato nome@ceoclubmentoria." },
       { status: 400 }
     );
   }
@@ -278,13 +274,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: perfilError.message }, { status: 500 });
   }
 
+  const codigo = status === "Ativo"
+    ? await gerarCodigo(authData.user.id, permissao.userId).catch(() => null)
+    : null;
+
   return NextResponse.json({
+    codigo,
     usuario: {
       ...perfil,
       email_confirmed_at: authData.user.email_confirmed_at ?? null,
       last_sign_in_at: authData.user.last_sign_in_at ?? null,
     },
-  });
+  }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -314,7 +315,7 @@ export async function PATCH(req: NextRequest) {
     const nome = textoOpcional(body, "nome");
     const email =
       body.email !== undefined
-        ? String(body.email ?? "").toLowerCase().trim()
+        ? emailDoLogin(String(body.email ?? ""))
         : undefined;
     const telefone = textoOpcional(body, "telefone");
     const codigoInscricao = textoOpcional(body, "codigo_inscricao");
@@ -358,7 +359,7 @@ export async function PATCH(req: NextRequest) {
 
     if (email !== undefined && !validarEmail(email)) {
       return NextResponse.json(
-        { error: "Informe um e-mail válido." },
+        { error: "Use o formato nome@ceoclubmentoria." },
         { status: 400 }
       );
     }

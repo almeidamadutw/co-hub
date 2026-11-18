@@ -1,157 +1,45 @@
 import "server-only";
+import { createHmac } from "node:crypto";
+import { criarClienteAdmin } from "@/utils/apiAuth";
 
-import type { NextRequest } from "next/server";
-import { criarClienteAdmin, criarClientePublico } from "@/utils/apiAuth";
-
-export type ReservaRecuperacaoSenha = {
-  acao: "enviar" | "aguardar" | "bloqueado" | "ignorar";
-  solicitacao_id: string | null;
-  profile_id: string | null;
-  email: string | null;
-  nome: string | null;
-  role: string | null;
-};
-
-type FinalizacaoRecuperacaoSenha = {
-  profile_id: string;
-  origem: "automatico" | "suporte";
-  estado: "enviado" | "falhou" | "reservado" | "concluido" | "expirado";
-};
-
-const ORIGEM_PRODUCAO = "https://ceoclubmentoria.app.br";
-
-function origemConfigurada() {
-  const valor =
-    process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL;
-
-  if (!valor) return null;
-
-  try {
-    const url = new URL(valor);
-    const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-
-    if (url.protocol !== "https:" && !local) return null;
-    return url.origin;
-  } catch {
-    return null;
-  }
+export function assinaturaDoCodigo(profileId: string, codigo: string) {
+  const chave = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!chave) throw new Error("Configuração do suporte indisponível.");
+  return createHmac("sha256", chave).update(`codigo-ceo:${profileId}:${codigo}`).digest("hex");
 }
 
-export function urlRedefinicaoSenha(request?: NextRequest) {
-  const configurada = origemConfigurada();
-  if (configurada) return `${configurada}/redefinir-senha`;
-
-  if (process.env.NODE_ENV !== "production" && request) {
-    const host = request.nextUrl.hostname;
-    if (host === "localhost" || host === "127.0.0.1") {
-      return `${request.nextUrl.origin}/redefinir-senha`;
-    }
-  }
-
-  return `${ORIGEM_PRODUCAO}/redefinir-senha`;
-}
-
-export async function reservarRecuperacaoSenha(params: {
-  email?: string;
-  profileId?: string;
-  origem: "automatico" | "suporte";
-  actorId?: string;
-}) {
+export async function gerarCodigo(profileId: string, actorId: string) {
   const admin = criarClienteAdmin();
-  const { data, error } = await admin.rpc("recuperacao_senha_reservar", {
-    p_profile_id: params.profileId ?? null,
-    p_email: params.email ?? null,
-    p_origem: params.origem,
-    p_actor_id: params.actorId ?? null,
+  const reserva = await admin.rpc("recuperacao_senha_reservar", {
+    p_profile_id: profileId, p_email: null, p_origem: "suporte", p_actor_id: actorId,
   });
-
-  if (error) {
-    throw new Error(error.message || "Não foi possível reservar a recuperação.");
+  const item = reserva.data?.[0];
+  if (reserva.error || item?.acao !== "enviar") {
+    throw new Error("Não foi possível liberar o código. Confira se a conta está ativa ou tente novamente em instantes.");
   }
 
-  const reserva = (Array.isArray(data) ? data[0] : data) as
-    | ReservaRecuperacaoSenha
-    | null;
-
-  if (!reserva?.acao) {
-    throw new Error("A reserva de recuperação não retornou um estado válido.");
+  // O endereço deve vir da identidade autenticável do ID autorizado.
+  const identidade = await admin.auth.admin.getUserById(profileId);
+  const email = identidade.data.user?.email;
+  let codigo: string | undefined;
+  if (email && email === item.email) {
+    const { data } = await admin.auth.admin.generateLink({ type: "recovery", email });
+    if (data.user?.id === profileId) codigo = data.properties?.email_otp;
   }
 
-  return reserva;
-}
-
-async function finalizarEnvio(
-  solicitacaoId: string,
-  sucesso: boolean,
-  erroCodigo?: string
-) {
-  const admin = criarClienteAdmin();
-  const { data, error } = await admin.rpc(
-    "recuperacao_senha_finalizar_envio",
-    {
-      p_solicitacao_id: solicitacaoId,
-      p_sucesso: sucesso,
-      p_erro_codigo: erroCodigo ?? null,
-    }
-  );
-
-  if (error) {
-    throw new Error(
-      error.message || "Não foi possível finalizar o envio da recuperação."
-    );
+  if (codigo) {
+    const registro = await admin.rpc("registrar_codigo_suporte", {
+      p_pedido: item.solicitacao_id, p_assinatura: assinaturaDoCodigo(profileId, codigo),
+    });
+    if (registro.error || !registro.data) codigo = undefined;
   }
 
-  return (Array.isArray(data) ? data[0] : data) as
-    | FinalizacaoRecuperacaoSenha
-    | null;
-}
-
-function codigoSeguro(error: { code?: string; status?: number } | null) {
-  if (!error) return undefined;
-  if (error.code) return String(error.code).slice(0, 120);
-  if (error.status) return `auth_${error.status}`;
-  return "auth_envio_falhou";
-}
-
-export async function enviarLinkRecuperacao(
-  reserva: ReservaRecuperacaoSenha,
-  request?: NextRequest
-) {
-  if (
-    reserva.acao !== "enviar" ||
-    !reserva.solicitacao_id ||
-    !reserva.email
-  ) {
-    throw new Error("A recuperação não está pronta para envio.");
-  }
-
-  const publico = criarClientePublico();
-  const { error } = await publico.auth.resetPasswordForEmail(reserva.email, {
-    redirectTo: urlRedefinicaoSenha(request),
+  const fim = await admin.rpc("recuperacao_senha_finalizar_envio", {
+    p_solicitacao_id: item.solicitacao_id, p_sucesso: Boolean(codigo),
+    p_erro_codigo: codigo ? null : "codigo_nao_gerado",
   });
-
-  try {
-    await finalizarEnvio(
-      reserva.solicitacao_id,
-      !error,
-      codigoSeguro(error)
-    );
-  } catch (finalizacaoError) {
-    console.error(
-      "Falha ao finalizar reserva de recuperação:",
-      finalizacaoError instanceof Error
-        ? finalizacaoError.message
-        : "erro desconhecido"
-    );
-
-    if (!error) {
-      throw new Error(
-        "O e-mail foi solicitado, mas a auditoria da recuperação não foi finalizada."
-      );
-    }
+  if (!codigo || fim.error || fim.data?.[0]?.estado !== "enviado") {
+    throw new Error("Não foi possível gerar o código. Solicite uma nova emissão.");
   }
-
-  if (error) {
-    throw new Error("O provedor não aceitou o envio do e-mail de recuperação.");
-  }
+  return codigo;
 }
