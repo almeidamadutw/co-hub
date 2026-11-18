@@ -218,7 +218,7 @@ export default function FinanceiroMentoradoPage() {
   }
 
   return (
-    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentorado/financeiro">>
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentorado/financeiro">
       <MentoradoSidebar nome={perfil?.nome || usuario.nome} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
