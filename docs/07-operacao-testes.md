@@ -33,3 +33,10 @@ Confirmar build, migrações, variáveis e estado do deploy no provedor real. N�
 - Verificação estática feita sobre os componentes e rotas existentes antes da mudança: menus, destinos, logout e consulta de inscrição de mentorado foram mantidos. Escopo do tema isolado pela classe `ceo-workspace`.
 - **Executado:** build de produção na prévia Vercel, com compilação Next.js 16 e verificação TypeScript concluídas (deployment `dpl_FtWdiPAeehcLwnzTATwpu9fL9dEx`, estado READY). **Ainda pendente:** `npm run lint` e os testes reais em Chromium (1366×768, 390×844) com contas de teste dos perfis, incluindo menu móvel, foco por teclado e barras de rolagem. O ambiente de edição via conector GitHub não fornece uma instalação local do projeto para esses comandos.
 - A aprovação em código não equivale à publicação no domínio nem à homologação do usuário final.
+
+
+## Homologação do refinamento interno, 2026-11-18 (segunda etapa)
+- Arquivos alterados: `app/mentor/modulos/page.tsx`, `app/globals.css` e documentação funcional.
+- Verificação estática feita: eventos de `Nova aula`, `Novo módulo`, busca, filtros, reordenação, edição e liberação preservados; indicadores continuam derivados de `resumo`, sem inclusão de dados simulados.
+- Pendências de homologação: lint, build, revisão visual nas resoluções 390px e 1440px, navegação autenticada em cada perfil, contraste/foco por teclado e teste do menu lateral.
+- O redesign desta etapa não altera tabelas, migrações ou permissões do Supabase.

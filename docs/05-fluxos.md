@@ -39,3 +39,11 @@
 2. Em telas pequenas, selecione **Menu** no canto inferior direito; escolha a seção desejada ou feche com **×**.
 3. Confira seu nome e perfil no rodapé do menu. Para encerrar, selecione **Sair da plataforma**.
 4. As opções variam conforme o perfil: mentora, mentorado, financeiro ou suporte. A interface não cria permissões adicionais.
+
+
+## Mentor: tela de Módulos atualizada
+1. Na barra lateral, abra **Módulos**.
+2. No cabeçalho azul-marinho, selecione **Nova aula** ou **Novo módulo** para criar conteúdo.
+3. Confira o resumo compacto e os indicadores de módulos, aulas, materiais e vídeos.
+4. Use o campo de busca e os dois filtros; **Limpar** restaura a visualização completa.
+5. Na lista, abra, edite, altere liberação ou reordene cada módulo. A apresentação mudou, mas os comandos continuam com o mesmo comportamento.

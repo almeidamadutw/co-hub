@@ -1025,77 +1025,59 @@ export default function ModulosPage() {
         acessoSuporte={Boolean(usuario.acesso_suporte)}
       />
 
-      <section className="ceo-content no-scrollbar !p-4 sm:!p-5 lg:!p-6">
+      <section className="ceo-content ceo-modules-page no-scrollbar !p-4 sm:!p-5 lg:!p-6">
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#12317C]/15 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-slate-300/30 blur-3xl" />
 
         <div className="ceo-stack">
-          <section className="mb-5 overflow-hidden rounded-[28px] border border-white/70 bg-white p-5 text-[#08163F] shadow-xl shadow-slate-200/70 sm:p-6 lg:p-8">
-            <div className="flex min-w-0 flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-              <div className="min-w-0">
-                <p className="mb-3 text-[10px] font-black uppercase tracking-[0.28em] text-slate-400 sm:text-xs">
-                  Módulos CEO Club
+          <section className="ceo-modules-hero" aria-labelledby="ceo-modules-heading">
+            <div className="ceo-modules-hero-main">
+              <div className="ceo-modules-hero-copy">
+                <p className="ceo-modules-eyebrow">
+                  <span className="ceo-modules-eyebrow-line" aria-hidden="true" />
+                  GESTÃO ACADÊMICA <span className="ceo-modules-eyebrow-separator">/</span> CEO CLUB
                 </p>
-
-                <h1 className="max-w-5xl break-words text-2xl font-black leading-tight text-[#08163F] sm:text-3xl lg:text-4xl">
-                  Estruture a jornada de aprendizagem dos mentorados.
+                <h1 id="ceo-modules-heading" className="ceo-modules-hero-title">
+                  Uma jornada de <em>transformação.</em>
                 </h1>
-
-                <p className="mt-3 max-w-5xl break-words text-sm font-semibold leading-6 text-slate-500 sm:text-base">
-                  Cadastre módulo, posicionamento, objetivo, encontros,
-                  materiais, atividade prática e acompanhe a evolução.
+                <p className="ceo-modules-hero-description">
+                  Organize os módulos, prepare as aulas e acompanhe a evolução
+                  de quem aprende com você.
                 </p>
               </div>
-
-              <div className="flex shrink-0 flex-wrap gap-2 sm:gap-3">
+              <div className="ceo-modules-hero-actions">
                 <button
                   type="button"
                   onClick={() => abrirNovaAula()}
-                  className="rounded-2xl bg-[#08163F] px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-300/70 transition hover:scale-[1.01] hover:brightness-110"
+                  className="ceo-modules-action ceo-modules-action-primary"
                 >
-                  Nova aula
+                  <span aria-hidden="true">＋</span> Nova aula
                 </button>
-
                 <button
                   type="button"
                   onClick={abrirNovoModulo}
-                  className="rounded-2xl bg-gradient-to-b from-[#F8FAFC] via-[#DDE3EA] to-[#AAB3C0] px-5 py-3 text-sm font-black text-[#08163F] shadow-lg shadow-slate-300/70 transition hover:scale-[1.01] hover:brightness-105"
+                  className="ceo-modules-action ceo-modules-action-secondary"
                 >
-                  Novo módulo
+                  Novo módulo <span aria-hidden="true">↗</span>
                 </button>
               </div>
             </div>
-
-            <div className="mt-6 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <MiniInfo
-                titulo="Módulos completos"
-                valor={String(resumo.completos)}
-              />
-              <MiniInfo
-                titulo="Aulas com vídeo"
-                valor={String(resumo.videos)}
-              />
-              <MiniInfo
-                titulo="Módulos sem aulas"
-                valor={String(resumo.semAulas)}
-              />
-              <MiniInfo titulo="Materiais" valor={String(resumo.materiais)} />
+            <div className="ceo-modules-hero-footer">
+              <span><strong>{resumo.completos}</strong> módulos completos</span>
+              <span><strong>{resumo.semAulas}</strong> módulos sem aulas</span>
+              <span>Conteúdo e acompanhamento em um só lugar</span>
             </div>
           </section>
 
-          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <ResumoCard
-              titulo="Módulos"
-              valor={String(resumo.modulos)}
-              destaque
-            />
+          <section aria-label="Indicadores de conteúdo" className="ceo-modules-overview">
+            <ResumoCard titulo="Módulos" valor={String(resumo.modulos)} destaque />
             <ResumoCard titulo="Ativos" valor={String(resumo.ativos)} />
             <ResumoCard titulo="Aulas" valor={String(resumo.aulas)} />
-            <ResumoCard titulo="Vídeos" valor={String(resumo.videos)} />
+            <ResumoCard titulo="Com vídeo" valor={String(resumo.videos)} />
             <ResumoCard titulo="Materiais" valor={String(resumo.materiais)} />
           </section>
 
-          <section className="ceo-card mb-4 min-w-0">
+          <section className="ceo-card ceo-modules-filters mb-4 min-w-0" aria-label="Busca e filtros de módulos">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(150px,180px)_minmax(160px,190px)_120px]">
               <input
                 value={busca}
@@ -1146,7 +1128,7 @@ export default function ModulosPage() {
             </div>
           )}
 
-          <section className="grid min-w-0 gap-4">
+          <section className="ceo-modules-list grid min-w-0 gap-4">
             {modulosFiltrados.length === 0 ? (
               <div className="rounded-[22px] bg-white p-6 text-center text-sm font-semibold text-slate-500 shadow-xl shadow-slate-200/70 sm:p-8">
                 Nenhum módulo encontrado.
@@ -1873,7 +1855,7 @@ function ModuloCard({
   movendoSequencia: boolean;
 }) {
   return (
-    <article className="min-w-0 overflow-hidden rounded-[22px] border border-white/50 bg-white/90 shadow-xl shadow-slate-200/70 sm:rounded-[24px]">
+    <article className="ceo-modules-card min-w-0 overflow-hidden rounded-[22px] border border-white/50 bg-white/90 shadow-xl shadow-slate-200/70 sm:rounded-[24px]">
       <div className="p-4 sm:p-5">
         <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <button
@@ -1988,7 +1970,7 @@ function ModuloCard({
 
 function SmallMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-2xl bg-[#f9fafb] px-4 py-3">
+    <div className="ceo-modules-small-metric min-w-0 rounded-2xl bg-[#f9fafb] px-4 py-3">
       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
         {label}
       </p>
@@ -2232,20 +2214,6 @@ function formatarDataHora(data: string) {
   }).format(new Date(data));
 }
 
-function MiniInfo({ titulo, valor }: { titulo: string; valor: string }) {
-  return (
-    <div className="min-w-0 rounded-[22px] border border-slate-100 bg-[#f8fafc] p-4 shadow-sm">
-      <p className="break-words text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 sm:text-xs">
-        {titulo}
-      </p>
-
-      <p className="mt-3 break-words text-3xl font-black leading-none text-[#08163F] sm:text-4xl">
-        {valor}
-      </p>
-    </div>
-  );
-}
-
 function ResumoCard({
   titulo,
   valor,
@@ -2256,24 +2224,10 @@ function ResumoCard({
   destaque?: boolean;
 }) {
   return (
-    <div
-      className={`min-w-0 overflow-hidden rounded-[24px] p-5 shadow-xl shadow-slate-200/70 sm:p-6 ${
-        destaque
-          ? "bg-[#071A55] text-white"
-          : "border border-slate-100 bg-white text-[#08163F]"
-      }`}
-    >
-      <h2
-        className={`break-words text-sm font-black ${
-          destaque ? "text-blue-100" : "text-slate-500"
-        }`}
-      >
-        {titulo}
-      </h2>
-
-      <p className="mt-4 break-words text-4xl font-black leading-none">
-        {valor}
-      </p>
+    <div className={destaque ? "ceo-modules-kpi ceo-modules-kpi-accent" : "ceo-modules-kpi"}>
+      <span className="ceo-modules-kpi-label">{titulo}</span>
+      <strong className="ceo-modules-kpi-value">{valor}</strong>
+      <span className="ceo-modules-kpi-rule" aria-hidden="true" />
     </div>
   );
 }
