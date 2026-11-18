@@ -226,11 +226,11 @@ export default function ResetSenhaSuportePage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="suporte/reset-senha">>
       <SuporteSidebar nome={usuario.nome} role={usuario.role} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
               Suporte
@@ -285,7 +285,7 @@ export default function ResetSenhaSuportePage() {
             </div>
           )}
 
-          <div className="mb-4 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70">
+          <div className="ceo-screen-panel mb-4 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70">
             <label>
               <span className="text-sm font-black text-gray-500">
                 Buscar usuário
@@ -302,7 +302,7 @@ export default function ResetSenhaSuportePage() {
             </label>
           </div>
 
-          <section className="overflow-hidden rounded-[22px] bg-white shadow-lg shadow-slate-200/70">
+          <section className="ceo-screen-panel overflow-hidden rounded-[22px] bg-white shadow-lg shadow-slate-200/70">
             <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
               <h3 className="text-xl font-black text-[#050816]">
                 Usuários cadastrados
