@@ -138,7 +138,7 @@ export default function AgendaMentoradoPage() {
   }
 
   return (
-    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f6f7fb] text-[#08163F]" data-ceo-screen="mentorado/agenda">>
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f6f7fb] text-[#08163F]" data-ceo-screen="mentorado/agenda">
       <MentoradoSidebar nome={usuario.nome} />
 
       <section className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-7 lg:py-7 xl:px-9">
