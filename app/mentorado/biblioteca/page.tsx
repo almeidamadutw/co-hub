@@ -201,7 +201,7 @@ export default function MentoradoBibliotecaPage() {
   }
 
   return (
-    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentorado/biblioteca">>
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentorado/biblioteca">
       <MentoradoSidebar nome={usuario.nome} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
