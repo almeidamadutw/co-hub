@@ -576,7 +576,7 @@ export default function AgendaMentorPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/agenda">>
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
@@ -584,7 +584,7 @@ export default function AgendaMentorPage() {
       />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -625,7 +625,7 @@ export default function AgendaMentorPage() {
         </header>
 
         <div className="relative min-w-0 overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <section className="mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px] lg:p-6">
+          <section className="ceo-screen-hero mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px] lg:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#C9CED6] sm:text-xs">
@@ -671,7 +671,7 @@ export default function AgendaMentorPage() {
             </div>
           )}
 
-          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="ceo-screen-metrics mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KPI titulo="Compromissos hoje" valor={resumo.hoje} destaque />
             <KPI titulo="Próximos 7 dias" valor={resumo.proximosSeteDias} />
             <KPI
@@ -698,7 +698,7 @@ export default function AgendaMentorPage() {
             />
           </section>
 
-          <section className="mb-4 rounded-[22px] border border-gray-200 bg-white p-4 shadow-lg shadow-slate-200/70 sm:rounded-[24px] sm:p-5">
+          <section className="ceo-screen-panel mb-4 rounded-[22px] border border-gray-200 bg-white p-4 shadow-lg shadow-slate-200/70 sm:rounded-[24px] sm:p-5">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
               <label className="min-w-0 flex-1">
                 <span className="text-xs font-black uppercase tracking-[0.14em] text-gray-400">
@@ -763,7 +763,7 @@ export default function AgendaMentorPage() {
           </section>
 
           <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
-            <div className="min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
+            <div className="ceo-screen-panel min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.22em] text-gray-400">
@@ -947,7 +947,7 @@ export default function AgendaMentorPage() {
 
       {formAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-4">
-          <div className="max-h-[94vh] w-full max-w-[min(96vw,46rem)] overflow-y-auto rounded-[24px] bg-white shadow-2xl sm:rounded-[30px]">
+          <div className="ceo-screen-panel max-h-[94vh] w-full max-w-[min(96vw,46rem)] overflow-y-auto rounded-[24px] bg-white shadow-2xl sm:rounded-[30px]">
             <div className="sticky top-0 z-10 flex items-start justify-between gap-4 bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white sm:p-6">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-[#C9CED6]">
@@ -1110,7 +1110,7 @@ export default function AgendaMentorPage() {
 
       {eventoSelecionado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-4">
-          <div className="max-h-[94vh] w-full max-w-[min(96vw,44rem)] overflow-y-auto rounded-[24px] bg-white shadow-2xl sm:rounded-[30px]">
+          <div className="ceo-screen-panel max-h-[94vh] w-full max-w-[min(96vw,44rem)] overflow-y-auto rounded-[24px] bg-white shadow-2xl sm:rounded-[30px]">
             <div className="bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -1372,7 +1372,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
+    <section className="ceo-screen-panel min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
       <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
         <h3 className="break-words text-lg font-black text-[#050816] sm:text-xl">
           {titulo}
@@ -1432,7 +1432,7 @@ function EmptyState({
 }) {
   return (
     <div className="rounded-[20px] bg-[#f9fafb] p-5 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">
+      <div className="ceo-screen-panel mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">
         ✦
       </div>
       <p className="mt-3 text-sm font-black text-[#08163F]">{titulo}</p>
