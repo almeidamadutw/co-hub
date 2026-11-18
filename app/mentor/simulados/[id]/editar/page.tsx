@@ -586,7 +586,7 @@ export default function SimuladoEditorPage() {
 
   if (!simulado || !formSimulado) {
     return (
-      <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+      <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/simulados/[id]/editar">>
         <Sidebar
           nome={usuario.nome}
           role={usuario.role}
@@ -594,7 +594,7 @@ export default function SimuladoEditorPage() {
         />
 
         <section className="relative flex min-w-0 flex-1 items-center justify-center overflow-x-hidden p-4 sm:p-6">
-          <div className="w-full max-w-lg rounded-[28px] border border-white/70 bg-white/95 p-6 text-center shadow-2xl shadow-slate-200/80 sm:p-8">
+          <div className="ceo-screen-panel w-full max-w-lg rounded-[28px] border border-white/70 bg-white/95 p-6 text-center shadow-2xl shadow-slate-200/80 sm:p-8">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#08163F] text-xl text-white">
               ✦
             </div>
@@ -622,7 +622,7 @@ export default function SimuladoEditorPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/simulados/[id]/editar">>
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
@@ -630,7 +630,7 @@ export default function SimuladoEditorPage() {
       />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[68px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[68px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -683,7 +683,7 @@ export default function SimuladoEditorPage() {
         </header>
 
         <div className="relative min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <section className="relative mb-4 min-w-0 overflow-hidden rounded-[30px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-2xl shadow-[#07122F]/20 sm:p-6 lg:p-7">
+          <section className="ceo-screen-hero relative mb-4 min-w-0 overflow-hidden rounded-[30px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-2xl shadow-[#07122F]/20 sm:p-6 lg:p-7">
             <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
             <div className="absolute -bottom-24 left-10 h-64 w-64 rounded-full bg-blue-400/20 blur-3xl" />
 
@@ -712,7 +712,7 @@ export default function SimuladoEditorPage() {
                 </p>
               </div>
 
-              <div className="grid min-w-0 gap-3 rounded-[26px] border border-white/10 bg-white/10 p-4 backdrop-blur-md sm:grid-cols-2">
+              <div className="ceo-screen-panel grid min-w-0 gap-3 rounded-[26px] border border-white/10 bg-white/10 p-4 backdrop-blur-md sm:grid-cols-2">
                 <Metric titulo="Perguntas" valor={String(resumo.totalPerguntas)} />
                 <Metric titulo="Pontos" valor={String(resumo.totalPontos)} />
                 <Metric titulo="Objetivas" valor={String(resumo.objetivas)} />
@@ -1089,7 +1089,7 @@ export default function SimuladoEditorPage() {
                 {simulado.perguntas.length === 0 ? (
                   <Card titulo="Perguntas cadastradas" subtitulo="As perguntas aparecem aqui em ordem de criação.">
                     <div className="rounded-[24px] border border-dashed border-slate-200 bg-[#f9fafb] p-7 text-center">
-                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm">
+                      <div className="ceo-screen-panel mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm">
                         ✦
                       </div>
                       <p className="mt-4 text-lg font-black">
@@ -1134,7 +1134,7 @@ export default function SimuladoEditorPage() {
             <Card titulo="Respostas e tentativas" subtitulo="Acompanhe o desempenho das respostas enviadas pelo mentorado.">
               {tentativasDoSimulado.length === 0 ? (
                 <div className="rounded-[24px] border border-dashed border-slate-200 bg-[#f9fafb] p-7 text-center">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm">
+                  <div className="ceo-screen-panel mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm">
                     ◌
                   </div>
                   <p className="mt-4 text-lg font-black">Nenhuma tentativa enviada</p>
@@ -1248,7 +1248,7 @@ function PerguntaCard({
     pergunta.tipo === "sim_nao";
 
   return (
-    <article className="min-w-0 overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-2xl shadow-slate-200/80">
+    <article className="ceo-screen-panel min-w-0 overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-2xl shadow-slate-200/80">
       <div className="border-b border-slate-100 bg-gradient-to-br from-[#F8FAFF] via-white to-white p-4 sm:p-5">
         <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0">
@@ -1537,7 +1537,7 @@ function Metric({ titulo, valor }: { titulo: string; valor: string }) {
 
 function InfoMini({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-2xl bg-white p-3 shadow-sm">
+    <div className="ceo-screen-panel min-w-0 rounded-2xl bg-white p-3 shadow-sm">
       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
         {label}
       </p>
