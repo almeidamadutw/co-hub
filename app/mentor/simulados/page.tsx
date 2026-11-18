@@ -290,7 +290,7 @@ export default function SimuladosPage() {
   }
 
   return (
-    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#eef2f8] text-[#08163F]" data-ceo-screen="mentor/simulados">>
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#eef2f8] text-[#08163F]" data-ceo-screen="mentor/simulados">
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
