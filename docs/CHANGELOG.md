@@ -1,5 +1,12 @@
 # Histórico da documentação | CEO Club plataforma
 
+## 2026-11-18 — Reestilização dos painéis internos (branch de revisão)
+
+- Novo componente compartilhado de navegação executiva navy/prata para mentora, mentorado, financeiro e suporte, mantendo as rotas, o logout, as informações de perfil e o acesso condicional ao suporte.
+- Removida a imagem JPEG com fundo e moldura dos menus. Utilizada coroa vetorial prateada provisória sem caixa; aguardando a marca transparente oficial.
+- Escopo visual criado para `/mentor`, `/mentorado` e `/suporte`: fundo em camadas, cabeçalhos translúcidos, cartões de sombras suaves, navegação adaptativa e estados de foco.
+- Sem modificações em regras de negócio, acessos, dados e APIs. Verificação estática realizada e build de preview aprovado na Vercel, incluindo TypeScript; lint e testes de navegação autenticada ainda pendentes.
+
 ## 2026-11-18 — Ajustes visuais no login
 
 A coroa percorre cada trecho da animação em seis segundos. O formulário usa um interruptor para manter a sessão e um botão secundário de recuperação abaixo de **Entrar**. Build e lint aprovados. Testados a duração da animação, o movimento reduzido, a seleção por teclado e o acesso à recuperação em Chromium nas larguras de 320, 390, 1024 e 1440 px.

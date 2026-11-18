@@ -31,3 +31,12 @@ Visão geral, Usuários, Mentores, Mentorados, Tickets, Logs, Biblioteca, Financ
 ## Entrada da plataforma
 
 A tela de acesso reúne a marca do CEO Club, a coroa prateada e o formulário de login. Em celulares, a coroa é estática e dá lugar aos campos quando você abre o formulário. A preferência por movimento reduzido também desativa a animação em telas maiores.
+
+
+## Identidade e navegação interna (proposta de atualização 2026-11-18)
+
+- Menu lateral compartilhado em `components/CeoSidebarFrame.tsx` para mentor, mentorado, financeiro e suporte, com a mesma linguagem azul-marinho/prata do login, ícones leves e indicação da rota ativa.
+- A coroa vetorial sem fundo substitui a antiga imagem JPEG na navegação. **É um símbolo provisório**, que poderá ser substituído pela logo oficial prateada transparente quando o arquivo for fornecido.
+- No desktop, a barra lateral é fixa com navegação rolável; no celular, o botão **Menu** abre um painel com fechamento explícito e camada escurecida.
+- O rodapé identifica a conta e oferece **Sair da plataforma**. Os links originais de cada perfil, inclusive o acesso adicional de suporte para a mentora, foram preservados.
+- Os layouts de `/mentor`, `/mentorado` e `/suporte` ativam as novas superfícies, fundos e cabeçalhos usando a classe `ceo-workspace`. `/login` continua independente. Não há alteração de autorização, APIs ou tabelas.

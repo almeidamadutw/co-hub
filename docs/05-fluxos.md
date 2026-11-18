@@ -32,3 +32,10 @@
 2. Identificar ticket, perfil e situação.
 3. Aplicar ação autorizada e verificar logs.
 4. Confirmar solução com o usuário e encerrar a solicitação.
+
+
+## Navegação nos painéis
+1. Após entrar, use o menu lateral à esquerda para abrir uma área da plataforma. A seção selecionada fica destacada com uma faixa prateada.
+2. Em telas pequenas, selecione **Menu** no canto inferior direito; escolha a seção desejada ou feche com **×**.
+3. Confira seu nome e perfil no rodapé do menu. Para encerrar, selecione **Sair da plataforma**.
+4. As opções variam conforme o perfil: mentora, mentorado, financeiro ou suporte. A interface não cria permissões adicionais.
