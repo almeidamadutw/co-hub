@@ -556,7 +556,7 @@ export default function DashboardPage() {
   const proximoEvento = proximosEventos[0] ?? null;
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/dashboard">>
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
@@ -564,7 +564,7 @@ export default function DashboardPage() {
       />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#07122F] to-[#12317C] text-xs font-black text-white shadow-lg">
               CC
@@ -590,7 +590,7 @@ export default function DashboardPage() {
         </header>
 
         <div className="relative min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px]">
+          <section className="ceo-screen-hero mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px]">
             <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#C9CED6] sm:text-xs">
@@ -637,7 +637,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="ceo-screen-metrics mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <KPI
               titulo="Mentorados ativos"
               valor={mentoradosAtivos.length}
@@ -1035,7 +1035,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
+    <section className="ceo-screen-panel min-w-0 overflow-hidden rounded-[22px] border border-gray-200 bg-white shadow-lg shadow-slate-200/70 sm:rounded-[24px]">
       <div className="flex flex-col gap-3 border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div className="min-w-0">
           <h3 className="break-words text-lg font-black text-[#050816] sm:text-xl">
@@ -1077,7 +1077,7 @@ function EmptyState({
 }) {
   return (
     <div className="min-w-0 rounded-[22px] bg-[#f9fafb] p-4 text-center sm:p-6">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[18px] bg-white text-xl shadow-sm">
+      <div className="ceo-screen-panel mx-auto flex h-12 w-12 items-center justify-center rounded-[18px] bg-white text-xl shadow-sm">
         ✦
       </div>
       <h3 className="mt-3 break-words text-base font-black text-[#08163F]">
