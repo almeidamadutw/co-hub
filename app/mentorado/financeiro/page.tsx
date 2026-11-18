@@ -218,7 +218,7 @@ export default function FinanceiroMentoradoPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentorado/financeiro">>
       <MentoradoSidebar nome={perfil?.nome || usuario.nome} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
@@ -226,7 +226,7 @@ export default function FinanceiroMentoradoPage() {
         <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-slate-300/30 blur-3xl" />
 
         <div className="relative z-10 mx-auto w-full max-w-[1440px]">
-          <section className="mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:p-5 lg:rounded-[26px] lg:p-6">
+          <section className="ceo-screen-hero mb-4 min-w-0 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-[0_18px_45px_rgba(8,22,63,0.16)] sm:p-5 lg:rounded-[26px] lg:p-6">
             <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div>
                 <p className="mb-3 text-xs font-black uppercase tracking-[0.32em] text-[#C9CED6]">
@@ -255,7 +255,7 @@ export default function FinanceiroMentoradoPage() {
                 )}
               </div>
 
-              <div className="w-full max-w-sm rounded-[20px] border border-white/15 bg-white/10 p-4 backdrop-blur-md">
+              <div className="ceo-screen-panel w-full max-w-sm rounded-[20px] border border-white/15 bg-white/10 p-4 backdrop-blur-md">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-100">
                   Próximo vencimento
                 </p>
@@ -321,7 +321,7 @@ export default function FinanceiroMentoradoPage() {
             </div>
           )}
 
-          <section className="mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="ceo-screen-metrics mb-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <ResumoCard
               titulo="Total contratado"
               valor={formatarMoeda(resumo.totalContratado)}
@@ -342,7 +342,7 @@ export default function FinanceiroMentoradoPage() {
             />
           </section>
 
-          <section className="mb-4 min-w-0 rounded-[20px] border border-white/50 bg-white/85 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5">
+          <section className="ceo-screen-panel mb-4 min-w-0 rounded-[20px] border border-white/50 bg-white/85 p-4 shadow-[0_14px_35px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-5">
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)]">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
@@ -400,7 +400,7 @@ equipe.
           </section>
 
           <section className="mb-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)]">
-            <section className="min-w-0 overflow-x-auto rounded-[20px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[24px]">
+            <section className="ceo-screen-panel min-w-0 overflow-x-auto rounded-[20px] border border-white/50 bg-white/85 shadow-xl shadow-slate-200/70 backdrop-blur-sm sm:rounded-[24px]">
               <div className="hidden min-w-[860px] grid-cols-[1fr_0.5fr_0.6fr_0.6fr_0.65fr_0.6fr] bg-gradient-to-r from-[#07122F] via-[#0A1E55] to-[#12317C] p-3 text-xs font-black uppercase tracking-[0.12em] text-white md:grid">
                 <span>Cobrança</span>
                 <span>Parcela</span>
