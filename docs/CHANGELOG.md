@@ -5,7 +5,7 @@
 - Novo componente compartilhado de navegação executiva navy/prata para mentora, mentorado, financeiro e suporte, mantendo as rotas, o logout, as informações de perfil e o acesso condicional ao suporte.
 - Removida a imagem JPEG com fundo e moldura dos menus. Utilizada coroa vetorial prateada provisória sem caixa; aguardando a marca transparente oficial.
 - Escopo visual criado para `/mentor`, `/mentorado` e `/suporte`: fundo em camadas, cabeçalhos translúcidos, cartões de sombras suaves, navegação adaptativa e estados de foco.
-- Sem modificações em regras de negócio, acessos, dados e APIs. Verificação estática de integração realizada; lint, build e testes de navegação ainda pendentes.
+- Sem modificações em regras de negócio, acessos, dados e APIs. Verificação estática realizada e build de preview aprovado na Vercel, incluindo TypeScript; lint e testes de navegação autenticada ainda pendentes.
 
 ## 2026-11-18 — Ajustes visuais no login
 
