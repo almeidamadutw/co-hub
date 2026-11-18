@@ -385,7 +385,7 @@ export default function MentorMentoradosListaPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/mentorados/lista">>
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
@@ -393,7 +393,7 @@ export default function MentorMentoradosListaPage() {
       />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -433,7 +433,7 @@ export default function MentorMentoradosListaPage() {
         </header>
 
         <div className="px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <section className="mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px]">
+          <section className="ceo-screen-hero mb-4 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-4 text-white shadow-xl sm:p-5 lg:rounded-[26px]">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#C9CED6] sm:text-xs">
@@ -463,7 +463,7 @@ export default function MentorMentoradosListaPage() {
             </div>
           )}
 
-          <section className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="ceo-screen-metrics mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KPI titulo="Mentorados ativos" valor={resumo.ativos} destaque />
             <KPI
               titulo="Precisam de atenção"
@@ -474,7 +474,7 @@ export default function MentorMentoradosListaPage() {
             <KPI titulo="Com encontro futuro" valor={resumo.comEncontro} />
           </section>
 
-          <section className="mb-4 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5">
+          <section className="ceo-screen-panel mb-4 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 sm:p-5">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
               <input
                 value={busca}
@@ -515,7 +515,7 @@ export default function MentorMentoradosListaPage() {
           </section>
 
           {mentoradosFiltrados.length === 0 ? (
-            <section className="rounded-[24px] bg-white p-8 text-center shadow-lg shadow-slate-200/70">
+            <section className="ceo-screen-panel rounded-[24px] bg-white p-8 text-center shadow-lg shadow-slate-200/70">
               <p className="text-xl font-black text-[#08163F]">
                 Nenhum mentorado encontrado
               </p>
@@ -540,7 +540,7 @@ function MentoradoCard({ mentorado }: { mentorado: MentoradoResumo }) {
   const status = mentorado.status || "Ativo";
 
   return (
-    <article className="min-w-0 rounded-[24px] bg-white p-4 shadow-lg shadow-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-xl sm:p-5">
+    <article className="ceo-screen-panel min-w-0 rounded-[24px] bg-white p-4 shadow-lg shadow-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-xl sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
