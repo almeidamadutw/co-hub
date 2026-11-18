@@ -290,7 +290,7 @@ export default function SimuladosPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#eef2f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#eef2f8] text-[#08163F]" data-ceo-screen="mentor/simulados">>
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
@@ -303,7 +303,7 @@ export default function SimuladosPage() {
           <div className="absolute bottom-[-16rem] right-[-10rem] h-[34rem] w-[34rem] rounded-full bg-[#07122F]/10 blur-3xl" />
         </div>
 
-        <header className="sticky top-0 z-20 flex min-h-[72px] flex-wrap items-center justify-between gap-3 border-b border-white/70 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-xl sm:px-5 lg:px-7">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[72px] flex-wrap items-center justify-between gap-3 border-b border-white/70 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-xl sm:px-5 lg:px-7">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400 sm:text-xs">
               Área da mentora
@@ -324,14 +324,14 @@ export default function SimuladosPage() {
         </header>
 
         <div className="relative z-10 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 lg:px-7 lg:py-6">
-          <section className="relative min-w-0 overflow-hidden rounded-[30px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-2xl shadow-[#07122F]/25 sm:p-6 lg:p-7">
+          <section className="ceo-screen-hero relative min-w-0 overflow-hidden rounded-[30px] bg-gradient-to-br from-[#07122F] via-[#0A1E55] to-[#12317C] p-5 text-white shadow-2xl shadow-[#07122F]/25 sm:p-6 lg:p-7">
             <div className="absolute -right-24 -top-28 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
             <div className="absolute -bottom-28 left-10 h-72 w-72 rounded-full bg-blue-300/20 blur-3xl" />
             <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
 
             <div className="relative grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(310px,0.75fr)] xl:items-center">
               <div>
-                <div className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-blue-100 backdrop-blur-md sm:text-xs">
+                <div className="ceo-screen-panel inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-blue-100 backdrop-blur-md sm:text-xs">
                   Prática e avaliação
                 </div>
 
@@ -367,7 +367,7 @@ export default function SimuladosPage() {
                 </div>
               </div>
 
-              <div className="grid min-w-0 gap-3 rounded-[26px] border border-white/12 bg-white/10 p-4 backdrop-blur-md sm:p-5">
+              <div className="ceo-screen-panel grid min-w-0 gap-3 rounded-[26px] border border-white/12 bg-white/10 p-4 backdrop-blur-md sm:p-5">
                 <Metric titulo="Simulados" valor={String(resumo.total)} />
                 <div className="grid grid-cols-3 gap-3">
                   <MiniMetric titulo="Publicados" valor={String(resumo.publicados)} />
@@ -385,7 +385,7 @@ export default function SimuladosPage() {
           )}
 
           {mostrarFormulario && (
-            <section className="mt-5 overflow-hidden rounded-[30px] border border-white/80 bg-white/90 shadow-2xl shadow-slate-200/80 backdrop-blur-xl">
+            <section className="ceo-screen-panel mt-5 overflow-hidden rounded-[30px] border border-white/80 bg-white/90 shadow-2xl shadow-slate-200/80 backdrop-blur-xl">
               <div className="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_340px]">
                 <div className="p-5 sm:p-6 lg:p-7">
                   <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -610,7 +610,7 @@ export default function SimuladosPage() {
 
             {simuladosFiltrados.length === 0 ? (
               <div className="mt-6 rounded-[26px] border border-dashed border-slate-200 bg-slate-50/80 p-7 text-center sm:p-9">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] bg-white text-3xl shadow-sm">
+                <div className="ceo-screen-panel mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] bg-white text-3xl shadow-sm">
                   ✦
                 </div>
 
@@ -821,7 +821,7 @@ function FluxoStep({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[22px] border border-slate-100 bg-white p-4 shadow-sm">
+    <div className="ceo-screen-panel rounded-[22px] border border-slate-100 bg-white p-4 shadow-sm">
       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
         {numero}
       </p>
@@ -837,7 +837,7 @@ function FluxoStep({
 
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
+    <div className="ceo-screen-panel rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
         {label}
       </p>
