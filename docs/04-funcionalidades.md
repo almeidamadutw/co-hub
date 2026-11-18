@@ -27,3 +27,7 @@ Visão geral, Usuários, Mentores, Mentorados, Tickets, Logs, Biblioteca, Financ
 - Perfis e tickets com ações administrativas auditáveis.
 
 **Observação:** tela existente significa interface codificada, não certificação de que todos os dados estejam corretamente preenchidos em produção.
+
+## Entrada da plataforma
+
+A tela de acesso reúne a marca do CEO Club, a coroa prateada e o formulário de login. Em celulares, a coroa é estática e dá lugar aos campos quando você abre o formulário. A preferência por movimento reduzido também desativa a animação em telas maiores.

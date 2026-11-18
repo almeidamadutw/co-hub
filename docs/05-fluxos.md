@@ -1,7 +1,7 @@
 # Fluxos operacionais passo a passo
 
 ## Primeiro acesso e autenticação
-1. Abrir `/login`; entrar com as credenciais válidas.
+1. Abra a plataforma em `/` ou `/login`. Selecione **Acessar plataforma** para abrir o formulário na mesma tela. Informe seu e-mail e senha e selecione **Entrar**.
 2. O sistema carrega o perfil e direciona para a área correspondente.
 3. Se houver falha de acesso, usar `/esqueci-senha` e o fluxo de redefinição.
 4. Suporte pode tratar casos por suas telas administrativas, respeitando política de acesso.

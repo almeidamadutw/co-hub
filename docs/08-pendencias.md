@@ -11,3 +11,7 @@
 | Atendimento financeiro e rotinas | Rotas presentes | Conferir políticas/estados com a equipe responsável |
 
 **Não confundir lacuna de auditoria com erro comprovado no produto.** Atualizar o status com evidência de teste, código ou configuração.
+
+## Identidade visual
+
+Entrada implementada em `/login`. A extensão da identidade aos painéis internos está planejada para depois da avaliação desta primeira tela.

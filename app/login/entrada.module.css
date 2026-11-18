@@ -1,0 +1,102 @@
+.page {
+  min-height: var(--ceo-viewport-height, 100svh);
+  padding: 0 clamp(24px, 6.4vw, 128px);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  color: #f5f6fa;
+  background: radial-gradient(ellipse at 70% 55%, #0b193b, transparent 52%), #040914;
+  font-family: var(--font-geist-sans), Arial, sans-serif;
+}
+.header, .footer {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-block: 21px;
+  border-color: #ffffff24;
+}
+.header { border-bottom: 1px solid #ffffff24; justify-content: space-between; }
+.header span, .eyebrow, .footer small {
+  font-size: 12px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: #b7c7df;
+}
+.logo { width: 62px; border-radius: 10px; }
+.hero {
+  align-self: center;
+  display: grid;
+  grid-template-columns: 1fr 1.08fr;
+  align-items: center;
+  width: min(100%, 1560px);
+  margin-inline: auto;
+  padding-block: 42px;
+}
+.content { padding-left: 3vw; position: relative; z-index: 1; }
+.eyebrow { display: flex; align-items: center; gap: 12px; font-weight: 600; }
+.eyebrow::before { content: ''; width: 30px; height: 1px; background: #839aca; }
+.title, .formTitle {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  letter-spacing: -.065em;
+  line-height: 1.04;
+  margin: 22px 0;
+}
+.title { font-size: clamp(64px, 8.3vw, 158px); }
+.title i { color: #d1daec; }
+.formTitle { font-size: clamp(46px, 4.8vw, 86px); }
+.lede { max-width: 37ch; color: #bfcadd; font-size: clamp(16px, 1.36vw, 23px); line-height: 1.55; }
+.action {
+  margin-top: 32px;
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 28px;
+  border-radius: 100px; padding: 14px 17px 14px 25px;
+  background: linear-gradient(105deg, #fff, #cedbf1);
+  color: #101c34; font-weight: 650; cursor: pointer; min-height: 52px;
+}
+.action span { width: 28px; height: 28px; border: 1px solid #233a6138; border-radius: 50%; text-align: center; }
+.action:hover { background: #fff; }
+.action:disabled { opacity: .65; cursor: wait; }
+.page :focus-visible { outline: 2px solid #a8cbff; outline-offset: 4px; }
+.art { display: grid; place-items: center; }
+.crown {
+  width: min(100%, 64vh, 760px); height: auto;
+  mask-image: radial-gradient(ellipse, black 48%, transparent 74%);
+}
+@media (min-width: 701px) and (prefers-reduced-motion: no-preference) {
+  .crown { animation: float 10s ease-in-out infinite alternate; }
+}
+@keyframes float { from { transform: translateY(4px) rotate(-2deg); } to { transform: translateY(-5px) rotate(2deg); } }
+.footer { border-top: 1px solid #ffffff24; }
+.portrait { border-radius: 50%; height: 46px; width: 46px; object-fit: cover; object-position: 50% 23%; }
+.footer small, .footer strong { display: block; }
+.footer small { font-size: 10px; }
+.footer strong { font-family: Georgia, serif; font-size: 20px; font-weight: 400; }
+.form { display: grid; gap: 10px; max-width: 410px; }
+.form > label { font-size: 14px; color: #d0daea; }
+.form input:not([type=checkbox]) {
+  width: 100%; min-height: 48px; border: 1px solid #52617b; border-radius: 10px;
+  background: #101b2d; padding: 12px 16px; color: #fff; font-size: 16px;
+}
+.form input::placeholder { color: #a4b2c6; }
+.form .password input { padding-right: 78px; }
+.password { position: relative; }
+.password button { position: absolute; right: 12px; top: 0; bottom: 0; cursor: pointer; font-size: 14px; }
+.options { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-block: 6px; font-size: 14px; }
+.options label { display: flex; align-items: center; gap: 8px; }
+.options a { text-decoration: underline; text-underline-offset: 3px; }
+.form .action { margin-top: 4px; }
+.error { color: #ffc1c1; }
+@media (max-width: 700px) {
+  .hero { grid-template-columns: 1fr; padding-block: 24px; text-align: center; }
+  .art { grid-row: 1; }
+  .crown { width: min(76vw, 28svh, 300px); }
+  .content { padding: 0; }
+  .eyebrow { justify-content: center; font-size: 10px; }
+  .title, .formTitle { margin: 12px 0; }
+  .form { text-align: left; margin-inline: auto; }
+  .lede { margin-inline: auto; }
+  .action { margin-top: 22px; }
+  .header, .footer { padding-block: 12px; }
+  .logo { width: 48px; }
+  .header span { font-size: 10px; }
+  .hero:has(.form) .art { display: none; }
+}
