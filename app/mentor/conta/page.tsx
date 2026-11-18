@@ -285,7 +285,7 @@ export default function ContaPage() {
   }
 
   return (
-    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/conta">>
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/conta">
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
