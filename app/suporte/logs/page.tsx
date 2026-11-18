@@ -225,11 +225,11 @@ export default function SuporteLogsPage() {
   }
 
   return (
-    <main className="flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]">
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="suporte/logs">>
       <SuporteSidebar nome={usuario.nome} role={usuario.role} />
 
       <section className="relative min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="ceo-screen-topbar sticky top-0 z-20 flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-black/5 bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400 sm:text-xs">
               Suporte técnico
@@ -279,7 +279,7 @@ export default function SuporteLogsPage() {
             <CardResumo titulo="Chamados" valor={resumo.tickets} />
           </section>
 
-          <section className="mb-4 grid gap-3 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 lg:grid-cols-[minmax(0,1fr)_260px]">
+          <section className="ceo-screen-panel mb-4 grid gap-3 rounded-[22px] bg-white p-4 shadow-lg shadow-slate-200/70 lg:grid-cols-[minmax(0,1fr)_260px]">
             <label>
               <span className="text-sm font-black text-gray-500">
                 Buscar registro
@@ -310,7 +310,7 @@ export default function SuporteLogsPage() {
             </label>
           </section>
 
-          <section className="overflow-hidden rounded-[22px] bg-white shadow-lg shadow-slate-200/70">
+          <section className="ceo-screen-panel overflow-hidden rounded-[22px] bg-white shadow-lg shadow-slate-200/70">
             <div className="border-b border-gray-100 bg-gradient-to-r from-[#f9fafb] to-white p-4 sm:p-5">
               <h3 className="text-xl font-black text-[#050816]">
                 Registros encontrados
@@ -388,7 +388,7 @@ export default function SuporteLogsPage() {
 
 function CardResumo({ titulo, valor }: { titulo: string; valor: number }) {
   return (
-    <div className="rounded-[22px] bg-white p-5 shadow-lg shadow-slate-200/70">
+    <div className="ceo-screen-panel rounded-[22px] bg-white p-5 shadow-lg shadow-slate-200/70">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
         {titulo}
       </p>
