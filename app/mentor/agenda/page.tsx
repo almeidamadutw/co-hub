@@ -576,7 +576,7 @@ export default function AgendaMentorPage() {
   }
 
   return (
-    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/agenda">>
+    <main className="ceo-screen flex min-h-screen overflow-x-hidden bg-[#f3f5f8] text-[#08163F]" data-ceo-screen="mentor/agenda">
       <Sidebar
         nome={usuario.nome}
         role={usuario.role}
