@@ -26,3 +26,10 @@ O projeto usa Next.js; configure as variáveis de ambiente necessárias ao Supab
 
 ## Publicação
 Confirmar build, migrações, variáveis e estado do deploy no provedor real. Não afirmar sucesso de produção por este documento; **a mudança atual é somente documental**.
+
+
+## Revisão visual interna 2026-11-18
+- Arquivos alterados: três sidebars, componente compartilhado, três layouts de perfil e `app/globals.css`.
+- Verificação estática feita sobre os componentes e rotas existentes antes da mudança: menus, destinos, logout e consulta de inscrição de mentorado foram mantidos. Escopo do tema isolado pela classe `ceo-workspace`.
+- **Ainda pendente:** executar `npm run lint`, `npm run build` e os testes reais em Chromium (1366×768, 390×844) com contas de teste dos perfis, incluindo menu móvel, foco por teclado e barras de rolagem. O ambiente de edição via conector GitHub não fornece uma instalação local do projeto para esses comandos.
+- A aprovação em código não equivale à publicação no domínio nem à homologação do usuário final.
